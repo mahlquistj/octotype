@@ -1,87 +1,75 @@
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::{text::Text, DefaultTerminal, Frame, Terminal};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::{
+    layout::{Constraint, Flex, Layout, Rect},
+    widgets::Block,
+    DefaultTerminal, Frame,
+};
 use smol_macros::main;
 
-struct Library;
+mod library;
+mod session;
+mod utils;
 
-impl Library {
-    pub async fn get_words(
-        amount: usize,
-        max_length: Option<usize>,
-    ) -> Result<TypingSession, minreq::Error> {
-        let max_length_param = if let Some(ml) = max_length {
-            format!("?length={ml}")
-        } else {
-            String::new()
-        };
-
-        let words = minreq::get(format!(
-            "https://random-word-api.herokuapp.com/word?number={amount}{max_length_param}"
-        ))
-        .send()?
-        .json::<Vec<String>>()?
-        .into_iter()
-        .flat_map(|mut word| {
-            word.push(' ');
-            word.chars().collect::<Vec<_>>()
-        })
-        .collect();
-
-        Ok(TypingSession {
-            text: words,
-            input: Vec::new(),
-        })
-    }
-}
-
-enum CharacterResult {
-    Wrong(char), // TBD: Use character here to display multiple wrong characters after a word, like monkeytype does.
-    Corrected,   // TBD: Support seeing if a character was typed wrong before, but is now corrected.
-    Right,
-}
-
-struct TypingSession {
-    text: Vec<char>,
-    input: Vec<CharacterResult>,
-}
-
-impl TypingSession {
-    fn handle_events(&mut self) -> std::io::Result<()> {
-        match event::read()? {
-            Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                // Add character
-                KeyCode::Char(char) => {
-                    let current = self.input.len();
-
-                    if self.text[current] == char {
-                        self.input.push(CharacterResult::Right);
-                    } else {
-                        self.input.push(CharacterResult::Wrong(char));
-                    }
-                }
-                // Delete character
-                KeyCode::Backspace => {
-                    self.input.pop();
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-        Ok(())
-    }
-}
+use library::Library;
+use session::TypingSession;
 
 main! {
     async fn main() {
         let mut terminal = ratatui::init();
-        let result = run(&mut terminal);
+        let result = run(&mut terminal).await;
         ratatui::restore();
-        result.await.expect("crash")
+        println!("{}", result.expect("crash"));
     }
 }
 
-pub async fn run(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
-    let test = Library::get_words(3, None).await.expect("Error");
+pub async fn run(terminal: &mut DefaultTerminal) -> std::io::Result<String> {
+    let mut session = Library::get_words(10, None).await.expect("Error");
 
-    Ok(())
+    loop {
+        terminal.draw(|frame| draw(frame, &mut session))?;
+        if handle_events(&mut session)? || session.is_done() {
+            break;
+        }
+    }
+    let minutes = session
+        .first_keypress
+        .map(|inst| inst.elapsed().as_secs_f64())
+        .unwrap_or_default()
+        / 60.0;
+    let characters = session.length() as f64;
+    let wpm = (characters / 5.0) / minutes;
+    Ok(format!("{wpm} Wpm"))
+}
+
+
+fn draw(frame: &mut Frame, session: &mut TypingSession) {
+    let [title, content] =
+        Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(frame.area());
+
+    frame.render_widget(Block::bordered().title("Typers"), title);
+
+    session.render(frame, content).expect("SESSION ERROR");
+}
+
+fn handle_events(session: &mut TypingSession) -> std::io::Result<bool> {
+    match event::read()? {
+        Event::Key(key)
+            if key.kind == KeyEventKind::Press && key.modifiers.contains(KeyModifiers::CONTROL) =>
+        {
+            if let KeyCode::Char('q') = key.code {
+                return Ok(true);
+            }
+        }
+        Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
+            // Add character
+            KeyCode::Char(character) => session.add(character),
+            // Delete character
+            KeyCode::Backspace => {
+                session.pop()
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+    Ok(false)
 }
