@@ -1,0 +1,15 @@
+[package]
+name = "termtype"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = "0.29"
+serde = { version = "1.0", features = ["derive"]}
+figment = "0.10"
+smol = "2.0"
+smol-macros = "0.1"
+crossterm = "0.28.1"
+reqwest = "0.12.12"
+minreq = { version = "2.13.2", features = ["https", "json-using-serde"] }
+directories = "6.0.0"
