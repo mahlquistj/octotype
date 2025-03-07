@@ -1,10 +1,10 @@
-use std::time::Duration;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout},
     widgets::Block,
     DefaultTerminal, Frame,
 };
+use std::time::Duration;
 
 use crate::session::TypingSession;
 use crate::{library::Library, utils::KeyEventHelper};
@@ -75,7 +75,7 @@ impl App {
             // Add character
             KeyCode::Char(character) => session.add(&[character]),
             // Delete character
-            KeyCode::Backspace => session.pop(),
+            KeyCode::Backspace => session.delete_input(),
             _ => {}
         }
     }

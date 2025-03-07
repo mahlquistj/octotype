@@ -1,9 +1,11 @@
-use std::time::Instant;
+use std::{
+    fmt::format,
+    time::{Duration, Instant},
+};
 
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, ToSpan},
+    layout::{Alignment, Constraint, Layout, Rect},
+    text::Line,
     widgets::{Block, Padding, Paragraph, Wrap},
     Frame,
 };
@@ -13,6 +15,7 @@ use crate::text::Segment;
 #[derive(Default)]
 pub struct TypingSession {
     text: Vec<Segment>,
+    current_segment_idx: usize,
     pub(crate) first_keypress: Option<Instant>,
 }
 
@@ -25,15 +28,26 @@ impl TypingSession {
     }
 
     pub fn length(&self) -> usize {
-        self.text.iter().map(|seg| seg.length()).sum()
+        self.text.iter().map(Segment::length).sum()
+    }
+
+    fn input_length(&self) -> usize {
+        self.text.iter().map(Segment::input_length).sum()
     }
 
     pub fn is_done(&self) -> bool {
         self.text.iter().all(|seg| seg.is_done())
     }
 
+    fn current_segment(&mut self) -> &mut Segment {
+        &mut self.text[self.current_segment_idx]
+    }
+
     pub fn delete_input(&mut self) {
-        todo!()
+        if !self.current_segment().delete_input() && self.current_segment_idx > 0 {
+            self.current_segment_idx -= 1;
+            self.delete_input();
+        }
     }
 
     pub fn add(&mut self, characters: &[char]) {
@@ -41,18 +55,30 @@ impl TypingSession {
             self.first_keypress = Some(Instant::now())
         }
 
-        for &c in characters {
-            todo!()
+        for &character in characters {
+            self.current_segment().add_input(character)
+        }
+
+        if self.current_segment().is_done() {
+            self.current_segment_idx += 1;
         }
     }
 
+    pub fn elapsed_minutes(&self) -> Option<f64> {
+        self.first_keypress
+            .as_ref()
+            .map(|inst| inst.elapsed().as_secs_f64() / 60.0)
+    }
+
     pub fn calculate_wpm(&self) -> f64 {
-        let minutes = self
-            .first_keypress
-            .map(|inst| inst.elapsed().as_secs_f64())
-            .unwrap_or_default()
-            / 60.0;
+        let minutes = self.elapsed_minutes().unwrap_or_default();
         let characters = self.length() as f64;
+        (characters / 5.0) / minutes
+    }
+
+    pub fn calculate_wpm_realtime(&self) -> f64 {
+        let minutes = self.elapsed_minutes().unwrap_or_default();
+        let characters = self.input_length() as f64;
         (characters / 5.0) / minutes
     }
 
@@ -60,7 +86,11 @@ impl TypingSession {
         let [stats, words] =
             Layout::vertical([Constraint::Length(1), Constraint::Fill(2)]).areas(area);
 
-        let stats_text = Line::raw(format!("Raw: {:.2}", self.calculate_wpm()));
+        let stats_text = Line::raw(format!(
+            "Elapsed: {:.2} | Raw: {:.2}",
+            self.elapsed_minutes().unwrap_or_default(),
+            self.calculate_wpm_realtime(),
+        ));
 
         frame.render_widget(stats_text, stats);
 
@@ -68,27 +98,12 @@ impl TypingSession {
             .text
             .iter()
             .enumerate()
-            .map(|(idx, character)| {
-                let mut style = if let Some(c) = self.input.get(idx) {
-                    match c {
-                        CharacterResult::Right => Style::new().fg(Color::Green),
-                        CharacterResult::Corrected => Style::new().fg(Color::Yellow),
-                        CharacterResult::Wrong(_) => Style::new().fg(Color::Red),
-                    }
-                    .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::new().fg(Color::White)
-                };
+            .map(|(idx, seg)| seg.render_line(idx == self.current_segment_idx))
+            .collect::<Vec<Line>>();
 
-                if idx == self.input.len() {
-                    style = style.bg(Color::White).fg(Color::Black);
-                }
-
-                character.to_span().style(style)
-            })
-            .collect::<Line>();
-
-        let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+        let paragraph = Paragraph::new(text)
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: false });
 
         let center = crate::utils::center(
             words,
