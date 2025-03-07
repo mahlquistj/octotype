@@ -1,9 +1,10 @@
 use std::time::Instant;
 
 use ratatui::{
-    layout::{Constraint, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, ToSpan},
+    widgets::{Block, Padding, Paragraph, Wrap},
     Frame,
 };
 
@@ -30,7 +31,7 @@ impl TypingSession {
     }
 
     pub fn length(&self) -> usize {
-        self.text.len()
+        self.input.len()
     }
 
     pub fn is_done(&self) -> bool {
@@ -55,8 +56,25 @@ impl TypingSession {
         }
     }
 
+    pub fn calculate_wpm(&self) -> f64 {
+        let minutes = self
+            .first_keypress
+            .map(|inst| inst.elapsed().as_secs_f64())
+            .unwrap_or_default()
+            / 60.0;
+        let characters = self.length() as f64;
+        (characters / 5.0) / minutes
+    }
+
     pub fn render(&mut self, frame: &mut Frame, area: Rect) -> std::io::Result<()> {
-        let line: Line = self
+        let [stats, words] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(2)]).areas(area);
+
+        let stats_text = Line::raw(format!("Raw: {:.2}", self.calculate_wpm()));
+
+        frame.render_widget(stats_text, stats);
+
+        let text = self
             .text
             .iter()
             .enumerate()
@@ -78,15 +96,19 @@ impl TypingSession {
 
                 character.to_span().style(style)
             })
-            .collect();
+            .collect::<Line>();
+
+        let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
 
         let center = crate::utils::center(
-            area,
-            Constraint::Length(line.width() as u16),
-            Constraint::Length(1),
+            words,
+            Constraint::Percentage(80),
+            Constraint::Percentage(80),
         );
 
-        frame.render_widget(line, center);
+        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
+
+        frame.render_widget(paragraph.block(block), center);
         Ok(())
     }
 }

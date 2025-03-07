@@ -1,4 +1,4 @@
-use crate::TypingSession;
+use crate::session::TypingSession;
 
 /// Utility struct for fetching words
 pub struct Library;
