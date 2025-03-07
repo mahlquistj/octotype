@@ -1,3 +1,4 @@
+use crossterm::event::{KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 
 pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
@@ -8,4 +9,24 @@ pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect 
         .flex(Flex::Center)
         .areas(area_horizontal);
     area
+}
+
+/// A trait defining helper methods for keyevents
+pub trait KeyEventHelper {
+    fn is_press(&self) -> bool;
+    fn has_ctrl_mod(&self) -> bool;
+
+    fn is_ctrl_press(&self) -> bool {
+        self.is_press() && self.has_ctrl_mod()
+    }
+}
+
+impl KeyEventHelper for KeyEvent {
+    fn is_press(&self) -> bool {
+        self.kind == KeyEventKind::Press
+    }
+
+    fn has_ctrl_mod(&self) -> bool {
+        self.modifiers.contains(KeyModifiers::CONTROL)
+    }
 }

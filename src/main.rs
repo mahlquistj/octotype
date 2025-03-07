@@ -3,6 +3,7 @@ use smol_macros::main;
 mod app;
 mod library;
 mod session;
+mod text;
 mod utils;
 
 use app::App;

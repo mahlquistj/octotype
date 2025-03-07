@@ -8,22 +8,16 @@ use ratatui::{
     Frame,
 };
 
-#[derive(Debug)]
-enum CharacterResult {
-    Wrong(char), // TBD: Use character here to display multiple wrong characters after a word, like monkeytype does.
-    Corrected,   // TBD: Support seeing if a character was typed wrong before, but is now corrected.
-    Right,
-}
+use crate::text::Segment;
 
 #[derive(Default)]
 pub struct TypingSession {
-    text: Vec<char>,
-    input: Vec<CharacterResult>,
+    text: Vec<Segment>,
     pub(crate) first_keypress: Option<Instant>,
 }
 
 impl TypingSession {
-    pub fn new(text: Vec<char>) -> Self {
+    pub fn new(text: Vec<Segment>) -> Self {
         Self {
             text,
             ..Default::default()
@@ -31,28 +25,24 @@ impl TypingSession {
     }
 
     pub fn length(&self) -> usize {
-        self.input.len()
+        self.text.iter().map(|seg| seg.length()).sum()
     }
 
     pub fn is_done(&self) -> bool {
-        self.input.len() == self.text.len()
+        self.text.iter().all(|seg| seg.is_done())
     }
 
-    pub fn pop(&mut self) {
-        self.input.pop();
+    pub fn delete_input(&mut self) {
+        todo!()
     }
 
-    pub fn add(&mut self, character: char) {
+    pub fn add(&mut self, characters: &[char]) {
         if self.first_keypress.is_none() {
             self.first_keypress = Some(Instant::now())
         }
 
-        let current = self.input.len();
-
-        if self.text[current] == character {
-            self.input.push(CharacterResult::Right);
-        } else {
-            self.input.push(CharacterResult::Wrong(character));
+        for &c in characters {
+            todo!()
         }
     }
 

@@ -1,15 +1,13 @@
-
 use std::time::Duration;
-
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout},
     widgets::Block,
     DefaultTerminal, Frame,
 };
 
-use crate::library::Library;
 use crate::session::TypingSession;
+use crate::{library::Library, utils::KeyEventHelper};
 
 pub struct App {
     session: Option<TypingSession>,
@@ -26,6 +24,7 @@ impl App {
 
     pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<String> {
         self.session = Some(Library::get_words(10, None).await.expect("Error"));
+
         loop {
             terminal.draw(|frame| self.draw(frame))?;
             if self.handle_events()? {
@@ -60,23 +59,32 @@ impl App {
             (Some(session), _) if session.is_done() => {
                 return Ok(true);
             }
-            (_, Some(Event::Key(key)))
-                if key.kind == KeyEventKind::Press
-                    && key.modifiers.contains(KeyModifiers::CONTROL) =>
-            {
-                if let KeyCode::Char('q') = key.code {
-                    return Ok(true);
-                }
+            (_, Some(Event::Key(key))) if key.is_ctrl_press() => {
+                return Self::handle_global_key_events(key);
             }
-            (Some(session), Some(Event::Key(key))) if key.kind == KeyEventKind::Press => match key.code {
-                // Add character
-                KeyCode::Char(character) => session.add(character),
-                // Delete character
-                KeyCode::Backspace => session.pop(),
-                _ => {}
-            },
+            (Some(session), Some(Event::Key(key))) if key.is_press() => {
+                Self::handle_session_key_events(session, key);
+            }
             _ => {}
         }
+        Ok(false)
+    }
+
+    fn handle_session_key_events(session: &mut TypingSession, key: KeyEvent) {
+        match key.code {
+            // Add character
+            KeyCode::Char(character) => session.add(&[character]),
+            // Delete character
+            KeyCode::Backspace => session.pop(),
+            _ => {}
+        }
+    }
+
+    fn handle_global_key_events(key: KeyEvent) -> std::io::Result<bool> {
+        if let KeyCode::Char('q') = key.code {
+            return Ok(true);
+        }
+
         Ok(false)
     }
 }
