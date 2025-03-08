@@ -2,21 +2,28 @@ use std::{char, collections::HashSet};
 
 use ratatui::{
     style::{Color, Modifier, Style},
-    text::{ToLine, ToSpan},
+    text::ToSpan,
 };
 
 #[derive(Debug)]
-enum CharacterResult {
+pub(crate) enum CharacterResult {
     Wrong(char), // TODO: Use character here to display multiple wrong characters after a word, like monkeytype does.
     Corrected, // TODO: Support seeing if a character was typed wrong before, but is now corrected.
     Right,
 }
 
+impl CharacterResult {
+    fn is_wrong(&self) -> bool {
+        matches!(self, Self::Wrong(_))
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct Segment {
     tokens: Vec<char>,
-    input: Vec<CharacterResult>,
+    pub(crate) input: Vec<CharacterResult>,
     wrong_inputs: HashSet<usize>,
+    current_errors: u16,
 }
 
 impl Segment {
@@ -24,24 +31,48 @@ impl Segment {
         self.input.len() == self.tokens.len()
     }
 
-    pub fn add_input(&mut self, character: char) {
+    pub fn current_errors(&self) -> u16 {
+        self.current_errors
+    }
+
+    pub fn actual_errors(&self) -> u16 {
+        self.wrong_inputs.len() as u16
+    }
+
+    pub fn get_char(&self, idx: usize) -> Option<char> {
+        self.tokens.get(idx).copied()
+    }
+
+    /// Adds to this segments input. Returns false if the input was incorrect
+    pub fn add_input(&mut self, character: char) -> bool {
         let current = self.input.len();
         let matches_current = self.tokens[current] == character;
         let was_wrong = self.wrong_inputs.contains(&current);
 
-        self.input.push(match (matches_current, was_wrong) {
-            (true, false) => CharacterResult::Right,
-            (true, true) => CharacterResult::Corrected,
+        // TODO: refactor bool return
+        let (result, is_right) = match (matches_current, was_wrong) {
+            (true, false) => (CharacterResult::Right, true),
+            (true, true) => (CharacterResult::Corrected, true),
             (false, _) => {
                 self.wrong_inputs.insert(current);
-                CharacterResult::Wrong(character)
+                self.current_errors += 1;
+                (CharacterResult::Wrong(character), false)
             }
-        });
+        };
+        self.input.push(result);
+        is_right
     }
 
     /// Deletes one char from the input. Returns false if input was empty.
     pub fn delete_input(&mut self) -> bool {
-        self.input.pop().is_some()
+        if let Some(res) = self.input.pop() {
+            if res.is_wrong() {
+                self.current_errors -= 1;
+            }
+            return true;
+        }
+
+        false
     }
 
     pub fn length(&self) -> usize {

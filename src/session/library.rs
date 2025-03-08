@@ -1,4 +1,5 @@
-use crate::{session::TypingSession, text::Segment};
+use crate::session::TypingSession;
+use super::Segment;
 
 /// Utility struct for fetching words
 pub struct Library;

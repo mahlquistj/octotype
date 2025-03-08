@@ -1,6 +1,11 @@
 use crossterm::event::{KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 
+use crate::session::Segment;
+
+pub type Idx = usize;
+pub type Timestamp = f32;
+
 pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
     let [area_horizontal] = Layout::horizontal([horizontal])
         .flex(Flex::Center)
