@@ -1,14 +1,14 @@
-use crate::session::TypingSession;
 use super::Segment;
+use crate::{
+    session::TypingSession,
+    utils::{Message, Page},
+};
 
 /// Utility struct for fetching words
 pub struct Library;
 
 impl Library {
-    pub async fn get_words(
-        amount: usize,
-        max_length: Option<usize>,
-    ) -> Result<TypingSession, minreq::Error> {
+    pub fn get_words(amount: usize, max_length: Option<usize>) -> Result<Message, minreq::Error> {
         let max_length_param = if let Some(ml) = max_length {
             format!("?length={ml}")
         } else {
@@ -44,6 +44,8 @@ impl Library {
             })
             .collect();
 
-        Ok(TypingSession::new(words))
+        let session = TypingSession::new(words);
+
+        Ok(Message::Show(session.boxed()))
     }
 }

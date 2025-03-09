@@ -1,45 +1,39 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode};
 use ratatui::{style::Stylize, text::ToLine, widgets::Padding, DefaultTerminal, Frame};
-use std::time::Duration;
+use std::{fs::write, thread::JoinHandle, time::Duration};
 
-use crate::{session::Library, utils::KeyEventHelper};
-use crate::{
-    session::{Stats, TypingSession},
-    utils::ROUNDED_BLOCK,
-};
+use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 
+mod loadscreen;
 mod menu;
 
+use loadscreen::LoadingScreen;
 use menu::Menu;
 
 pub struct App {
-    menu: Menu,
-    session: Option<TypingSession>,
-    stats: Option<Stats>,
-    config: (),
+    page: Box<dyn Page>,
+    loading: Option<LoadingScreen>, // TODO: config: (),
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            menu: Menu,
-            session: None,
-            stats: None,
-            config: (),
+            page: Menu.boxed(),
+            loading: None,
+            // TODO: config: (),
         }
     }
 
-    pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<Option<Stats>> {
-        self.session = Some(Library::get_words(10, None).await.expect("Error"));
-
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
         loop {
+            let event = event::poll(Duration::ZERO)?.then_some(event::read()?);
             terminal.draw(|frame| self.draw(frame))?;
-            if self.handle_events()? {
+            if self.handle_events(event)? {
                 break;
             }
         }
 
-        Ok(self.stats.clone())
+        Ok(())
     }
 
     fn draw(&mut self, frame: &mut Frame) {
@@ -52,61 +46,56 @@ impl App {
                     .centered(),
             )
             .title_top("<CTRL-Q> to exit".to_line().right_aligned());
-        let content = block.inner(frame.area());
 
-        frame.render_widget(block, frame.area());
+        let area = frame.area();
+        let content = block.inner(area);
+        frame.render_widget(block, area);
 
-        if let Some(session) = &mut self.session {
-            session.render(frame, content).expect("SESSION ERROR");
-        } else if let Some(stat) = &mut self.stats {
-            stat.render(frame, content).expect("STATS ERROR");
-        }
-    }
-
-    fn handle_events(&mut self) -> std::io::Result<bool> {
-        let event = if event::poll(Duration::ZERO)? {
-            Some(event::read()?)
+        if let Some(loading_screen) = &mut self.loading {
+            loading_screen.render(frame, content);
         } else {
-            None
-        };
-
-        match (&mut self.session, event) {
-            (_, Some(Event::Key(key))) if key.is_ctrl_press() => {
-                return Self::handle_global_key_events(key);
-            }
-            (Some(session), key) => {
-                if let Some(stats) = session.poll() {
-                    self.session = None;
-                    self.stats = Some(stats);
-                    return Ok(false);
-                }
-
-                if let Some(Event::Key(key_event)) = key {
-                    Self::handle_session_key_events(session, key_event);
-                }
-            }
-            _ => {}
-        }
-        Ok(false)
-    }
-
-    fn handle_session_key_events(session: &mut TypingSession, key: KeyEvent) {
-        if key.is_press() {
-            match key.code {
-                // Add character
-                KeyCode::Char(character) => session.add(character),
-                // Delete character
-                KeyCode::Backspace => session.delete_input(),
-                _ => {}
-            }
+            self.page.render(frame, content);
         }
     }
 
-    fn handle_global_key_events(key: KeyEvent) -> std::io::Result<bool> {
-        if let KeyCode::Char('q') = key.code {
-            return Ok(true);
+    fn handle_events(&mut self, event_opt: Option<Event>) -> std::io::Result<bool> {
+        if let Some(event) = event_opt {
+            if let Some(loading_screen) = &mut self.loading {
+                if let Some(msg) = loading_screen.handle_events(&event)? {
+                    return Ok(self.handle_message(msg));
+                }
+            }
+
+            if let Some(msg) = self.page.handle_events(&event)? {
+                return Ok(self.handle_message(msg));
+            }
+
+            match event {
+                Event::Key(key) if key.is_ctrl_press() => {
+                    if let KeyCode::Char('q') = key.code {
+                        return Ok(true);
+                    }
+                }
+                _ => (),
+            }
         }
 
         Ok(false)
+    }
+
+    fn handle_message(&mut self, msg: Message) -> bool {
+        match msg {
+            Message::Quit => return true,
+            Message::Show(page) => self.page = page,
+            Message::Await(handle) => {
+                self.loading = Some(LoadingScreen::load(handle));
+            }
+            Message::ShowLoaded => {
+                let loaded = self.loading.take().expect("Nothing was loading").join();
+                return self.handle_message(loaded);
+            }
+        }
+
+        false
     }
 }

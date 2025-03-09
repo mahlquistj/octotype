@@ -1,7 +1,10 @@
-use crossterm::event::{KeyEvent, KeyEventKind, KeyModifiers};
+use std::thread::JoinHandle;
+
+use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
     widgets::{Block, BorderType},
+    Frame,
 };
 
 pub type Timestamp = f64;
@@ -35,5 +38,29 @@ impl KeyEventHelper for KeyEvent {
 
     fn has_ctrl_mod(&self) -> bool {
         self.modifiers.contains(KeyModifiers::CONTROL)
+    }
+}
+
+pub enum Message {
+    Quit,
+    Show(Box<dyn Page + Send>),
+    Await(JoinHandle<Result<Message, minreq::Error>>),
+    ShowLoaded,
+}
+
+pub type EventResult = std::io::Result<Option<Message>>;
+
+pub trait Page {
+    fn render(&mut self, frame: &mut Frame, area: Rect);
+
+    fn handle_events(&mut self, _event: &Event) -> EventResult {
+        Ok(None)
+    }
+
+    fn boxed(self) -> Box<Self>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
     }
 }

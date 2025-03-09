@@ -1,4 +1,5 @@
 use core::f64;
+use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     text::Line,
@@ -13,11 +14,10 @@ mod library;
 mod stats;
 mod text;
 
+pub use library::Library;
 pub use text::Segment;
 
-pub use library::Library;
-
-use crate::utils::Timestamp;
+use crate::utils::{KeyEventHelper, Message, Page, Timestamp};
 
 #[derive(Default)]
 pub struct TypingSession {
@@ -56,9 +56,9 @@ impl TypingSession {
         self.actual_error_cache.values().sum()
     }
 
-    pub fn poll(&self) -> Option<Stats> {
+    pub fn poll(&self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
-            return Some(self.stats.build_stats(&self.text));
+            return Some(Box::new(self.stats.build_stats(&self.text)));
         }
 
         None
@@ -151,11 +151,13 @@ impl TypingSession {
             acc,
         }
     }
+}
 
-    pub fn render(&mut self, frame: &mut Frame, area: Rect) -> std::io::Result<()> {
+impl Page for TypingSession {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         // TODO: Find a better way to handle
         if self.current_segment_idx == self.text.len() {
-            return Ok(());
+            return;
         }
 
         let [stats, words] =
@@ -194,7 +196,23 @@ impl TypingSession {
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
         frame.render_widget(paragraph.block(block), center);
+    }
 
-        Ok(())
+    fn handle_events(&mut self, event: &crossterm::event::Event) -> crate::utils::EventResult {
+        if let Some(stats) = self.poll() {
+            return Ok(Some(Message::Show(stats)));
+        }
+
+        if let Event::Key(key) = event {
+            if key.is_press() {
+                match key.code {
+                    KeyCode::Char(character) => self.add(character),
+                    KeyCode::Backspace => self.delete_input(),
+                    _ => (),
+                }
+            }
+        }
+
+        Ok(None)
     }
 }
