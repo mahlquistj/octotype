@@ -7,7 +7,7 @@ use ratatui::{
 };
 use stats::{GraphPoint, Wpm};
 pub use stats::{RunningStats, Stats};
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, ops::Div, time::Instant};
 
 mod library;
 mod stats;
@@ -36,10 +36,6 @@ impl TypingSession {
             text,
             ..Default::default()
         }
-    }
-
-    pub fn length(&self) -> usize {
-        self.text.iter().map(Segment::length).sum()
     }
 
     fn input_length(&self) -> usize {
@@ -74,9 +70,15 @@ impl TypingSession {
 
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
         let time = self.elapsed_minutes();
-        let point = self.calculate_stat_point(time, error.then(|| character));
+
+        // Grab the first point after 500 ms to avoid a major spike in the Wpm in the beginning.
+        if time < 0.005 {
+            return;
+        }
+
+        let point = self.calculate_stat_point(time, error.then_some(character));
         self.stat_cache = Some(point);
-        self.stats.update(time, point, delete)
+        self.stats.update(point, delete)
     }
 
     pub fn delete_input(&mut self) {
@@ -118,19 +120,21 @@ impl TypingSession {
             return timestamp.elapsed().as_secs_f64() / 60.0;
         }
 
-        self.first_keypress = Some(Instant::now());
+        if self.input_length() > 0 {
+            self.first_keypress = Some(Instant::now());
+        }
 
         0.0
     }
 
     pub fn calculate_stat_point(&mut self, time: Timestamp, error: Option<char>) -> GraphPoint {
         let characters = self.input_length() as f64;
-        let raw = (characters / 5.0) / time;
+        let raw = characters.div(5.0).div(time);
 
         let current_errors = self.get_current_errors() as f64;
         let actual_errors = self.get_actual_errors() as f64;
 
-        let epm = current_errors / time;
+        let epm = current_errors.div(time);
         let actual = raw - epm;
 
         let wpm = Wpm {

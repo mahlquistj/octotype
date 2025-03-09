@@ -1,11 +1,12 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use ratatui::{
-    layout::{Constraint, Layout}, style::{Modifier, Style, Stylize}, text::{Line, ToLine}, widgets::{Block, Padding}, DefaultTerminal, Frame
-};
+use ratatui::{style::Stylize, text::ToLine, widgets::Padding, DefaultTerminal, Frame};
 use std::time::Duration;
 
-use crate::{session::{Stats, TypingSession}, utils::ROUNDED_BLOCK};
 use crate::{session::Library, utils::KeyEventHelper};
+use crate::{
+    session::{Stats, TypingSession},
+    utils::ROUNDED_BLOCK,
+};
 
 mod menu;
 
@@ -42,7 +43,15 @@ impl App {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
-        let block = ROUNDED_BLOCK.padding(Padding::new(1, 1, 0, 0)).title_top("TYPERS - A lightweight TUI typing-test".to_line().bold().centered()).title_top("<CTRL-Q> to exit".to_line().right_aligned());
+        let block = ROUNDED_BLOCK
+            .padding(Padding::new(1, 1, 0, 0))
+            .title_top(
+                "TYPERS - A lightweight TUI typing-test"
+                    .to_line()
+                    .bold()
+                    .centered(),
+            )
+            .title_top("<CTRL-Q> to exit".to_line().right_aligned());
         let content = block.inner(frame.area());
 
         frame.render_widget(block, frame.area());
@@ -52,8 +61,6 @@ impl App {
         } else if let Some(stat) = &mut self.stats {
             stat.render(frame, content).expect("STATS ERROR");
         }
-
-
     }
 
     fn handle_events(&mut self) -> std::io::Result<bool> {

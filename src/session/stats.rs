@@ -1,8 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    error,
-    fmt::format,
-};
+use std::collections::{BTreeMap, HashMap};
 
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -10,7 +6,7 @@ use ratatui::{
     symbols::Marker,
     text::{Line, Span, ToSpan},
     widgets::{
-        Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition, Padding, Paragraph, Wrap,
+        Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition, Padding, Paragraph,
     },
     Frame,
 };
@@ -18,12 +14,6 @@ use ratatui::{
 use crate::utils::{Timestamp, ROUNDED_BLOCK};
 
 use super::Segment;
-
-#[derive(Debug)]
-pub struct TimedData<T> {
-    time: Timestamp,
-    data: T,
-}
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Wpm {
@@ -49,15 +39,7 @@ pub struct RunningStats {
 }
 
 impl RunningStats {
-    pub fn new() -> Self {
-        Self {
-            points: Vec::new(),
-            deletetions: 0,
-            y_bounds: [f64::MAX, f64::MIN],
-        }
-    }
-
-    pub fn update(&mut self, time: Timestamp, point: GraphPoint, delete: bool) {
+    pub fn update(&mut self, point: GraphPoint, delete: bool) {
         let [min, max] = point.wpm.min_max();
         if min < self.y_bounds[0] {
             self.y_bounds[0] = min;

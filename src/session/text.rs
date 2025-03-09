@@ -75,10 +75,6 @@ impl Segment {
         false
     }
 
-    pub fn length(&self) -> usize {
-        self.tokens.len()
-    }
-
     pub fn input_length(&self) -> usize {
         self.input.len()
     }
