@@ -10,7 +10,8 @@ main! {
     async fn main() {
         let mut terminal = ratatui::init();
         let mut app = App::new();
-        app.run(&mut terminal).await.expect("Crashed");
+        let stats = app.run(&mut terminal).await.expect("Crashed");
         ratatui::restore();
+        println!("{stats:#?}")
     }
 }

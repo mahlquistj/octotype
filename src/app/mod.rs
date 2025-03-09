@@ -1,12 +1,10 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Constraint, Layout},
-    widgets::Block,
-    DefaultTerminal, Frame,
+    layout::{Constraint, Layout}, style::{Modifier, Style, Stylize}, text::{Line, ToLine}, widgets::{Block, Padding}, DefaultTerminal, Frame
 };
 use std::time::Duration;
 
-use crate::session::{Stats, TypingSession};
+use crate::{session::{Stats, TypingSession}, utils::ROUNDED_BLOCK};
 use crate::{session::Library, utils::KeyEventHelper};
 
 mod menu;
@@ -30,7 +28,7 @@ impl App {
         }
     }
 
-    pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
+    pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<Option<Stats>> {
         self.session = Some(Library::get_words(10, None).await.expect("Error"));
 
         loop {
@@ -40,14 +38,14 @@ impl App {
             }
         }
 
-        Ok(())
+        Ok(self.stats.clone())
     }
 
     fn draw(&mut self, frame: &mut Frame) {
-        let [title, content] =
-            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(frame.area());
+        let block = ROUNDED_BLOCK.padding(Padding::new(1, 1, 0, 0)).title_top("TYPERS - A lightweight TUI typing-test".to_line().bold().centered()).title_top("<CTRL-Q> to exit".to_line().right_aligned());
+        let content = block.inner(frame.area());
 
-        frame.render_widget(Block::bordered().title("Typers"), title);
+        frame.render_widget(block, frame.area());
 
         if let Some(session) = &mut self.session {
             session.render(frame, content).expect("SESSION ERROR");
@@ -71,7 +69,6 @@ impl App {
             }
             (Some(session), key) => {
                 if let Some(stats) = session.poll() {
-                    println!("STATS");
                     self.session = None;
                     self.stats = Some(stats);
                     return Ok(false);

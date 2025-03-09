@@ -1,10 +1,12 @@
 use crossterm::event::{KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::{
+    layout::{Constraint, Flex, Layout, Rect},
+    widgets::{Block, BorderType},
+};
 
-use crate::session::Segment;
+pub type Timestamp = f64;
 
-pub type Idx = usize;
-pub type Timestamp = f32;
+pub const ROUNDED_BLOCK: Block = Block::bordered().border_type(BorderType::Rounded);
 
 pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
     let [area_horizontal] = Layout::horizontal([horizontal])

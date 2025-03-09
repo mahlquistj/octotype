@@ -1,3 +1,4 @@
+use core::f64;
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
     text::Line,
@@ -16,13 +17,16 @@ pub use text::Segment;
 
 pub use library::Library;
 
+use crate::utils::Timestamp;
+
 #[derive(Default)]
 pub struct TypingSession {
     text: Vec<Segment>,
     current_segment_idx: usize,
     first_keypress: Option<Instant>,
     stats: RunningStats,
-    error_cache: HashMap<usize, u16>,
+    current_error_cache: HashMap<usize, u16>,
+    actual_error_cache: HashMap<usize, u16>,
     stat_cache: Option<GraphPoint>,
 }
 
@@ -42,11 +46,18 @@ impl TypingSession {
         self.text.iter().map(Segment::input_length).sum()
     }
 
-    fn get_errors(&mut self) -> u16 {
+    fn get_current_errors(&mut self) -> u16 {
         let current_errors = self.current_segment().current_errors();
-        self.error_cache
+        self.current_error_cache
             .insert(self.current_segment_idx, current_errors);
-        self.error_cache.values().sum()
+        self.current_error_cache.values().sum()
+    }
+
+    fn get_actual_errors(&mut self) -> u16 {
+        let actual_errors = self.current_segment().actual_errors();
+        self.actual_error_cache
+            .insert(self.current_segment_idx, actual_errors);
+        self.actual_error_cache.values().sum()
     }
 
     pub fn poll(&self) -> Option<Stats> {
@@ -62,8 +73,8 @@ impl TypingSession {
     }
 
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
-        let time = self.elapsed_minutes().unwrap_or_default();
-        let point = self.calculate_stat_point(error.then(|| character));
+        let time = self.elapsed_minutes();
+        let point = self.calculate_stat_point(time, error.then(|| character));
         self.stat_cache = Some(point);
         self.stats.update(time, point, delete)
     }
@@ -86,10 +97,6 @@ impl TypingSession {
     }
 
     pub fn add(&mut self, character: char) {
-        if self.first_keypress.is_none() {
-            self.first_keypress = Some(Instant::now())
-        }
-
         let idx = self.current_segment_idx;
         let segment = self.current_segment();
         let actual_char = segment
@@ -106,28 +113,35 @@ impl TypingSession {
         self.update_stats(actual_char, is_error, false);
     }
 
-    pub fn elapsed_minutes(&self) -> Option<f32> {
-        self.first_keypress
-            .as_ref()
-            .map(|inst| inst.elapsed().as_secs_f32() / 60.0)
+    pub fn elapsed_minutes(&mut self) -> f64 {
+        if let Some(timestamp) = self.first_keypress {
+            return timestamp.elapsed().as_secs_f64() / 60.0;
+        }
+
+        self.first_keypress = Some(Instant::now());
+
+        0.0
     }
 
-    pub fn calculate_stat_point(&mut self, error: Option<char>) -> GraphPoint {
-        let minutes = self.elapsed_minutes().unwrap_or_default();
-        let characters = self.input_length() as f32;
-        let raw = (characters / 5.0) / minutes;
+    pub fn calculate_stat_point(&mut self, time: Timestamp, error: Option<char>) -> GraphPoint {
+        let characters = self.input_length() as f64;
+        let raw = (characters / 5.0) / time;
 
-        let errors = self.get_errors() as f32;
-        // let actual = raw - (errors / minutes); // TODO: Why does this go negative?
+        let current_errors = self.get_current_errors() as f64;
+        let actual_errors = self.get_actual_errors() as f64;
 
-        let actual = ((characters / 5.0) - errors) / minutes;
+        let epm = current_errors / time;
+        let actual = raw - epm;
 
-        let wpm = Wpm { raw, actual };
-        let acc = 1.0 - (errors / characters); // Invert the result, as we want the actual
-                                               // accuraccy, and not the percentage of errors
+        let wpm = Wpm {
+            raw,
+            actual: actual.clamp(0.0, f64::MAX),
+        };
+
+        let acc = 1.0 - (actual_errors / characters);
 
         GraphPoint {
-            time: minutes,
+            time,
             wpm,
             error,
             acc,
@@ -143,20 +157,16 @@ impl TypingSession {
         let [stats, words] =
             Layout::vertical([Constraint::Length(1), Constraint::Fill(2)]).areas(area);
 
-        let stats_text = Line::raw(format!(
-            "Elapsed: {:.2} {}",
-            self.elapsed_minutes().unwrap_or_default(),
-            {
-                if let Some(point) = self.stat_cache {
-                    format!(
-                        "| Raw: {:.2} Wpm | Actual: {:.2} | Acc: {:.2}",
-                        point.wpm.raw, point.wpm.actual, point.acc
-                    )
-                } else {
-                    "".to_string()
-                }
-            },
-        ));
+        let stats_text = Line::raw(format!("Elapsed: {:.2} {}", self.elapsed_minutes(), {
+            if let Some(point) = self.stat_cache {
+                format!(
+                    "| Raw: {:.2} Wpm | Actual: {:.2} | Acc: {:.2}",
+                    point.wpm.raw, point.wpm.actual, point.acc
+                )
+            } else {
+                "".to_string()
+            }
+        },));
 
         frame.render_widget(stats_text, stats);
 
