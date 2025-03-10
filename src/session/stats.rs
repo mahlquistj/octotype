@@ -129,6 +129,7 @@ impl RunningStats {
                 self.points.last().expect("No data").time,
             ],
             consistency,
+            time: self.points.last().expect("No data").time,
         }
     }
 }
@@ -171,6 +172,7 @@ pub struct Stats {
     y_bounds: [f64; 2],
     x_bounds: [f64; 2],
     consistency: f64,
+    time: f64,
 }
 
 impl Page for Stats {
@@ -220,7 +222,10 @@ impl Page for Stats {
                 Axis::default()
                     .title("Time")
                     .style(Style::default().fg(Color::Gray))
-                    .labels([Span::raw("start"), Span::raw("end")])
+                    .labels([
+                        Span::raw(self.x_bounds[0].to_string()),
+                        Span::raw(self.x_bounds[1].to_string()),
+                    ])
                     .bounds(self.x_bounds),
             )
             .y_axis(
@@ -257,13 +262,14 @@ impl Page for Stats {
         frame.render_widget(accuracy_chart, accuracy);
 
         let summary_text = Paragraph::new(vec![
-            Line::from(format!("Wpm (Actual): {:.2}", self.final_wpm.actual)),
-            Line::from(format!("Wpm (Raw)   : {:.2}", self.final_wpm.raw)),
-            Line::from(format!("Accuracy    : {}%", self.final_acc.trunc())),
-            Line::from(format!("Consistency : {}%", self.consistency.trunc())),
-            Line::from(format!("Deletions   : {}", self.deletions)),
-            Line::from(format!("Errors      : {}", self.errors_count)),
-            Line::from(format!("Corrections : {}", self.corrected)),
+            Line::from(format!("Time (Minutes): {:.2}", self.time)),
+            Line::from(format!("Wpm (Actual)  : {:.2}", self.final_wpm.actual)),
+            Line::from(format!("Wpm (Raw)     : {:.2}", self.final_wpm.raw)),
+            Line::from(format!("Accuracy      : {}%", self.final_acc.trunc())),
+            Line::from(format!("Consistency   : {}%", self.consistency.trunc())),
+            Line::from(format!("Deletions     : {}", self.deletions)),
+            Line::from(format!("Errors        : {}", self.errors_count)),
+            Line::from(format!("Corrections   : {}", self.corrected)),
         ])
         .block(
             ROUNDED_BLOCK

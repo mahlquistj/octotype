@@ -1,11 +1,16 @@
 use std::fmt::Display;
 
 use crossterm::event::{Event, KeyCode};
-use ratatui::text::Line;
+use ratatui::{
+    layout::Constraint,
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::Paragraph,
+};
 
 use crate::{
     session::{Segment, TypingSession},
-    utils::{KeyEventHelper, Message, Page},
+    utils::{center, KeyEventHelper, Message, Page},
 };
 
 use super::LoadingScreen;
@@ -65,7 +70,7 @@ impl Source {
         let words = match self {
             Self::CommonWords { .. } => todo!("Implement commonwords"),
             Self::RandomApi { lang } => {
-                let mut req = minreq::get(format!("https://random-word-api.herokuapp.com/word"))
+                let mut req = minreq::get("https://random-word-api.herokuapp.com/word")
                     .with_param("number", amount.to_string());
                 // Add a header in case the api wants to block the app.
                 // .with_header(
@@ -90,12 +95,10 @@ impl Source {
     }
 }
 
-/// Utility struct for fetching words
-
 pub struct Menu {
     source: Source,
     words_amount: usize,
-    max_word_length: Option<usize>,
+    max_word_length: usize,
 }
 
 impl Default for Menu {
@@ -103,7 +106,7 @@ impl Default for Menu {
         Self {
             source: Source::RandomApi { lang: None },
             words_amount: 10,
-            max_word_length: None,
+            max_word_length: 0,
         }
     }
 }
@@ -148,29 +151,52 @@ impl Menu {
 
 impl Page for Menu {
     fn render(&mut self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect) {
-        let text = Line::from("Press S to start a new session");
+        let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
-        frame.render_widget(text, area);
+        let text = vec![
+            Line::from(vec![
+                Span::raw(format!("Words     : {}", self.words_amount)),
+                Span::styled("↕", Style::new().add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(vec![
+                Span::raw(format!("Max length: {}", self.max_word_length)),
+                Span::styled("↔", Style::new().add_modifier(Modifier::BOLD)),
+            ]),
+        ];
+
+        let settings = Paragraph::new(text);
+
+        frame.render_widget(settings, center);
     }
 
     fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {
-                    KeyCode::Char('s') => {
+                    KeyCode::Up => self.words_amount += 1,
+                    KeyCode::Down => self.words_amount -= 1,
+
+                    KeyCode::Right => self.max_word_length += 1,
+                    KeyCode::Left => self.max_word_length -= 1,
+
+                    KeyCode::Enter => {
                         let source = self.source.clone();
                         let words_amount = self.words_amount;
-                        let max_word_length = self.max_word_length;
+                        let max_word_length =
+                            (self.max_word_length > 0).then_some(self.max_word_length);
                         let session_loader = LoadingScreen::load(move || {
                             Self::create_session(source, words_amount, max_word_length)
                                 .map(|session| Message::Show(session.boxed()))
                         });
                         return Some(Message::Await(session_loader));
                     }
-                    _ => todo!(),
+                    _ => (),
                 }
             }
         }
+
+        self.words_amount = self.words_amount.clamp(0, 50);
+        self.max_word_length = self.max_word_length.clamp(0, 100);
 
         None
     }

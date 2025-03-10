@@ -69,8 +69,8 @@ impl TypingSession {
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
         let time = self.elapsed_minutes();
 
-        // Grab the first point after 500 ms to avoid a major spike in the Wpm in the beginning.
-        if time < 0.005 {
+        // Grab the first point after 1s to avoid a major spike in the Wpm in the beginning.
+        if time < 0.01 {
             return;
         }
 
