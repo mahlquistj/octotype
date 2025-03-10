@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     thread::JoinHandle,
     time::{Duration, Instant},
 };
@@ -8,16 +9,35 @@ use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse, BRAILLE_SIX};
 
 use crate::utils::{center, Message, Page};
 
+pub struct LoadError(String);
+
+impl Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "An error occurred while loading: {}", self.0)
+    }
+}
+
+impl<E: std::error::Error> From<E> for LoadError {
+    fn from(value: E) -> Self {
+        Self(value.to_string())
+    }
+}
+
 pub struct LoadingScreen {
-    handle: JoinHandle<Result<Message, minreq::Error>>,
+    handle: JoinHandle<Result<Message, LoadError>>,
     state: ThrobberState,
     last_tick: Instant,
 }
 
 impl LoadingScreen {
-    pub fn load(handle: JoinHandle<Result<Message, minreq::Error>>) -> Self {
+    pub fn load<F, E>(func: F) -> Self
+    where
+        F: FnOnce() -> Result<Message, E> + Send + 'static,
+        E: Into<LoadError> + Send + 'static,
+    {
+        let wrapper = move || func().map_err(|e| e.into());
         Self {
-            handle,
+            handle: std::thread::spawn(wrapper),
             state: ThrobberState::default(),
             last_tick: Instant::now(),
         }
@@ -25,7 +45,7 @@ impl LoadingScreen {
 
     pub fn join(self) -> Message {
         return match self.handle.join() {
-            Ok(Ok(msg)) => msg,
+            Ok(Ok(message)) => message,
             Ok(Err(error)) => todo!("Show error screen: {error}"),
             Err(handle_error) => todo!("Show error scrren: {handle_error:?}"),
         };

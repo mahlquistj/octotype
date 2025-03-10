@@ -1,12 +1,13 @@
-use std::thread::JoinHandle;
 
-use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
     text::Line,
     widgets::{Block, BorderType},
     Frame,
 };
+
+use crate::app::LoadingScreen;
 
 pub type Timestamp = f64;
 
@@ -26,15 +27,28 @@ pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect 
 pub trait KeyEventHelper {
     fn is_press(&self) -> bool;
     fn has_ctrl_mod(&self) -> bool;
+    fn is_char(&self, character: char) -> bool;
+
+    fn is_press_char(&self, character: char) -> bool {
+        self.is_press() && self.is_char(character)
+    }
 
     fn is_ctrl_press(&self) -> bool {
         self.is_press() && self.has_ctrl_mod()
+    }
+
+    fn is_ctrl_press_char(&self, character: char) -> bool {
+        self.has_ctrl_mod() && self.is_press_char(character)
     }
 }
 
 impl KeyEventHelper for KeyEvent {
     fn is_press(&self) -> bool {
         self.kind == KeyEventKind::Press
+    }
+
+    fn is_char(&self, character: char) -> bool {
+        self.code == KeyCode::Char(character)
     }
 
     fn has_ctrl_mod(&self) -> bool {
@@ -45,11 +59,10 @@ impl KeyEventHelper for KeyEvent {
 pub enum Message {
     Quit,
     Show(Box<dyn Page + Send>),
-    Await(JoinHandle<Result<Message, minreq::Error>>),
+    Await(LoadingScreen),
     ShowLoaded,
+    ShowMenu,
 }
-
-pub type EventResult = std::io::Result<Option<Message>>;
 
 pub trait Page {
     // Renders the page. Called every cycle
@@ -62,8 +75,8 @@ pub trait Page {
     }
 
     // Handles events for the page. Called every time an event appears
-    fn handle_events(&mut self, _event: &Event) -> EventResult {
-        Ok(None)
+    fn handle_events(&mut self, _event: &Event) -> Option<Message> {
+        None
     }
 
     // Polls the page for any extra messages, regardless of events. Called every cycle

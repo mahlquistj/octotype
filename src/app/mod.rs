@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event};
 use ratatui::{style::Stylize, text::ToLine, widgets::Padding, DefaultTerminal, Frame};
 use std::time::Duration;
 
@@ -7,12 +7,15 @@ use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 mod loadscreen;
 mod menu;
 
-use loadscreen::LoadingScreen;
-use menu::Menu;
+pub use loadscreen::LoadingScreen;
+pub use menu::Menu;
+pub use menu::SourceError;
 
+#[derive(Default)]
 pub struct App {
-    page: Box<dyn Page>,
-    // TODO: Is it possible to avoid using loadscreen directly, and us it
+    menu: Menu,
+    page: Option<Box<dyn Page>>,
+    // TODO: Is it possible to avoid using loadscreen (and maybe also menu) directly, and use it
     // as a normal page instead, when we need to consume the joinhandle?
     loading: Option<LoadingScreen>,
     // TODO:
@@ -21,11 +24,7 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
-        Self {
-            page: Menu.boxed(),
-            loading: None,
-            config: (),
-        }
+        App::default()
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
@@ -54,15 +53,19 @@ impl App {
         let area = frame.area();
         let content = block.inner(area);
 
-        if let Some(loading_screen) = &mut self.loading {
-            frame.render_widget(block, area);
-            loading_screen.render(frame, content);
-        } else {
-            if let Some(top_msg) = self.page.render_top() {
+        // TODO: REFACTOR
+        if let Some(page) = &mut self.page {
+            if let Some(top_msg) = page.render_top() {
                 block = block.title_top(top_msg);
             }
             frame.render_widget(block, area);
-            self.page.render(frame, content);
+            page.render(frame, content);
+        } else if let Some(loader) = &mut self.loading {
+            frame.render_widget(block, area);
+            loader.render(frame, area);
+        } else {
+            frame.render_widget(block, area);
+            self.menu.render(frame, content);
         }
     }
 
@@ -72,17 +75,18 @@ impl App {
         }
 
         if let Some(event) = event_opt {
-            if let Some(msg) = self.page.handle_events(&event)? {
-                return Ok(self.handle_message(msg));
+            if let Some(page) = &mut self.page {
+                if let Some(msg) = page.handle_events(&event) {
+                    return Ok(self.handle_message(msg));
+                }
+            } else if self.loading.is_none() {
+                if let Some(msg) = self.menu.handle_events(&event) {
+                    return Ok(self.handle_message(msg));
+                }
             }
 
-            match event {
-                Event::Key(key) if key.is_ctrl_press() => {
-                    if let KeyCode::Char('q') = key.code {
-                        return Ok(true);
-                    }
-                }
-                _ => (),
+            if let Event::Key(key) = event {
+                return Ok(key.is_ctrl_press_char('q'));
             }
         }
 
@@ -92,14 +96,15 @@ impl App {
     fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
             Message::Quit => return true,
-            Message::Show(page) => self.page = page,
-            Message::Await(handle) => {
-                self.loading = Some(LoadingScreen::load(handle));
+            Message::Show(page) => self.page = Some(page),
+            Message::Await(loadscreen) => {
+                self.loading = Some(loadscreen);
             }
             Message::ShowLoaded => {
                 let loaded = self.loading.take().expect("Nothing was loading").join();
                 return self.handle_message(loaded);
             }
+            Message::ShowMenu => self.page = None,
         }
 
         false

@@ -84,15 +84,17 @@ impl Segment {
             .iter()
             .enumerate()
             .map(|(idx, character)| {
-                let mut style = if let Some(c) = self.input.get(idx) {
+                let mut style = Style::new();
+                style = if let Some(c) = self.input.get(idx) {
                     match c {
-                        CharacterResult::Right => Style::new().fg(Color::Green),
-                        CharacterResult::Corrected => Style::new().fg(Color::Yellow),
-                        CharacterResult::Wrong(_) => Style::new().fg(Color::Red),
+                        CharacterResult::Right => style.fg(Color::Green),
+                        CharacterResult::Corrected => style.fg(Color::Yellow),
+                        CharacterResult::Wrong(_) if *character == ' ' => style.bg(Color::Red),
+                        CharacterResult::Wrong(_) => style.fg(Color::Red),
                     }
                     .add_modifier(Modifier::BOLD)
                 } else {
-                    Style::new().fg(Color::White)
+                    style.fg(Color::White)
                 };
 
                 if show_cursor && idx == self.input.len() {

@@ -1,7 +1,7 @@
 use core::f64;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::{Alignment, Constraint, Layout, Rect},
+    layout::{Alignment, Constraint, Rect},
     text::Line,
     widgets::{Block, Padding, Paragraph, Wrap},
     Frame,
@@ -10,11 +10,9 @@ use stats::{GraphPoint, Wpm};
 pub use stats::{RunningStats, Stats};
 use std::{collections::HashMap, ops::Div, time::Instant};
 
-mod library;
 mod stats;
 mod text;
 
-pub use library::Library;
 pub use text::Segment;
 
 use crate::utils::{KeyEventHelper, Message, Page, Timestamp};
@@ -86,8 +84,10 @@ impl TypingSession {
         let segment = self.current_segment();
 
         if segment.delete_input() {
+            let char_idx = segment.input_length();
             let character = segment
-                .get_char(segment.input_length() + 1)
+                .get_char(char_idx + 1)
+                .or(segment.get_char(char_idx))
                 .expect("No character found"); // refactor this expect out
             return self.update_stats(character, false, true);
         }
@@ -192,7 +192,7 @@ impl Page for TypingSession {
         })))
     }
 
-    fn handle_events(&mut self, event: &crossterm::event::Event) -> crate::utils::EventResult {
+    fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {
@@ -204,9 +204,9 @@ impl Page for TypingSession {
         }
 
         if let Some(stats) = self.poll_stats() {
-            return Ok(Some(Message::Show(stats)));
+            return Some(Message::Show(stats));
         }
 
-        Ok(None)
+        None
     }
 }

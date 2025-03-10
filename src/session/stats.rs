@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use crossterm::event::Event;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
@@ -11,7 +12,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::utils::{Page, Timestamp, ROUNDED_BLOCK};
+use crate::utils::{KeyEventHelper, Message, Page, Timestamp, ROUNDED_BLOCK};
 
 use super::Segment;
 
@@ -296,5 +297,19 @@ impl Page for Stats {
         );
 
         frame.render_widget(character_errors, characters);
+    }
+
+    fn render_top(&mut self) -> Option<Line> {
+        Some(Line::raw(" <Q> to go back to the menu "))
+    }
+
+    fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
+        if let Event::Key(key) = event {
+            if key.is_press_char('q') {
+                return Some(Message::ShowMenu);
+            }
+        }
+
+        None
     }
 }
