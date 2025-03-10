@@ -11,7 +11,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::utils::{Timestamp, ROUNDED_BLOCK};
+use crate::utils::{Page, Timestamp, ROUNDED_BLOCK};
 
 use super::Segment;
 
@@ -172,8 +172,8 @@ pub struct Stats {
     consistency: f64,
 }
 
-impl Stats {
-    pub fn render(&self, frame: &mut Frame, area: Rect) -> std::io::Result<()> {
+impl Page for Stats {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let [text, charts] =
             Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .areas(area);
@@ -259,7 +259,7 @@ impl Stats {
             Line::from(format!("Wpm (Actual): {:.2}", self.final_wpm.actual)),
             Line::from(format!("Wpm (Raw)   : {:.2}", self.final_wpm.raw)),
             Line::from(format!("Accuracy    : {}%", self.final_acc.trunc())),
-            Line::from(format!("consistency : {}%", self.consistency.trunc())),
+            Line::from(format!("Consistency : {}%", self.consistency.trunc())),
             Line::from(format!("Deletions   : {}", self.deletions)),
             Line::from(format!("Errors      : {}", self.errors_count)),
             Line::from(format!("Corrections : {}", self.corrected)),
@@ -296,7 +296,5 @@ impl Stats {
         );
 
         frame.render_widget(character_errors, characters);
-
-        Ok(())
     }
 }
