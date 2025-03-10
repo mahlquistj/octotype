@@ -56,7 +56,7 @@ impl TypingSession {
         self.actual_error_cache.values().sum()
     }
 
-    pub fn poll(&self) -> Option<Box<Stats>> {
+    pub fn poll_stats(&self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
             return Some(Box::new(self.stats.build_stats(&self.text)));
         }
@@ -160,22 +160,6 @@ impl Page for TypingSession {
             return;
         }
 
-        let [stats, words] =
-            Layout::vertical([Constraint::Length(1), Constraint::Fill(2)]).areas(area);
-
-        let stats_text = Line::raw(format!("Elapsed: {:.2} {}", self.elapsed_minutes(), {
-            if let Some(point) = self.stat_cache {
-                format!(
-                    "| Raw: {:.2} Wpm | Actual: {:.2} | Acc: {:.2}",
-                    point.wpm.raw, point.wpm.actual, point.acc
-                )
-            } else {
-                "".to_string()
-            }
-        },));
-
-        frame.render_widget(stats_text, stats);
-
         let text = self
             .text
             .iter()
@@ -187,22 +171,28 @@ impl Page for TypingSession {
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: false });
 
-        let center = crate::utils::center(
-            words,
-            Constraint::Percentage(80),
-            Constraint::Percentage(80),
-        );
+        let center =
+            crate::utils::center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
         frame.render_widget(paragraph.block(block), center);
     }
 
-    fn handle_events(&mut self, event: &crossterm::event::Event) -> crate::utils::EventResult {
-        if let Some(stats) = self.poll() {
-            return Ok(Some(Message::Show(stats)));
-        }
+    fn render_top(&mut self) -> Option<Line> {
+        Some(Line::raw(format!("{:.2} {}", self.elapsed_minutes(), {
+            if let Some(point) = self.stat_cache {
+                format!(
+                    "R: {:.2} W: {:.2} A: {:.2}",
+                    point.wpm.raw, point.wpm.actual, point.acc
+                )
+            } else {
+                "".to_string()
+            }
+        })))
+    }
 
+    fn handle_events(&mut self, event: &crossterm::event::Event) -> crate::utils::EventResult {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {
@@ -211,6 +201,10 @@ impl Page for TypingSession {
                     _ => (),
                 }
             }
+        }
+
+        if let Some(stats) = self.poll_stats() {
+            return Ok(Some(Message::Show(stats)));
         }
 
         Ok(None)

@@ -1,6 +1,6 @@
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{style::Stylize, text::ToLine, widgets::Padding, DefaultTerminal, Frame};
-use std::{fs::write, thread::JoinHandle, time::Duration};
+use std::time::Duration;
 
 use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 
@@ -12,7 +12,11 @@ use menu::Menu;
 
 pub struct App {
     page: Box<dyn Page>,
-    loading: Option<LoadingScreen>, // TODO: config: (),
+    // TODO: Is it possible to avoid using loadscreen directly, and us it
+    // as a normal page instead, when we need to consume the joinhandle?
+    loading: Option<LoadingScreen>,
+    // TODO:
+    config: (),
 }
 
 impl App {
@@ -20,13 +24,13 @@ impl App {
         Self {
             page: Menu.boxed(),
             loading: None,
-            // TODO: config: (),
+            config: (),
         }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
         loop {
-            let event = event::poll(Duration::ZERO)?.then_some(event::read()?);
+            let event = event::poll(Duration::ZERO)?.then(event::read).transpose()?;
             terminal.draw(|frame| self.draw(frame))?;
             if self.handle_events(event)? {
                 break;
@@ -37,7 +41,7 @@ impl App {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
-        let block = ROUNDED_BLOCK
+        let mut block = ROUNDED_BLOCK
             .padding(Padding::new(1, 1, 0, 0))
             .title_top(
                 "TYPERS - A lightweight TUI typing-test"
@@ -49,23 +53,25 @@ impl App {
 
         let area = frame.area();
         let content = block.inner(area);
-        frame.render_widget(block, area);
 
         if let Some(loading_screen) = &mut self.loading {
+            frame.render_widget(block, area);
             loading_screen.render(frame, content);
         } else {
+            if let Some(top_msg) = self.page.render_top() {
+                block = block.title_top(top_msg);
+            }
+            frame.render_widget(block, area);
             self.page.render(frame, content);
         }
     }
 
     fn handle_events(&mut self, event_opt: Option<Event>) -> std::io::Result<bool> {
-        if let Some(event) = event_opt {
-            if let Some(loading_screen) = &mut self.loading {
-                if let Some(msg) = loading_screen.handle_events(&event)? {
-                    return Ok(self.handle_message(msg));
-                }
-            }
+        if let Some(msg) = self.loading.as_mut().and_then(|l| l.poll()) {
+            return Ok(self.handle_message(msg));
+        }
 
+        if let Some(event) = event_opt {
             if let Some(msg) = self.page.handle_events(&event)? {
                 return Ok(self.handle_message(msg));
             }

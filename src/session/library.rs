@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::Segment;
 use crate::{
     session::TypingSession,
@@ -45,6 +47,8 @@ impl Library {
             .collect();
 
         let session = TypingSession::new(words);
+
+        std::thread::sleep(Duration::from_secs(5));
 
         Ok(Message::Show(session.boxed()))
     }
