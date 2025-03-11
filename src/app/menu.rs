@@ -122,7 +122,7 @@ impl Menu {
         max_word_length: Option<usize>,
     ) -> Result<TypingSession, SourceError> {
         let words = source.fetch(words_amount, max_word_length)?;
-        let last_segment = words.len() / 5;
+        let last_segment = words.chunks(5).count() - 1;
 
         let words = words
             .chunks(5)

@@ -1,4 +1,3 @@
-use core::f64;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Alignment, Constraint, Rect},
@@ -160,15 +159,11 @@ impl TypingSession {
     }
 
     pub fn should_calc_wpm(&mut self) -> bool {
-        let Some(time) = self.first_keypress else {
-            return false;
-        };
-
         let Some(last_poll) = self.last_wpm_poll else {
             return false;
         };
 
-        if time.elapsed().abs_diff(last_poll.elapsed()) > Duration::from_secs(1) {
+        if last_poll.elapsed() > Duration::from_millis(100) {
             return true;
         }
 
@@ -195,7 +190,7 @@ impl TypingSession {
             }
         });
 
-        let acc = (1.0 - (actual_errors / characters)) * 100.0;
+        let acc = 1.0 - (actual_errors / characters);
 
         StatsCache { wpm, acc }
     }

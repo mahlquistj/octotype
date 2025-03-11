@@ -62,7 +62,7 @@ impl Page for LoadingScreen {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
-            .label(format!("Loading words... {}", self.handle.is_finished()))
+            .label("Loading words...")
             .throbber_style(
                 Style::default()
                     .fg(ratatui::style::Color::Yellow)
