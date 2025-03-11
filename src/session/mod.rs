@@ -6,9 +6,15 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
     Frame,
 };
-use stats::{GraphPoint, Wpm};
+
+use stats::Wpm;
 pub use stats::{RunningStats, Stats};
-use std::{collections::HashMap, ops::Div, time::Instant};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    ops::Div,
+    time::{Duration, Instant},
+};
 
 mod stats;
 mod text;
@@ -16,6 +22,21 @@ mod text;
 pub use text::Segment;
 
 use crate::utils::{KeyEventHelper, Message, Page, Timestamp};
+
+pub struct StatsCache {
+    acc: f64,
+    wpm: Option<Wpm>,
+}
+
+impl Display for StatsCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (raw, actual) = self.wpm.map_or(("?".to_string(), "?".to_string()), |wpm| {
+            (wpm.raw.to_string(), wpm.actual.to_string())
+        });
+        let acc = self.acc;
+        write!(f, "R: {raw} | W: {actual} | A: {acc}%")
+    }
+}
 
 #[derive(Default)]
 pub struct TypingSession {
@@ -25,7 +46,8 @@ pub struct TypingSession {
     stats: RunningStats,
     current_error_cache: HashMap<usize, u16>,
     actual_error_cache: HashMap<usize, u16>,
-    stat_cache: Option<GraphPoint>,
+    stat_cache: Option<StatsCache>,
+    last_wpm_poll: Option<Instant>,
 }
 
 impl TypingSession {
@@ -54,9 +76,15 @@ impl TypingSession {
         self.actual_error_cache.values().sum()
     }
 
-    pub fn poll_stats(&self) -> Option<Box<Stats>> {
+    pub fn poll_stats(&mut self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
-            return Some(Box::new(self.stats.build_stats(&self.text)));
+            let time = self.elapsed_minutes();
+            let final_point = self.calculate_stats(time, true);
+            return Some(Box::new(self.stats.build_stats(
+                &self.text,
+                final_point.wpm?,
+                final_point.acc,
+            )));
         }
 
         None
@@ -69,14 +97,17 @@ impl TypingSession {
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
         let time = self.elapsed_minutes();
 
-        // Grab the first point after 1s to avoid a major spike in the Wpm in the beginning.
-        if time < 0.01 {
-            return;
-        }
+        let with_wpm = self.should_calc_wpm();
+        let new = self.calculate_stats(time, with_wpm);
 
-        let point = self.calculate_stat_point(time, error.then_some(character));
-        self.stat_cache = Some(point);
-        self.stats.update(point, delete)
+        let error = error.then_some(character);
+
+        self.stats.update(time, new.acc, new.wpm, error, delete);
+
+        match (&new.wpm, &mut self.stat_cache) {
+            (None, Some(cached)) => cached.acc = new.acc,
+            (_, _) => self.stat_cache = Some(new),
+        };
     }
 
     pub fn delete_input(&mut self) {
@@ -122,34 +153,51 @@ impl TypingSession {
 
         if self.input_length() > 0 {
             self.first_keypress = Some(Instant::now());
+            self.last_wpm_poll = Some(Instant::now());
         }
 
         0.0
     }
 
-    pub fn calculate_stat_point(&mut self, time: Timestamp, error: Option<char>) -> GraphPoint {
-        let characters = self.input_length() as f64;
-        let raw = characters.div(5.0).div(time);
-
-        let current_errors = self.get_current_errors() as f64;
-        let actual_errors = self.get_actual_errors() as f64;
-
-        let epm = current_errors.div(time);
-        let actual = raw - epm;
-
-        let wpm = Wpm {
-            raw,
-            actual: actual.clamp(0.0, f64::MAX),
+    pub fn should_calc_wpm(&mut self) -> bool {
+        let Some(time) = self.first_keypress else {
+            return false;
         };
 
-        let acc = 1.0 - (actual_errors / characters);
+        let Some(last_poll) = self.last_wpm_poll else {
+            return false;
+        };
 
-        GraphPoint {
-            time,
-            wpm,
-            error,
-            acc,
+        if time.elapsed().abs_diff(last_poll.elapsed()) > Duration::from_secs(1) {
+            return true;
         }
+
+        false
+    }
+
+    pub fn calculate_stats(&mut self, time: Timestamp, with_wpm: bool) -> StatsCache {
+        let characters = self.input_length() as f64;
+        let actual_errors = self.get_actual_errors() as f64;
+
+        let wpm = with_wpm.then(|| {
+            let raw = characters.div(5.0).div(time);
+
+            let current_errors = self.get_current_errors() as f64;
+
+            let epm = current_errors.div(time);
+            let actual = raw - epm;
+
+            self.last_wpm_poll = Some(Instant::now());
+
+            Wpm {
+                raw,
+                actual: actual.clamp(0.0, f64::MAX),
+            }
+        });
+
+        let acc = (1.0 - (actual_errors / characters)) * 100.0;
+
+        StatsCache { wpm, acc }
     }
 }
 
@@ -181,11 +229,8 @@ impl Page for TypingSession {
 
     fn render_top(&mut self) -> Option<Line> {
         Some(Line::raw(format!("{:.2} {}", self.elapsed_minutes(), {
-            if let Some(point) = self.stat_cache {
-                format!(
-                    "R: {:.2} W: {:.2} A: {:.2}",
-                    point.wpm.raw, point.wpm.actual, point.acc
-                )
+            if let Some(cache) = &self.stat_cache {
+                cache.to_string()
             } else {
                 "".to_string()
             }

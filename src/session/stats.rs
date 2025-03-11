@@ -34,35 +34,47 @@ impl Wpm {
 
 #[derive(Default, Debug)]
 pub struct RunningStats {
-    points: Vec<GraphPoint>,
+    errors: Vec<(Timestamp, char)>,
+    acc: Vec<(Timestamp, f64)>,
+    wpm: Vec<(Timestamp, Wpm)>,
     deletetions: u16,
     y_bounds: [f64; 2],
 }
 
 impl RunningStats {
-    pub fn update(&mut self, point: GraphPoint, delete: bool) {
-        let [min, max] = point.wpm.min_max();
-        if min < self.y_bounds[0] {
-            self.y_bounds[0] = min;
+    pub fn update(
+        &mut self,
+        time: Timestamp,
+        acc: f64,
+        wpm: Option<Wpm>,
+        error: Option<char>,
+        delete: bool,
+    ) {
+        if let Some(w) = wpm {
+            let [min, max] = w.min_max();
+            if min < self.y_bounds[0] {
+                self.y_bounds[0] = min;
+            }
+
+            if max > self.y_bounds[1] {
+                self.y_bounds[1] = max;
+            }
+
+            self.wpm.push((time, w));
         }
 
-        if max > self.y_bounds[1] {
-            self.y_bounds[1] = max;
+        if let Some(e) = error {
+            self.errors.push((time, e));
         }
 
-        self.points.push(point);
+        self.acc.push((time, acc));
 
         if delete {
             self.deletetions += 1;
         }
     }
 
-    pub fn build_stats(&self, text: &[Segment]) -> Stats {
-        let (final_wpm, final_acc) = self
-            .points
-            .last()
-            .map(|gp| (gp.wpm, gp.acc * 100.0))
-            .unwrap_or_default();
+    pub fn build_stats(&self, text: &[Segment], final_wpm: Wpm, final_acc: f64) -> Stats {
         let errors_count = text.iter().map(Segment::actual_errors).sum();
         let corrected = text
             .iter()
@@ -72,13 +84,11 @@ impl RunningStats {
 
         let mut character_collection = HashMap::<char, u16>::new();
 
-        self.points.iter().for_each(|gp| {
-            if let Some(error) = gp.error {
-                character_collection
-                    .entry(error)
-                    .and_modify(|count| *count += 1)
-                    .or_insert_with(|| 1);
-            }
+        self.errors.iter().for_each(|(_, char)| {
+            character_collection
+                .entry(*char)
+                .and_modify(|count| *count += 1)
+                .or_insert_with(|| 1);
         });
 
         let mut characters = BTreeMap::new();
@@ -92,23 +102,14 @@ impl RunningStats {
                     .or_insert_with(|| vec![character]);
             });
 
-        let (raw_wpm, actual_wpm, errors, acc) = self
-            .points
+        let (raw_wpm, actual_wpm) = self
+            .wpm
             .iter()
-            .map(|gp| {
-                (
-                    (gp.time, gp.wpm.raw),
-                    (gp.time, gp.wpm.actual),
-                    (gp.time, gp.error),
-                    (gp.time, gp.acc),
-                )
-            })
-            .collect::<(Vec<_>, Vec<_>, Vec<(Timestamp, Option<char>)>, Vec<_>)>();
+            .copied()
+            .map(|(time, wpm)| ((time, wpm.raw), (time, wpm.actual)))
+            .collect::<(Vec<(f64, f64)>, Vec<(f64, f64)>)>();
 
-        let errors = errors
-            .iter()
-            .filter_map(|(ts, character)| character.map(|_| (*ts, 0.5)))
-            .collect();
+        let errors = self.errors.iter().map(|(ts, _)| (*ts, 0.5)).collect();
 
         let consistency = coefficient_of_variation(&raw_wpm);
 
@@ -117,7 +118,7 @@ impl RunningStats {
             raw_wpm,
             actual_wpm,
             errors,
-            acc,
+            acc: self.acc.clone(),
             deletions: self.deletetions,
             errors_count,
             corrected,
@@ -125,11 +126,11 @@ impl RunningStats {
             final_acc,
             y_bounds: self.y_bounds,
             x_bounds: [
-                self.points.first().expect("No data").time,
-                self.points.last().expect("No data").time,
+                self.wpm.first().expect("No data").0,
+                self.wpm.last().expect("No data").0,
             ],
             consistency,
-            time: self.points.last().expect("No data").time,
+            time: self.wpm.last().expect("No data").0,
         }
     }
 }
@@ -143,18 +144,10 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
     }
 
     let variance: f64 =
-        values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+        values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
 
     let std_dev = variance.sqrt();
     (std_dev / mean) * 100.0
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct GraphPoint {
-    pub(crate) time: Timestamp,
-    pub(crate) wpm: Wpm,
-    pub(crate) error: Option<char>,
-    pub(crate) acc: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -270,6 +263,7 @@ impl Page for Stats {
             Line::from(format!("Deletions     : {}", self.deletions)),
             Line::from(format!("Errors        : {}", self.errors_count)),
             Line::from(format!("Corrections   : {}", self.corrected)),
+            Line::from(format!("Polls         : {}", self.raw_wpm.len())),
         ])
         .block(
             ROUNDED_BLOCK

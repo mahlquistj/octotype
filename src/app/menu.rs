@@ -122,10 +122,10 @@ impl Menu {
         max_word_length: Option<usize>,
     ) -> Result<TypingSession, SourceError> {
         let words = source.fetch(words_amount, max_word_length)?;
-        let last_segment = words.len() / 4;
+        let last_segment = words.len() / 5;
 
         let words = words
-            .chunks(4)
+            .chunks(5)
             .enumerate()
             .map(|(idx, words)| {
                 let mut string = words
