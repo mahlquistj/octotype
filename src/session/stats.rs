@@ -147,7 +147,12 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
         values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
 
     let std_dev = variance.sqrt();
-    (std_dev / mean) * 100.0
+    let res = 100.0 - ((std_dev / mean) * 100.0);
+    if res.is_finite() {
+        return res;
+    }
+
+    0.0
 }
 
 #[derive(Debug, Clone)]
@@ -175,7 +180,8 @@ impl Page for Stats {
                 .areas(area);
 
         let [wpm, accuracy] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(charts);
+            Layout::vertical([Constraint::Percentage(30), Constraint::Percentage(70)])
+                .areas(charts);
 
         let text_area = Block::new().padding(Padding::right(1)).inner(text);
 

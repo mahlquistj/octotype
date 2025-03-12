@@ -47,6 +47,7 @@ pub struct TypingSession {
     actual_error_cache: HashMap<usize, u16>,
     stat_cache: Option<StatsCache>,
     last_wpm_poll: Option<Instant>,
+    last_input_len: usize,
 }
 
 impl TypingSession {
@@ -77,8 +78,7 @@ impl TypingSession {
 
     pub fn poll_stats(&mut self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
-            let time = self.elapsed_minutes();
-            let final_point = self.calculate_stats(time, true);
+            let final_point = self.calculate_stats(true);
             return Some(Box::new(self.stats.build_stats(
                 &self.text,
                 final_point.wpm?,
@@ -97,7 +97,7 @@ impl TypingSession {
         let time = self.elapsed_minutes();
 
         let with_wpm = self.should_calc_wpm();
-        let new = self.calculate_stats(time, with_wpm);
+        let new = self.calculate_stats(with_wpm);
 
         let error = error.then_some(character);
 
@@ -163,19 +163,26 @@ impl TypingSession {
             return false;
         };
 
-        if last_poll.elapsed() > Duration::from_millis(100) {
+        if last_poll.elapsed() > Duration::from_secs(1) {
             return true;
         }
 
         false
     }
 
-    pub fn calculate_stats(&mut self, time: Timestamp, with_wpm: bool) -> StatsCache {
+    pub fn calculate_stats(&mut self, with_wpm: bool) -> StatsCache {
         let characters = self.input_length() as f64;
         let actual_errors = self.get_actual_errors() as f64;
 
         let wpm = with_wpm.then(|| {
-            let raw = characters.div(5.0).div(time);
+            let time = self
+                .last_wpm_poll
+                .map(|i| i.elapsed().as_secs_f64() / 60.0)
+                .unwrap_or_default();
+
+            let frame_characters = (self.input_length() - self.last_input_len) as f64;
+
+            let raw = frame_characters.div(5.0).div(time);
 
             let current_errors = self.get_current_errors() as f64;
 
@@ -183,6 +190,7 @@ impl TypingSession {
             let actual = raw - epm;
 
             self.last_wpm_poll = Some(Instant::now());
+            self.last_input_len = self.input_length();
 
             Wpm {
                 raw,
