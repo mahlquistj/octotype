@@ -11,7 +11,7 @@ pub use stats::{RunningStats, Stats};
 use std::{
     collections::HashMap,
     fmt::Display,
-    ops::Div,
+    ops::{Div, Rem},
     time::{Duration, Instant},
 };
 
@@ -20,7 +20,7 @@ mod text;
 
 pub use text::Segment;
 
-use crate::utils::{KeyEventHelper, Message, Page, Timestamp};
+use crate::utils::{KeyEventHelper, Message, Page};
 
 pub struct StatsCache {
     acc: f64,
@@ -33,7 +33,7 @@ impl Display for StatsCache {
             (wpm.raw.to_string(), wpm.actual.to_string())
         });
         let acc = self.acc;
-        write!(f, "R: {raw} | W: {actual} | A: {acc}%")
+        write!(f, "R: {raw:.2} | W: {actual:.2} | A: {acc:.2}%")
     }
 }
 
@@ -145,6 +145,14 @@ impl TypingSession {
         self.update_stats(actual_char, is_error, false);
     }
 
+    pub fn elapsed(&self) -> Duration {
+        if let Some(timestamp) = self.first_keypress {
+            return timestamp.elapsed();
+        }
+
+        Duration::ZERO
+    }
+
     pub fn elapsed_minutes(&mut self) -> f64 {
         if let Some(timestamp) = self.first_keypress {
             return timestamp.elapsed().as_secs_f64() / 60.0;
@@ -180,7 +188,7 @@ impl TypingSession {
                 .map(|i| i.elapsed().as_secs_f64() / 60.0)
                 .unwrap_or_default();
 
-            let frame_characters = (self.input_length() - self.last_input_len) as f64;
+            let frame_characters = self.input_length().saturating_sub(self.last_input_len) as f64;
 
             let raw = frame_characters.div(5.0).div(time);
 
@@ -231,7 +239,10 @@ impl Page for TypingSession {
     }
 
     fn render_top(&mut self) -> Option<Line> {
-        Some(Line::raw(format!("{:.2} {}", self.elapsed_minutes(), {
+        let time = self.elapsed();
+        let seconds = time.as_secs().rem(60);
+        let minutes = time.as_secs() / 60;
+        Some(Line::raw(format!("{minutes}:{seconds:0>2} {}", {
             if let Some(cache) = &self.stat_cache {
                 cache.to_string()
             } else {
