@@ -1,4 +1,3 @@
-
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
@@ -7,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::LoadingScreen;
+use crate::config::Config;
 
 pub type Timestamp = f64;
 
@@ -59,28 +58,24 @@ impl KeyEventHelper for KeyEvent {
 pub enum Message {
     Quit,
     Show(Box<dyn Page + Send>),
-    Await(LoadingScreen),
-    ShowLoaded,
-    ShowMenu,
 }
 
 pub trait Page {
     // Renders the page. Called every cycle
-    fn render(&mut self, frame: &mut Frame, area: Rect);
+    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config);
 
     // Renders a line in the top left of the window.
-    // Called every cycle, before
-    fn render_top(&mut self) -> Option<Line> {
+    // Called every cycle, before render
+    fn render_top(&mut self, _config: &Config) -> Option<Line> {
         None
     }
 
     // Handles events for the page. Called every time an event appears
-    fn handle_events(&mut self, _event: &Event) -> Option<Message> {
+    fn handle_events(&mut self, _event: &Event, _config: &Config) -> Option<Message> {
         None
     }
 
-    // Polls the page for any extra messages, regardless of events. Called every cycle
-    fn poll(&mut self) -> Option<Message> {
+    fn poll(&mut self, _config: &Config) -> Option<Message> {
         None
     }
 

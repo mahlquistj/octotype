@@ -1,7 +1,9 @@
 use crossterm::event::{self, Event};
 use ratatui::{style::Stylize, text::ToLine, widgets::Padding, DefaultTerminal, Frame};
+use std::rc::Rc;
 use std::time::Duration;
 
+use crate::config::Config;
 use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 
 mod loadscreen;
@@ -9,22 +11,18 @@ mod menu;
 
 pub use loadscreen::LoadingScreen;
 pub use menu::Menu;
-pub use menu::SourceError;
 
-#[derive(Default)]
 pub struct App {
-    menu: Menu,
-    page: Option<Box<dyn Page>>,
-    // TODO: Is it possible to avoid using loadscreen (and maybe also menu) directly, and use it
-    // as a normal page instead, when we need to consume the joinhandle?
-    loading: Option<LoadingScreen>,
-    // TODO:
-    config: (),
+    page: Box<dyn Page>,
+    config: Rc<Config>,
 }
 
 impl App {
-    pub fn new() -> Self {
-        App::default()
+    pub fn new(config: Config) -> Self {
+        Self {
+            page: Menu::new().boxed(),
+            config: Rc::new(config),
+        }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
@@ -53,36 +51,21 @@ impl App {
         let area = frame.area();
         let content = block.inner(area);
 
-        // TODO: REFACTOR
-        if let Some(page) = &mut self.page {
-            if let Some(top_msg) = page.render_top() {
-                block = block.title_top(top_msg);
-            }
-            frame.render_widget(block, area);
-            page.render(frame, content);
-        } else if let Some(loader) = &mut self.loading {
-            frame.render_widget(block, area);
-            loader.render(frame, area);
-        } else {
-            frame.render_widget(block, area);
-            self.menu.render(frame, content);
+        if let Some(top_msg) = self.page.render_top(&self.config) {
+            block = block.title_top(top_msg);
         }
+        frame.render_widget(block, area);
+        self.page.render(frame, content, &self.config);
     }
 
     fn handle_events(&mut self, event_opt: Option<Event>) -> std::io::Result<bool> {
-        if let Some(msg) = self.loading.as_mut().and_then(|l| l.poll()) {
+        if let Some(msg) = self.page.poll(&self.config) {
             return Ok(self.handle_message(msg));
         }
 
         if let Some(event) = event_opt {
-            if let Some(page) = &mut self.page {
-                if let Some(msg) = page.handle_events(&event) {
-                    return Ok(self.handle_message(msg));
-                }
-            } else if self.loading.is_none() {
-                if let Some(msg) = self.menu.handle_events(&event) {
-                    return Ok(self.handle_message(msg));
-                }
+            if let Some(msg) = self.page.handle_events(&event, &self.config) {
+                return Ok(self.handle_message(msg));
             }
 
             if let Event::Key(key) = event {
@@ -96,15 +79,7 @@ impl App {
     fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
             Message::Quit => return true,
-            Message::Show(page) => self.page = Some(page),
-            Message::Await(loadscreen) => {
-                self.loading = Some(loadscreen);
-            }
-            Message::ShowLoaded => {
-                let loaded = self.loading.take().expect("Nothing was loading").join();
-                return self.handle_message(loaded);
-            }
-            Message::ShowMenu => self.page = None,
+            Message::Show(page) => self.page = page,
         }
 
         false

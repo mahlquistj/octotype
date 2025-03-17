@@ -4,10 +4,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ratatui::{layout::Constraint, style::Style};
+use ratatui::{
+    layout::{Alignment, Constraint},
+    style::Style,
+    widgets::{Block, Padding, Paragraph},
+};
 use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse, BRAILLE_SIX};
 
-use crate::utils::{center, Message, Page};
+use crate::{
+    config::Config,
+    utils::{center, Message, Page},
+};
 
 pub struct LoadError(String);
 
@@ -24,7 +31,7 @@ impl<E: std::error::Error> From<E> for LoadError {
 }
 
 pub struct LoadingScreen {
-    handle: JoinHandle<Result<Message, LoadError>>,
+    handle: Option<JoinHandle<Result<Message, LoadError>>>,
     state: ThrobberState,
     last_tick: Instant,
 }
@@ -37,18 +44,10 @@ impl LoadingScreen {
     {
         let wrapper = move || func().map_err(|e| e.into());
         Self {
-            handle: std::thread::spawn(wrapper),
+            handle: Some(std::thread::spawn(wrapper)),
             state: ThrobberState::default(),
             last_tick: Instant::now(),
         }
-    }
-
-    pub fn join(self) -> Message {
-        return match self.handle.join() {
-            Ok(Ok(message)) => message,
-            Ok(Err(error)) => todo!("Show error screen: {error}"),
-            Err(handle_error) => todo!("Show error scrren: {handle_error:?}"),
-        };
     }
 
     fn tick(&mut self) {
@@ -58,30 +57,46 @@ impl LoadingScreen {
 }
 
 impl Page for LoadingScreen {
-    fn render(&mut self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect) {
+    fn render(
+        &mut self,
+        frame: &mut ratatui::Frame,
+        area: ratatui::prelude::Rect,
+        config: &Config,
+    ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
             .label("Loading words...")
             .throbber_style(
                 Style::default()
-                    .fg(ratatui::style::Color::Yellow)
+                    .fg(config.theme.spinner)
                     .add_modifier(ratatui::style::Modifier::BOLD),
             )
             .throbber_set(BRAILLE_SIX)
             .use_type(WhichUse::Spin);
 
-        frame.render_stateful_widget(throbber, center, &mut self.state);
+        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
+
+        let text = Paragraph::new(throbber.to_line(&self.state))
+            .alignment(Alignment::Center)
+            .block(block);
+
+        frame.render_widget(text, center);
     }
 
-    fn poll(&mut self) -> Option<Message> {
+    fn poll(&mut self, _config: &Config) -> Option<Message> {
         if self.last_tick.elapsed() > Duration::from_millis(200) {
             self.tick();
         }
-        if self.handle.is_finished() {
-            return Some(Message::ShowLoaded);
+
+        if let Some(handle) = &self.handle {
+            if !handle.is_finished() {
+                return None;
+            }
         }
 
-        None
+        let show = self.handle.take()?.join().ok()?.ok()?; // TODO: Errors
+
+        Some(show)
     }
 }

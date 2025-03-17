@@ -5,6 +5,8 @@ use ratatui::{
     text::ToSpan,
 };
 
+use crate::config::TextColors;
+
 #[derive(Debug)]
 pub(crate) enum CharacterResult {
     Wrong(char), // TODO: Use character here to display multiple wrong characters after a word, like monkeytype does.
@@ -79,22 +81,24 @@ impl Segment {
         self.input.len()
     }
 
-    pub fn render_line(&self, show_cursor: bool) -> ratatui::prelude::Line<'_> {
+    pub fn render_line(
+        &self,
+        show_cursor: bool,
+        colors: &TextColors,
+    ) -> ratatui::prelude::Line<'_> {
         self.tokens
             .iter()
             .enumerate()
             .map(|(idx, character)| {
                 let mut style = Style::new();
-                style = if let Some(c) = self.input.get(idx) {
-                    match c {
-                        CharacterResult::Right => style.fg(Color::Green),
-                        CharacterResult::Corrected => style.fg(Color::Yellow),
-                        CharacterResult::Wrong(_) if *character == ' ' => style.bg(Color::Red),
-                        CharacterResult::Wrong(_) => style.fg(Color::Red),
+                if let Some(c) = self.input.get(idx) {
+                    style = match c {
+                        CharacterResult::Right => style.fg(colors.success),
+                        CharacterResult::Corrected => style.fg(colors.warning),
+                        CharacterResult::Wrong(_) if *character == ' ' => style.bg(colors.error),
+                        CharacterResult::Wrong(_) => style.fg(colors.error),
                     }
                     .add_modifier(Modifier::BOLD)
-                } else {
-                    style.fg(Color::White)
                 };
 
                 if show_cursor && idx == self.input.len() {

@@ -12,6 +12,7 @@ use std::{
     collections::HashMap,
     fmt::Display,
     ops::{Div, Rem},
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -20,7 +21,10 @@ mod text;
 
 pub use text::Segment;
 
-use crate::utils::{KeyEventHelper, Message, Page};
+use crate::{
+    config::Config,
+    utils::{KeyEventHelper, Message, Page, Timestamp},
+};
 
 pub struct StatsCache {
     acc: f64,
@@ -78,12 +82,11 @@ impl TypingSession {
 
     pub fn poll_stats(&mut self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
-            let final_point = self.calculate_stats(true);
-            return Some(Box::new(self.stats.build_stats(
-                &self.text,
-                final_point.wpm?,
-                final_point.acc,
-            )));
+            let time = self.elapsed_minutes();
+            let input_length = self.input_length();
+            let wpm = self.calculate_wpm(time, input_length);
+            let acc = self.calculate_acc();
+            return Some(Box::new(self.stats.build_stats(&self.text, wpm, acc, time)));
         }
 
         None
@@ -96,8 +99,19 @@ impl TypingSession {
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
         let time = self.elapsed_minutes();
 
+        let time_since_poll = self
+            .last_wpm_poll
+            .map(|i| i.elapsed().as_secs_f64() / 60.0)
+            .unwrap_or_default();
+
         let with_wpm = self.should_calc_wpm();
-        let new = self.calculate_stats(with_wpm);
+        let new = StatsCache {
+            acc: self.calculate_acc(),
+            wpm: with_wpm.then(|| {
+                let input_len = self.input_length().abs_diff(self.last_input_len);
+                self.calculate_wpm(time_since_poll, input_len)
+            }),
+        };
 
         let error = error.then_some(character);
 
@@ -178,42 +192,34 @@ impl TypingSession {
         false
     }
 
-    pub fn calculate_stats(&mut self, with_wpm: bool) -> StatsCache {
+    pub fn calculate_wpm(&mut self, time: Timestamp, input_len: usize) -> Wpm {
+        let frame_characters = input_len as f64;
+
+        let raw = frame_characters.div(5.0).div(time);
+
+        let current_errors = self.get_current_errors() as f64;
+
+        let epm = current_errors.div(time);
+        let actual = raw - epm;
+
+        self.last_wpm_poll = Some(Instant::now());
+        self.last_input_len = self.input_length();
+
+        Wpm {
+            raw,
+            actual: actual.clamp(0.0, f64::MAX),
+        }
+    }
+
+    pub fn calculate_acc(&mut self) -> f64 {
         let characters = self.input_length() as f64;
         let actual_errors = self.get_actual_errors() as f64;
-
-        let wpm = with_wpm.then(|| {
-            let time = self
-                .last_wpm_poll
-                .map(|i| i.elapsed().as_secs_f64() / 60.0)
-                .unwrap_or_default();
-
-            let frame_characters = self.input_length().saturating_sub(self.last_input_len) as f64;
-
-            let raw = frame_characters.div(5.0).div(time);
-
-            let current_errors = self.get_current_errors() as f64;
-
-            let epm = current_errors.div(time);
-            let actual = raw - epm;
-
-            self.last_wpm_poll = Some(Instant::now());
-            self.last_input_len = self.input_length();
-
-            Wpm {
-                raw,
-                actual: actual.clamp(0.0, f64::MAX),
-            }
-        });
-
-        let acc = 1.0 - (actual_errors / characters);
-
-        StatsCache { wpm, acc }
+        (1.0 - (actual_errors / characters)) * 100.0
     }
 }
 
 impl Page for TypingSession {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
         // TODO: Find a better way to handle
         if self.current_segment_idx == self.text.len() {
             return;
@@ -223,7 +229,7 @@ impl Page for TypingSession {
             .text
             .iter()
             .enumerate()
-            .map(|(idx, seg)| seg.render_line(idx == self.current_segment_idx))
+            .map(|(idx, seg)| seg.render_line(idx == self.current_segment_idx, &config.theme.text))
             .collect::<Vec<Line>>();
 
         let paragraph = Paragraph::new(text)
@@ -238,7 +244,7 @@ impl Page for TypingSession {
         frame.render_widget(paragraph.block(block), center);
     }
 
-    fn render_top(&mut self) -> Option<Line> {
+    fn render_top(&mut self, _config: &Config) -> Option<Line> {
         let time = self.elapsed();
         let seconds = time.as_secs().rem(60);
         let minutes = time.as_secs() / 60;
@@ -251,7 +257,11 @@ impl Page for TypingSession {
         })))
     }
 
-    fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
+    fn handle_events(
+        &mut self,
+        event: &crossterm::event::Event,
+        _config: &Config,
+    ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {

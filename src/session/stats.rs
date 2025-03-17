@@ -12,7 +12,11 @@ use ratatui::{
     Frame,
 };
 
-use crate::utils::{KeyEventHelper, Message, Page, Timestamp, ROUNDED_BLOCK};
+use crate::{
+    app::Menu,
+    config::Config,
+    utils::{KeyEventHelper, Message, Page, Timestamp, ROUNDED_BLOCK},
+};
 
 use super::Segment;
 
@@ -74,7 +78,13 @@ impl RunningStats {
         }
     }
 
-    pub fn build_stats(&self, text: &[Segment], final_wpm: Wpm, final_acc: f64) -> Stats {
+    pub fn build_stats(
+        &self,
+        text: &[Segment],
+        final_wpm: Wpm,
+        final_acc: f64,
+        time: Timestamp,
+    ) -> Stats {
         let errors_count = text.iter().map(Segment::actual_errors).sum();
         let corrected = text
             .iter()
@@ -130,7 +140,7 @@ impl RunningStats {
                 self.wpm.last().expect("No data").0,
             ],
             consistency,
-            time: self.wpm.last().expect("No data").0,
+            time,
         }
     }
 }
@@ -174,7 +184,7 @@ pub struct Stats {
 }
 
 impl Page for Stats {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
         let [text, charts] =
             Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .areas(area);
@@ -188,31 +198,34 @@ impl Page for Stats {
         let [summary, characters] =
             Layout::vertical([Constraint::Length(9), Constraint::Fill(1)]).areas(text_area);
 
+        let colors = &config.theme.plot;
+
         let raw_wpm = Dataset::default()
             .name("Raw Wpm")
             .marker(Marker::Braille)
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(Color::Gray))
+            .style(Style::default().fg(colors.raw_wpm))
             .data(&self.raw_wpm);
 
         let actual_wpm = Dataset::default()
             .name("Wpm")
             .marker(Marker::Braille)
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(Color::Yellow))
+            .style(Style::default().fg(colors.actual_wpm))
             .data(&self.actual_wpm);
 
         let errors = Dataset::default()
             .name("Errors")
             .marker(Marker::Dot)
             .graph_type(GraphType::Scatter)
-            .style(Style::default().fg(Color::Red))
+            .style(Style::default().fg(colors.errors))
             .data(&self.errors);
 
         let acc = Dataset::default()
             .name("Accuracy")
             .marker(Marker::Braille)
             .graph_type(GraphType::Line)
+            .style(Style::default().fg(colors.accurracy))
             .data(&self.acc);
 
         let wpm_chart = Chart::new(vec![raw_wpm, actual_wpm])
@@ -222,8 +235,8 @@ impl Page for Stats {
                     .title("Time")
                     .style(Style::default().fg(Color::Gray))
                     .labels([
-                        Span::raw(self.x_bounds[0].to_string()),
-                        Span::raw(self.x_bounds[1].to_string()),
+                        Span::raw(self.x_bounds[0].trunc().to_string()),
+                        Span::raw(self.x_bounds[1].trunc().to_string()),
                     ])
                     .bounds(self.x_bounds),
             )
@@ -248,13 +261,13 @@ impl Page for Stats {
                     .title("Time")
                     .style(Style::default().fg(Color::Gray))
                     .labels([Span::raw("start"), Span::raw("end")])
-                    .bounds(self.x_bounds),
+                    .bounds([self.x_bounds[0], self.time]),
             )
             .y_axis(
                 Axis::default()
                     .style(Style::default().fg(Color::Gray))
                     .labels([Span::raw("0%"), Span::raw("50%"), Span::raw("100%")])
-                    .bounds([0.0, 1.0]),
+                    .bounds([0.0, 100.0]),
             )
             .legend_position(Some(LegendPosition::BottomRight));
 
@@ -305,14 +318,18 @@ impl Page for Stats {
         frame.render_widget(character_errors, characters);
     }
 
-    fn render_top(&mut self) -> Option<Line> {
+    fn render_top(&mut self, _config: &Config) -> Option<Line> {
         Some(Line::raw(" <Q> to go back to the menu "))
     }
 
-    fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
+    fn handle_events(
+        &mut self,
+        event: &crossterm::event::Event,
+        _config: &Config,
+    ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press_char('q') {
-                return Some(Message::ShowMenu);
+                return Some(Message::Show(Menu::new().boxed()));
             }
         }
 

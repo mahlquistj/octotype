@@ -1,14 +1,15 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::Constraint,
+    layout::{Alignment, Constraint},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::Paragraph,
+    widgets::{Block, Padding, Paragraph},
 };
 
 use crate::{
+    config::Config,
     session::{Segment, TypingSession},
     utils::{center, KeyEventHelper, Message, Page},
 };
@@ -150,8 +151,15 @@ impl Menu {
 }
 
 impl Page for Menu {
-    fn render(&mut self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect) {
+    fn render(
+        &mut self,
+        frame: &mut ratatui::Frame,
+        area: ratatui::prelude::Rect,
+        _config: &Config,
+    ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+
+        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
         let text = vec![
             Line::from(vec![
@@ -164,12 +172,18 @@ impl Page for Menu {
             ]),
         ];
 
-        let settings = Paragraph::new(text);
+        let settings = Paragraph::new(text)
+            .alignment(Alignment::Center)
+            .block(block);
 
         frame.render_widget(settings, center);
     }
 
-    fn handle_events(&mut self, event: &crossterm::event::Event) -> Option<Message> {
+    fn handle_events(
+        &mut self,
+        event: &crossterm::event::Event,
+        _config: &Config,
+    ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {
@@ -187,8 +201,10 @@ impl Page for Menu {
                         let session_loader = LoadingScreen::load(move || {
                             Self::create_session(source, words_amount, max_word_length)
                                 .map(|session| Message::Show(session.boxed()))
-                        });
-                        return Some(Message::Await(session_loader));
+                        })
+                        .boxed();
+
+                        return Some(Message::Show(session_loader));
                     }
                     _ => (),
                 }
