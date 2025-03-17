@@ -5,7 +5,7 @@ use ratatui::{
     text::ToSpan,
 };
 
-use crate::config::TextColors;
+use crate::config::TextTheme;
 
 #[derive(Debug)]
 pub(crate) enum CharacterResult {
@@ -81,11 +81,7 @@ impl Segment {
         self.input.len()
     }
 
-    pub fn render_line(
-        &self,
-        show_cursor: bool,
-        colors: &TextColors,
-    ) -> ratatui::prelude::Line<'_> {
+    pub fn render_line(&self, show_cursor: bool, colors: &TextTheme) -> ratatui::prelude::Line<'_> {
         self.tokens
             .iter()
             .enumerate()

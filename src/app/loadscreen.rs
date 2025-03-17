@@ -16,6 +16,7 @@ use crate::{
     utils::{center, Message, Page},
 };
 
+#[derive(Debug)]
 pub struct LoadError(String);
 
 impl Display for LoadError {
@@ -66,7 +67,11 @@ impl Page for LoadingScreen {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
-            .label("Loading words...")
+            .label(if self.handle.is_some() {
+                "Loading..."
+            } else {
+                "Not loading..."
+            })
             .throbber_style(
                 Style::default()
                     .fg(config.theme.spinner)
@@ -95,7 +100,7 @@ impl Page for LoadingScreen {
             }
         }
 
-        let show = self.handle.take()?.join().ok()?.ok()?; // TODO: Errors
+        let show = self.handle.take().unwrap().join().unwrap().unwrap(); // TODO: Errors
 
         Some(show)
     }

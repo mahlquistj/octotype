@@ -54,6 +54,7 @@ impl App {
         if let Some(top_msg) = self.page.render_top(&self.config) {
             block = block.title_top(top_msg);
         }
+
         frame.render_widget(block, area);
         self.page.render(frame, content, &self.config);
     }

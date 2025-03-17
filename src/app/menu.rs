@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
@@ -7,6 +7,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Padding, Paragraph},
 };
+use serde::Deserialize;
 
 use crate::{
     config::Config,
@@ -20,6 +21,7 @@ use super::LoadingScreen;
 pub enum SourceError {
     CommonWords(std::io::Error),
     Request(minreq::Error),
+    Parse,
 }
 
 impl From<std::io::Error> for SourceError {
@@ -39,6 +41,7 @@ impl Display for SourceError {
         let error = match self {
             Self::Request(e) => e.to_string(),
             Self::CommonWords(e) => e.to_string(),
+            Self::Parse => "Failed to parse api response".to_string(),
         };
 
         write!(f, "{error}")
@@ -47,6 +50,22 @@ impl Display for SourceError {
 
 impl std::error::Error for SourceError {}
 
+#[derive(Deserialize)]
+struct QuoteWrapper {
+    quote: Quote,
+}
+
+#[derive(Deserialize)]
+#[serde(rename = "quote")]
+struct Quote {
+    // id: String,
+    content: String,
+    // author: String,
+    // slug: String,
+    // length: usize,
+    // tags: Vec<String>,
+}
+
 #[derive(Clone)]
 pub enum Source {
     CommonWords {
@@ -54,15 +73,17 @@ pub enum Source {
         lang: String,
     },
 
-    RandomApi {
+    RandomWords {
         // The language selected (None = English)
         lang: Option<String>,
     },
+
+    Quote,
 }
 
 impl Default for Source {
     fn default() -> Self {
-        Self::RandomApi { lang: None }
+        Self::Quote
     }
 }
 
@@ -70,15 +91,9 @@ impl Source {
     fn fetch(&self, amount: usize, max_length: Option<usize>) -> Result<Vec<String>, SourceError> {
         let words = match self {
             Self::CommonWords { .. } => todo!("Implement commonwords"),
-            Self::RandomApi { lang } => {
+            Self::RandomWords { lang } => {
                 let mut req = minreq::get("https://random-word-api.herokuapp.com/word")
                     .with_param("number", amount.to_string());
-                // Add a header in case the api wants to block the app.
-                // .with_header(
-                //
-                //     "typers_request",
-                //     "CONTACT: https://github.com/madser123/typers",
-                // );
 
                 if let Some(language) = lang {
                     req = req.with_param("lang", language);
@@ -90,6 +105,14 @@ impl Source {
 
                 req.send()?.json::<Vec<String>>()?
             }
+            Self::Quote => minreq::get("https://api.quotable.kurokeita.dev/api/quotes/random")
+                .send()?
+                .json::<QuoteWrapper>()?
+                .quote
+                .content
+                .split_ascii_whitespace()
+                .map(str::to_string)
+                .collect::<Vec<String>>(),
         };
 
         Ok(words)
@@ -105,7 +128,7 @@ pub struct Menu {
 impl Default for Menu {
     fn default() -> Self {
         Self {
-            source: Source::RandomApi { lang: None },
+            source: Source::default(),
             words_amount: 10,
             max_word_length: 0,
         }

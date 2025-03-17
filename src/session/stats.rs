@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crossterm::event::Event;
+use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
@@ -15,7 +15,7 @@ use ratatui::{
 use crate::{
     app::Menu,
     config::Config,
-    utils::{KeyEventHelper, Message, Page, Timestamp, ROUNDED_BLOCK},
+    utils::{Message, Page, Timestamp, ROUNDED_BLOCK},
 };
 
 use super::Segment;
@@ -190,42 +190,42 @@ impl Page for Stats {
                 .areas(area);
 
         let [wpm, accuracy] =
-            Layout::vertical([Constraint::Percentage(30), Constraint::Percentage(70)])
+            Layout::vertical([Constraint::Percentage(40), Constraint::Percentage(60)])
                 .areas(charts);
 
         let text_area = Block::new().padding(Padding::right(1)).inner(text);
 
         let [summary, characters] =
-            Layout::vertical([Constraint::Length(9), Constraint::Fill(1)]).areas(text_area);
+            Layout::vertical([Constraint::Length(10), Constraint::Fill(1)]).areas(text_area);
 
-        let colors = &config.theme.plot;
+        let theme = &config.theme.plot;
 
         let raw_wpm = Dataset::default()
             .name("Raw Wpm")
-            .marker(Marker::Braille)
+            .marker(theme.line_symbol.into())
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(colors.raw_wpm))
+            .style(Style::default().fg(theme.raw_wpm))
             .data(&self.raw_wpm);
 
         let actual_wpm = Dataset::default()
             .name("Wpm")
-            .marker(Marker::Braille)
+            .marker(theme.line_symbol.into())
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(colors.actual_wpm))
+            .style(Style::default().fg(theme.actual_wpm))
             .data(&self.actual_wpm);
 
         let errors = Dataset::default()
             .name("Errors")
-            .marker(Marker::Dot)
+            .marker(theme.scatter_symbol.into())
             .graph_type(GraphType::Scatter)
-            .style(Style::default().fg(colors.errors))
+            .style(Style::default().fg(theme.errors))
             .data(&self.errors);
 
         let acc = Dataset::default()
             .name("Accuracy")
-            .marker(Marker::Braille)
+            .marker(theme.line_symbol.into())
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(colors.accurracy))
+            .style(Style::default().fg(theme.accurracy))
             .data(&self.acc);
 
         let wpm_chart = Chart::new(vec![raw_wpm, actual_wpm])
@@ -319,7 +319,7 @@ impl Page for Stats {
     }
 
     fn render_top(&mut self, _config: &Config) -> Option<Line> {
-        Some(Line::raw(" <Q> to go back to the menu "))
+        Some(Line::raw("<Enter> to go back to the menu"))
     }
 
     fn handle_events(
@@ -328,7 +328,7 @@ impl Page for Stats {
         _config: &Config,
     ) -> Option<Message> {
         if let Event::Key(key) = event {
-            if key.is_press_char('q') {
+            if key.code == KeyCode::Enter {
                 return Some(Message::Show(Menu::new().boxed()));
             }
         }
