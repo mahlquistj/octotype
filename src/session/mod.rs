@@ -1,3 +1,10 @@
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    ops::{Div, Rem},
+    time::{Duration, Instant},
+};
+
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Alignment, Constraint, Rect},
@@ -6,26 +13,20 @@ use ratatui::{
     Frame,
 };
 
-use stats::Wpm;
-pub use stats::{RunningStats, Stats};
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    ops::{Div, Rem},
-    time::{Duration, Instant},
-};
-
-mod stats;
-mod text;
-
-pub use text::Segment;
-
 use crate::{
     config::Config,
     utils::{KeyEventHelper, Message, Page, Timestamp},
 };
 
-pub struct StatsCache {
+mod stats;
+mod text;
+
+use stats::Wpm;
+pub use stats::{RunningStats, Stats};
+pub use text::Segment;
+
+/// Helper struct for caching stats throughout the session
+struct StatsCache {
     acc: f64,
     wpm: Option<Wpm>,
 }
@@ -40,12 +41,15 @@ impl Display for StatsCache {
     }
 }
 
+/// Page: TypingSession
 #[derive(Default)]
 pub struct TypingSession {
     text: Vec<Segment>,
     current_segment_idx: usize,
     first_keypress: Option<Instant>,
     stats: RunningStats,
+
+    /// Caches
     current_error_cache: HashMap<usize, u16>,
     actual_error_cache: HashMap<usize, u16>,
     stat_cache: Option<StatsCache>,
@@ -54,6 +58,7 @@ pub struct TypingSession {
 }
 
 impl TypingSession {
+    /// Creates a new `TypingSession`
     pub fn new(text: Vec<Segment>) -> Self {
         Self {
             text,
@@ -61,10 +66,12 @@ impl TypingSession {
         }
     }
 
+    /// Get the current input length of all the segments
     fn input_length(&self) -> usize {
         self.text.iter().map(Segment::input_length).sum()
     }
 
+    /// Get the current amount of errors in all of the segments
     fn get_current_errors(&mut self) -> u16 {
         let current_errors = self.current_segment().current_errors();
         self.current_error_cache
@@ -72,6 +79,7 @@ impl TypingSession {
         self.current_error_cache.values().sum()
     }
 
+    /// Get the amount of actual errors (Corrected and uncorrected) in all of the segments
     fn get_actual_errors(&mut self) -> u16 {
         let actual_errors = self.current_segment().actual_errors();
         self.actual_error_cache
@@ -79,7 +87,10 @@ impl TypingSession {
         self.actual_error_cache.values().sum()
     }
 
-    pub fn poll_stats(&mut self) -> Option<Box<Stats>> {
+    /// Polls the session.
+    ///
+    /// Returns the stats if the session is done. Returns `None` otherwise
+    fn poll_stats(&mut self) -> Option<Box<Stats>> {
         if self.text.iter().all(|seg| seg.is_done()) {
             let time = self.elapsed_minutes();
             let input_length = self.input_length();
@@ -91,10 +102,12 @@ impl TypingSession {
         None
     }
 
+    /// Get the current active segment in the session
     fn current_segment(&mut self) -> &mut Segment {
         &mut self.text[self.current_segment_idx]
     }
 
+    /// Update the stats with new data
     fn update_stats(&mut self, character: char, error: bool, delete: bool) {
         let time = self.elapsed_minutes();
 
@@ -122,7 +135,8 @@ impl TypingSession {
         };
     }
 
-    pub fn delete_input(&mut self) {
+    /// Deletes a character from the session
+    fn delete_input(&mut self) {
         let idx = self.current_segment_idx;
         let segment = self.current_segment();
 
@@ -141,7 +155,8 @@ impl TypingSession {
         }
     }
 
-    pub fn add(&mut self, character: char) {
+    /// Adds a character to the session
+    fn add(&mut self, character: char) {
         let idx = self.current_segment_idx;
         let segment = self.current_segment();
         let actual_char = segment
@@ -158,7 +173,8 @@ impl TypingSession {
         self.update_stats(actual_char, is_error, false);
     }
 
-    pub fn elapsed(&self) -> Duration {
+    /// Get the elapsed `Duration` of the session
+    fn elapsed(&self) -> Duration {
         if let Some(timestamp) = self.first_keypress {
             return timestamp.elapsed();
         }
@@ -166,7 +182,8 @@ impl TypingSession {
         Duration::ZERO
     }
 
-    pub fn elapsed_minutes(&mut self) -> f64 {
+    /// Get the elapsed time of the session in minutes
+    fn elapsed_minutes(&mut self) -> f64 {
         if let Some(timestamp) = self.first_keypress {
             return timestamp.elapsed().as_secs_f64() / 60.0;
         }
@@ -179,7 +196,8 @@ impl TypingSession {
         0.0
     }
 
-    pub fn should_calc_wpm(&mut self) -> bool {
+    /// Checks if the session should calculate wpm
+    fn should_calc_wpm(&mut self) -> bool {
         let Some(last_poll) = self.last_wpm_poll else {
             return false;
         };
@@ -191,7 +209,8 @@ impl TypingSession {
         false
     }
 
-    pub fn calculate_wpm(&mut self, time: Timestamp, input_len: usize) -> Wpm {
+    /// Calculates Wpm based on the given time and input_len
+    fn calculate_wpm(&mut self, time: Timestamp, input_len: usize) -> Wpm {
         let frame_characters = input_len as f64;
 
         let raw = frame_characters.div(5.0).div(time);
@@ -210,7 +229,8 @@ impl TypingSession {
         }
     }
 
-    pub fn calculate_acc(&mut self) -> f64 {
+    /// Calculates the current accuracy of the session
+    fn calculate_acc(&mut self) -> f64 {
         let characters = self.input_length() as f64;
         let actual_errors = self.get_actual_errors() as f64;
         (1.0 - (actual_errors / characters)) * 100.0
@@ -256,6 +276,10 @@ impl Page for TypingSession {
         })))
     }
 
+    fn poll(&mut self, _config: &Config) -> Option<Message> {
+        self.poll_stats().map(|stats| Message::Show(stats))
+    }
+
     fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
@@ -269,10 +293,6 @@ impl Page for TypingSession {
                     _ => (),
                 }
             }
-        }
-
-        if let Some(stats) = self.poll_stats() {
-            return Some(Message::Show(stats));
         }
 
         None

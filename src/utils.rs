@@ -8,8 +8,10 @@ use ratatui::{
 
 use crate::config::Config;
 
+/// Timestamp type for more clarity
 pub type Timestamp = f64;
 
+/// A block with a rounded border
 pub const ROUNDED_BLOCK: Block = Block::bordered().border_type(BorderType::Rounded);
 
 pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
@@ -24,20 +26,24 @@ pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect 
 
 /// A trait defining helper methods for keyevents
 pub trait KeyEventHelper {
+    /// Returns true if the keyevent contains a pressed key
     fn is_press(&self) -> bool;
-    fn has_ctrl_mod(&self) -> bool;
+
+    /// Returns true if the keyevent contains the given modifiers
+    fn has_mods(&self, mods: KeyModifiers) -> bool;
+
+    /// Returns true if the keyevent contains a character that matches the input
     fn is_char(&self, character: char) -> bool;
 
+    /// Returns true if the keyevent matches the given character, and is being pressed
     fn is_press_char(&self, character: char) -> bool {
         self.is_press() && self.is_char(character)
     }
 
-    fn is_ctrl_press(&self) -> bool {
-        self.is_press() && self.has_ctrl_mod()
-    }
-
+    /// Returns true if the keyevent matches the given character, and is being pressed with CTRL as
+    /// a modifier.
     fn is_ctrl_press_char(&self, character: char) -> bool {
-        self.has_ctrl_mod() && self.is_press_char(character)
+        self.has_mods(KeyModifiers::CONTROL) && self.is_press_char(character)
     }
 }
 
@@ -50,35 +56,42 @@ impl KeyEventHelper for KeyEvent {
         self.code == KeyCode::Char(character)
     }
 
-    fn has_ctrl_mod(&self) -> bool {
-        self.modifiers.contains(KeyModifiers::CONTROL)
+    fn has_mods(&self, mods: KeyModifiers) -> bool {
+        self.modifiers.contains(mods)
     }
 }
 
+/// An app message
 pub enum Message {
-    Quit,
     Show(Box<dyn Page + Send>),
 }
 
 pub trait Page {
-    // Renders the page. Called every cycle
+    /// Renders the page. Called every cycle
     fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config);
 
-    // Renders a line in the top left of the window.
-    // Called every cycle, before render
+    /// Renders a line in the top left of the window.
+    ///
+    /// Called every cycle, before render.
     fn render_top(&mut self, _config: &Config) -> Option<Line> {
         None
     }
 
-    // Handles events for the page. Called every time an event appears
+    /// Handles events for the page.
+    ///
+    /// Called every time an event appears, after render
     fn handle_events(&mut self, _event: &Event, _config: &Config) -> Option<Message> {
         None
     }
 
+    /// Polls the page for any extra messages (e.g. loadingscreen finished).
+    ///
+    /// Called before handle_events
     fn poll(&mut self, _config: &Config) -> Option<Message> {
         None
     }
 
+    /// Boxes the page
     fn boxed(self) -> Box<Self>
     where
         Self: Sized,

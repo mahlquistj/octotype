@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Alignment, Constraint},
-    style::{Modifier, Style},
+    style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Padding, Paragraph},
 };
@@ -17,16 +17,18 @@ use crate::{
 
 use super::LoadingScreen;
 
+/// Errors from word sources
 #[derive(Debug)]
 pub enum SourceError {
-    CommonWords(std::io::Error),
+    IO(std::io::Error),
     Request(minreq::Error),
-    Parse,
 }
+
+impl std::error::Error for SourceError {}
 
 impl From<std::io::Error> for SourceError {
     fn from(value: std::io::Error) -> Self {
-        Self::CommonWords(value)
+        Self::IO(value)
     }
 }
 
@@ -39,22 +41,21 @@ impl From<minreq::Error> for SourceError {
 impl Display for SourceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error = match self {
-            Self::Request(e) => e.to_string(),
-            Self::CommonWords(e) => e.to_string(),
-            Self::Parse => "Failed to parse api response".to_string(),
+            Self::Request(e) => format!("Request error: {e}"),
+            Self::IO(e) => format!("Request error: {e}"),
         };
 
         write!(f, "{error}")
     }
 }
 
-impl std::error::Error for SourceError {}
-
+/// Wrapper for parsing quotes from quotes-api
 #[derive(Deserialize)]
 struct QuoteWrapper {
     quote: Quote,
 }
 
+/// A quote object from quotes-api
 #[derive(Deserialize)]
 #[serde(rename = "quote")]
 struct Quote {
@@ -66,6 +67,7 @@ struct Quote {
     // tags: Vec<String>,
 }
 
+/// The different souces we get words from
 #[derive(Clone)]
 pub enum Source {
     CommonWords {
@@ -88,7 +90,8 @@ impl Default for Source {
 }
 
 impl Source {
-    fn fetch(&self, amount: usize, max_length: Option<usize>) -> Result<Vec<String>, SourceError> {
+    /// Fetch words from the source
+    fn fetch(&self, amount: u32, max_length: Option<u32>) -> Result<Vec<String>, SourceError> {
         let words = match self {
             Self::CommonWords { .. } => todo!("Implement commonwords"),
             Self::RandomWords { lang } => {
@@ -119,10 +122,11 @@ impl Source {
     }
 }
 
+/// Page: Main menu
 pub struct Menu {
     source: Source,
-    words_amount: usize,
-    max_word_length: usize,
+    words_amount: u32,
+    max_word_length: u32,
 }
 
 impl Default for Menu {
@@ -136,14 +140,16 @@ impl Default for Menu {
 }
 
 impl Menu {
+    /// Creates a new menu
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn create_session(
+    /// Create a `TypingSession` with the given parameters
+    fn create_session(
         source: Source,
-        words_amount: usize,
-        max_word_length: Option<usize>,
+        words_amount: u32,
+        max_word_length: Option<u32>,
     ) -> Result<TypingSession, SourceError> {
         let words = source.fetch(words_amount, max_word_length)?;
         let last_segment = words.chunks(5).count() - 1;
@@ -187,11 +193,11 @@ impl Page for Menu {
         let text = vec![
             Line::from(vec![
                 Span::raw(format!("Words     : {}", self.words_amount)),
-                Span::styled("↕", Style::new().add_modifier(Modifier::BOLD)),
+                Span::styled("↕", Style::new().bold()),
             ]),
             Line::from(vec![
                 Span::raw(format!("Max length: {}", self.max_word_length)),
-                Span::styled("↔", Style::new().add_modifier(Modifier::BOLD)),
+                Span::styled("↔", Style::new().bold()),
             ]),
         ];
 
@@ -210,17 +216,20 @@ impl Page for Menu {
         if let Event::Key(key) = event {
             if key.is_press() {
                 match key.code {
-                    KeyCode::Up => self.words_amount += 1,
-                    KeyCode::Down => self.words_amount -= 1,
+                    KeyCode::Up => self.words_amount = self.words_amount.saturating_add(1),
+                    KeyCode::Down => self.words_amount = self.words_amount.saturating_sub(1),
 
-                    KeyCode::Right => self.max_word_length += 1,
-                    KeyCode::Left => self.max_word_length -= 1,
+                    KeyCode::Right => self.max_word_length = self.max_word_length.saturating_add(1),
+                    KeyCode::Left => self.max_word_length = self.max_word_length.saturating_sub(1),
 
                     KeyCode::Enter => {
                         let source = self.source.clone();
                         let words_amount = self.words_amount;
+
                         let max_word_length =
                             (self.max_word_length > 0).then_some(self.max_word_length);
+
+                        // Spawn a `LoadingScreen` that loads the `TypingSession`
                         let session_loader = LoadingScreen::load(move || {
                             Self::create_session(source, words_amount, max_word_length)
                                 .map(|session| Message::Show(session.boxed()))
@@ -233,9 +242,6 @@ impl Page for Menu {
                 }
             }
         }
-
-        self.words_amount = self.words_amount.clamp(0, 50);
-        self.max_word_length = self.max_word_length.clamp(0, 100);
 
         None
     }

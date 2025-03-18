@@ -6,16 +6,17 @@ use std::{
 
 use ratatui::{
     layout::{Alignment, Constraint},
-    style::Style,
+    style::{Style, Stylize},
     widgets::{Block, Padding, Paragraph},
 };
-use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse, BRAILLE_SIX};
+use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
 use crate::{
     config::Config,
     utils::{center, Message, Page},
 };
 
+/// An error during loading
 #[derive(Debug)]
 pub struct LoadError(String);
 
@@ -31,13 +32,19 @@ impl<E: std::error::Error> From<E> for LoadError {
     }
 }
 
+/// Page: LoadingScreen
 pub struct LoadingScreen {
+    /// The handle of the underlying thread
     handle: Option<JoinHandle<Result<Message, LoadError>>>,
     state: ThrobberState,
     last_tick: Instant,
 }
 
 impl LoadingScreen {
+    /// Creats a new `LoadingScreen`.
+    ///
+    /// * `F`: The closure to run in the background
+    /// * `E`: The error type returned by the closure (`F`)
     pub fn load<F, E>(func: F) -> Self
     where
         F: FnOnce() -> Result<Message, E> + Send + 'static,
@@ -51,9 +58,21 @@ impl LoadingScreen {
         }
     }
 
+    /// Checks if the underlying thread is finished
+    fn is_finished(&self) -> bool {
+        if let Some(handle) = &self.handle {
+            return handle.is_finished();
+        }
+
+        false
+    }
+
+    /// Ticks the spinner
     fn tick(&mut self) {
-        self.state.calc_next();
-        self.last_tick = Instant::now();
+        if self.last_tick.elapsed() > Duration::from_millis(200) {
+            self.state.calc_next();
+            self.last_tick = Instant::now();
+        }
     }
 }
 
@@ -67,17 +86,9 @@ impl Page for LoadingScreen {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
-            .label(if self.handle.is_some() {
-                "Loading..."
-            } else {
-                "Not loading..."
-            })
-            .throbber_style(
-                Style::default()
-                    .fg(config.theme.spinner)
-                    .add_modifier(ratatui::style::Modifier::BOLD),
-            )
-            .throbber_set(BRAILLE_SIX)
+            .label("Loading...")
+            .throbber_style(Style::default().fg(config.theme.spinner_color).bold())
+            .throbber_set(config.theme.spinner_symbol.as_set())
             .use_type(WhichUse::Spin);
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
@@ -90,18 +101,12 @@ impl Page for LoadingScreen {
     }
 
     fn poll(&mut self, _config: &Config) -> Option<Message> {
-        if self.last_tick.elapsed() > Duration::from_millis(200) {
-            self.tick();
+        self.tick();
+
+        if !self.is_finished() {
+            return None;
         }
 
-        if let Some(handle) = &self.handle {
-            if !handle.is_finished() {
-                return None;
-            }
-        }
-
-        let show = self.handle.take().unwrap().join().unwrap().unwrap(); // TODO: Errors
-
-        Some(show)
+        self.handle.take().unwrap().join().unwrap().ok() // TODO: Errors
     }
 }

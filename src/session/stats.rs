@@ -1,10 +1,10 @@
+use super::Segment;
 use std::collections::{BTreeMap, HashMap};
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    symbols::Marker,
+    style::{Color, Style, Stylize},
     text::{Line, Span, ToSpan},
     widgets::{
         Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition, Padding, Paragraph,
@@ -18,8 +18,7 @@ use crate::{
     utils::{Message, Page, Timestamp, ROUNDED_BLOCK},
 };
 
-use super::Segment;
-
+/// A struct describing words pr. min
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Wpm {
     pub(crate) raw: f64,
@@ -27,6 +26,7 @@ pub struct Wpm {
 }
 
 impl Wpm {
+    /// Returns the `[minimum, maximum]` values by comparing `self.raw` and `self.actual`
     fn min_max(&self) -> [f64; 2] {
         if self.raw > self.actual {
             return [self.actual, self.raw];
@@ -36,16 +36,27 @@ impl Wpm {
     }
 }
 
+/// A collection of statistics from a running session
 #[derive(Default, Debug)]
 pub struct RunningStats {
+    /// The errors that occurred during the session (Not respecting corrections)
     errors: Vec<(Timestamp, char)>,
+
+    /// The accuracy points collected
     acc: Vec<(Timestamp, f64)>,
+
+    /// Wpm points collected
     wpm: Vec<(Timestamp, Wpm)>,
+
+    /// How many times a deletion occurred
     deletetions: u16,
+
+    /// Y-axis bounds for wpm
     y_bounds: [f64; 2],
 }
 
 impl RunningStats {
+    /// Updates the `RunningStats`
     pub fn update(
         &mut self,
         time: Timestamp,
@@ -78,6 +89,7 @@ impl RunningStats {
         }
     }
 
+    /// Builds the `RunningStats` into a `Stats` page
     pub fn build_stats(
         &self,
         text: &[Segment],
@@ -145,6 +157,7 @@ impl RunningStats {
     }
 }
 
+/// Calculates the coeffectient of variation used for calculating consistency
 fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
     let values: Vec<f64> = data.iter().map(|&(_, v)| v).collect();
     let mean: f64 = values.iter().sum::<f64>() / values.len() as f64;
@@ -165,6 +178,10 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
     0.0
 }
 
+/// Page: Stats
+///
+/// Contains data and logic to show statistics after a session.
+///
 #[derive(Debug, Clone)]
 pub struct Stats {
     characters: BTreeMap<u16, Vec<char>>,
@@ -202,28 +219,28 @@ impl Page for Stats {
 
         let raw_wpm = Dataset::default()
             .name("Raw Wpm")
-            .marker(theme.line_symbol.into())
+            .marker(theme.line_symbol.as_marker())
             .graph_type(GraphType::Line)
             .style(Style::default().fg(theme.raw_wpm))
             .data(&self.raw_wpm);
 
         let actual_wpm = Dataset::default()
             .name("Wpm")
-            .marker(theme.line_symbol.into())
+            .marker(theme.line_symbol.as_marker())
             .graph_type(GraphType::Line)
             .style(Style::default().fg(theme.actual_wpm))
             .data(&self.actual_wpm);
 
         let errors = Dataset::default()
             .name("Errors")
-            .marker(theme.scatter_symbol.into())
+            .marker(theme.scatter_symbol.as_marker())
             .graph_type(GraphType::Scatter)
             .style(Style::default().fg(theme.errors))
             .data(&self.errors);
 
         let acc = Dataset::default()
             .name("Accuracy")
-            .marker(theme.line_symbol.into())
+            .marker(theme.line_symbol.as_marker())
             .graph_type(GraphType::Line)
             .style(Style::default().fg(theme.accurracy))
             .data(&self.acc);
@@ -301,7 +318,7 @@ impl Page for Stats {
                     .iter()
                     .map(|c| {
                         Line::default().spans(vec![
-                            c.to_span().style(Style::new().add_modifier(Modifier::BOLD)),
+                            c.to_span().style(Style::new().bold()),
                             Span::from(format!(": {fails}")),
                         ])
                     })
