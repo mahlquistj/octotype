@@ -26,6 +26,7 @@ pub use stats::{RunningStats, Stats};
 pub use text::Segment;
 
 /// Helper struct for caching stats throughout the session
+#[derive(Debug)]
 struct StatsCache {
     acc: f64,
     wpm: Option<Wpm>,
@@ -42,7 +43,7 @@ impl Display for StatsCache {
 }
 
 /// Page: TypingSession
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TypingSession {
     text: Vec<Segment>,
     current_segment_idx: usize,

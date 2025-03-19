@@ -152,13 +152,11 @@ impl Menu {
         max_word_length: Option<u32>,
     ) -> Result<TypingSession, SourceError> {
         let words = source.fetch(words_amount, max_word_length)?;
-        let last_segment = words.chunks(5).count() - 1;
 
         let words = words
             .chunks(5)
-            .enumerate()
-            .map(|(idx, words)| {
-                let mut string = words
+            .map(|words| {
+                let string = words
                     .iter()
                     .cloned()
                     .map(|mut word| {
@@ -166,10 +164,6 @@ impl Menu {
                         word
                     })
                     .collect::<String>();
-
-                if idx == last_segment {
-                    string.pop();
-                }
 
                 Segment::from_iter(string.chars())
             })

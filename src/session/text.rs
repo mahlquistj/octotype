@@ -1,7 +1,7 @@
-use std::{char, collections::HashSet};
+use std::{char, cmp::Ordering, collections::HashSet, ops::RangeInclusive};
 
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::ToSpan,
 };
 
@@ -12,8 +12,10 @@ use crate::config::TextTheme;
 pub(crate) enum CharacterResult {
     /// The character didn't match the actual character in the text
     Wrong(char), // TODO: Use character here to display multiple wrong characters after a word, like monkeytype does.
+
     /// The character was wrong before, but was now corrected
     Corrected,
+
     /// The character was correct
     Right,
 }
@@ -30,6 +32,7 @@ impl CharacterResult {
 pub struct Segment {
     tokens: Vec<char>,
     input: Vec<CharacterResult>,
+    words: Vec<(usize, usize)>,
     wrong_inputs: HashSet<usize>,
     current_errors: u16,
 }
@@ -92,19 +95,80 @@ impl Segment {
         self.input.len()
     }
 
+    fn get_word(&self, char_idx: usize) -> Option<(usize, usize)> {
+        let idx = self
+            .words
+            .binary_search_by(|range| {
+                if range.0 > char_idx {
+                    return Ordering::Greater;
+                }
+
+                if range.1 < char_idx {
+                    return Ordering::Less;
+                }
+
+                Ordering::Equal // The number is within range
+            })
+            .ok()?;
+
+        Some(self.words[idx])
+    }
+
+    fn is_word_misspelled(&self, word: (usize, usize)) -> bool {
+        if self.input.is_empty() {
+            return false;
+        }
+
+        let max_idx = self.input.len() - 1;
+
+        let (start, end) = word;
+
+        if start > max_idx {
+            return false;
+        }
+
+        let range = start..=end.clamp(0, max_idx);
+
+        let word = &self.input[range];
+        word.iter().any(CharacterResult::is_wrong)
+    }
+
     /// Renders the segment as a `ratatui::Line`
     pub fn render_line(&self, show_cursor: bool, colors: &TextTheme) -> ratatui::prelude::Line<'_> {
+        let mut current_word = None;
+        let mut is_misspelled = false;
+        let mut last_errors = 0;
+
         self.tokens
             .iter()
             .enumerate()
             .map(|(idx, character)| {
+                let is_space = *character == ' ';
+
+                match (&mut current_word, is_space) {
+                    (None, false) => current_word = self.get_word(idx),
+                    (Some(_), true) => current_word = None,
+                    _ => (),
+                };
+
+                // Only re-check spelling if the error-count changes
+                if last_errors != self.current_errors {
+                    last_errors = self.current_errors;
+                }
+
+                is_misspelled = current_word
+                    .as_ref()
+                    .map(|&word| self.is_word_misspelled(word))
+                    .unwrap_or_default();
+
                 let mut style = Style::new();
+
                 if let Some(c) = self.input.get(idx) {
                     style = match c {
                         CharacterResult::Right => style.fg(colors.success),
                         CharacterResult::Corrected => style.fg(colors.warning),
                         CharacterResult::Wrong(_) => {
-                            if *character == ' ' {
+                            if is_space {
                                 style.bg(colors.error)
                             } else {
                                 style.fg(colors.error)
@@ -113,6 +177,10 @@ impl Segment {
                     }
                     .add_modifier(Modifier::BOLD)
                 };
+
+                if is_misspelled {
+                    style = style.underlined().underline_color(colors.error);
+                }
 
                 if show_cursor && idx == self.input.len() {
                     style = style.bg(Color::White).fg(Color::Black);
@@ -127,10 +195,78 @@ impl Segment {
 // FromIterator impl to be able to use `.collect()`
 impl FromIterator<char> for Segment {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
-        let tokens = iter.into_iter().collect();
+        let tokens = iter.into_iter().collect::<Vec<char>>();
+        let mut words = vec![];
+
+        let mut start_of_word = 0; // First word always start at Zero
+        tokens.iter().enumerate().for_each(|(idx, c)| {
+            if *c == ' ' {
+                words.push((start_of_word, idx - 1));
+                start_of_word = idx + 1; // Set next start at next character
+            }
+        });
+
         Self {
             tokens,
+            words,
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{CharacterResult, Segment};
+
+    fn create_test_text() -> Segment {
+        "This is a test, not an actual text ".chars().collect()
+    }
+
+    #[test]
+    fn spellcheck() {
+        let mut segment = create_test_text();
+
+        for _ in 0..segment.tokens.len() {
+            segment.add_input('x'); // add wrong input
+        }
+
+        println!("{:?}", segment.input);
+
+        assert!(segment
+            .words
+            .iter()
+            .all(|&word| segment.is_word_misspelled(word)))
+    }
+
+    #[test]
+    fn word_detection() {
+        let segment = create_test_text();
+
+        println!("{:?}", segment.words);
+        assert_eq!(segment.words.len(), 8);
+
+        let mut words = segment.words.iter();
+
+        assert_eq!(words.next().unwrap(), &(0, 3)); // This
+        assert_eq!(words.next().unwrap(), &(5, 6)); // is
+        assert_eq!(words.next().unwrap(), &(8, 8)); // a
+        assert_eq!(words.next().unwrap(), &(10, 14)); // test,
+        assert_eq!(words.next().unwrap(), &(16, 18)); // not
+        assert_eq!(words.next().unwrap(), &(20, 21)); // an
+        assert_eq!(words.next().unwrap(), &(23, 28)); // actual
+        assert_eq!(words.next().unwrap(), &(30, 33)); // text
+    }
+
+    #[test]
+    fn is_result_wrong() {
+        let result = CharacterResult::Wrong('x');
+
+        assert!(result.is_wrong());
+    }
+
+    #[test]
+    fn get_word() {
+        let segment = create_test_text();
+        assert_eq!(segment.get_word(2), Some((0, 3)));
     }
 }
