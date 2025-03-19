@@ -66,6 +66,7 @@ impl KeyEventHelper for KeyEvent {
 /// This only has one variant for now, but keeping as an enum for future message-implementations
 ///
 pub enum Message {
+    Error(Box<dyn std::error::Error + Send>),
     Show(Box<dyn Page + Send>),
 }
 

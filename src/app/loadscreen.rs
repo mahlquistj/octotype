@@ -13,6 +13,7 @@ use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
 use crate::{
     config::Config,
+    error::Error,
     utils::{center, Message, Page},
 };
 
@@ -20,15 +21,11 @@ use crate::{
 #[derive(Debug)]
 pub struct LoadError(String);
 
+impl std::error::Error for LoadError {}
+
 impl Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "An error occurred while loading: {}", self.0)
-    }
-}
-
-impl<E: std::error::Error> From<E> for LoadError {
-    fn from(value: E) -> Self {
-        Self(value.to_string())
     }
 }
 
@@ -48,9 +45,9 @@ impl LoadingScreen {
     pub fn load<F, E>(func: F) -> Self
     where
         F: FnOnce() -> Result<Message, E> + Send + 'static,
-        E: Into<LoadError> + Send + 'static,
+        E: std::error::Error + Send + 'static,
     {
-        let wrapper = move || func().map_err(|e| e.into());
+        let wrapper = move || func().map_err(|e| LoadError(e.to_string()));
         Self {
             handle: Some(std::thread::spawn(wrapper)),
             state: ThrobberState::default(),
@@ -73,6 +70,16 @@ impl LoadingScreen {
             self.state.calc_next();
             self.last_tick = Instant::now();
         }
+    }
+
+    fn join(&mut self) -> Result<Option<Message>, LoadError> {
+        self.handle
+            .take()
+            .map(|th| match th.join() {
+                Ok(x) => x,
+                Err(_) => Err(LoadError("Failed to join threadhandle".to_string())),
+            })
+            .transpose()
     }
 }
 
@@ -107,6 +114,9 @@ impl Page for LoadingScreen {
             return None;
         }
 
-        self.handle.take().unwrap().join().unwrap().ok() // TODO: Errors
+        match self.join() {
+            Ok(msg) => msg,
+            Err(err) => Some(Message::Error(Box::new(err))),
+        }
     }
 }

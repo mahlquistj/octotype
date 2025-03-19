@@ -86,6 +86,7 @@ impl App {
     /// Global message handler
     fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
+            Message::Error(error) => self.page = crate::error::Error(error).boxed(),
             Message::Show(page) => self.page = page,
         }
 

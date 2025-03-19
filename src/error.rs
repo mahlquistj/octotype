@@ -11,7 +11,7 @@ use crate::utils::{center, Page};
 ///
 /// Displays an error
 ///
-pub struct Error(Box<dyn std::error::Error>);
+pub struct Error(pub Box<dyn std::error::Error>);
 
 impl Page for Error {
     fn render(
@@ -25,14 +25,13 @@ impl Page for Error {
             Span::styled("Error: ", Style::new().bold().fg(config.theme.text.error)),
             Span::raw(self.0.to_string()),
         ]))
-        .block(Block::new().padding(Padding::new(
-            0,
-            0,
-            center.height / 2,
-            center.width / 4,
-        )));
+        .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
 
         frame.render_widget(text, center);
+    }
+
+    fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
+        Some(Line::raw("ERROR"))
     }
 }
 
