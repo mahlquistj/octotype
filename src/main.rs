@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod error;
 mod session;
 mod utils;
 

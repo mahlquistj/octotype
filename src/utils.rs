@@ -62,6 +62,9 @@ impl KeyEventHelper for KeyEvent {
 }
 
 /// An app message
+///
+/// This only has one variant for now, but keeping as an enum for future message-implementations
+///
 pub enum Message {
     Show(Box<dyn Page + Send>),
 }
