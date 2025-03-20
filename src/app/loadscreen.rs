@@ -76,9 +76,9 @@ impl LoadingScreen {
     fn join(&mut self) -> Result<Option<Message>, LoadError> {
         self.handle
             .take()
-            .map(|th| match th.join() {
-                Ok(x) => x,
-                Err(_) => Err(LoadError("Failed to join threadhandle".to_string())),
+            .map(|th| {
+                th.join()
+                    .unwrap_or_else(|_| Err(LoadError("Failed to join threadhandle".to_string())))
             })
             .transpose()
     }

@@ -3,6 +3,15 @@ name = "typers"
 version = "0.1.0"
 edition = "2024"
 
+
+[lints.clippy]
+# Groups
+perf = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+
 [dependencies]
 ratatui = { version = "0.29", features = ["serde"]}
 throbber-widgets-tui = "0.8.0"

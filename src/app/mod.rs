@@ -9,6 +9,7 @@ use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 mod error;
 mod loadscreen;
 mod menu;
+mod session;
 
 pub use loadscreen::LoadingScreen;
 pub use menu::Menu;

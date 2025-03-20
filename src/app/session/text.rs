@@ -9,7 +9,7 @@ use crate::config::TextTheme;
 
 /// A result from an input
 #[derive(Debug)]
-pub(crate) enum CharacterResult {
+pub enum CharacterResult {
     /// The character didn't match the actual character in the text
     Wrong,
 
@@ -22,7 +22,7 @@ pub(crate) enum CharacterResult {
 
 impl CharacterResult {
     /// Returns true if the characterresult is of the variant `Self::Wrong`
-    fn is_wrong(&self) -> bool {
+    const fn is_wrong(&self) -> bool {
         matches!(self, Self::Wrong)
     }
 }
@@ -44,7 +44,7 @@ impl Segment {
     }
 
     /// Returns the current errors in the segment
-    pub fn current_errors(&self) -> u16 {
+    pub const fn current_errors(&self) -> u16 {
         self.current_errors
     }
 

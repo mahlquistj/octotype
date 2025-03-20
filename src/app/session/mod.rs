@@ -145,8 +145,8 @@ impl TypingSession {
             let char_idx = segment.input_length();
             let character = segment
                 .get_char(char_idx + 1)
-                .or(segment.get_char(char_idx))
-                .expect("No character found"); // refactor this expect out
+                .or_else(|| segment.get_char(char_idx))
+                .expect("No character found"); // TODO: refactor this expect out
             return self.update_stats(character, false, true);
         }
 
@@ -198,7 +198,7 @@ impl TypingSession {
     }
 
     /// Checks if the session should calculate wpm
-    fn should_calc_wpm(&mut self) -> bool {
+    fn should_calc_wpm(&self) -> bool {
         let Some(last_poll) = self.last_wpm_poll else {
             return false;
         };
@@ -269,11 +269,9 @@ impl Page for TypingSession {
         let seconds = time.as_secs().rem(60);
         let minutes = time.as_secs() / 60;
         Some(Line::raw(format!("{minutes}:{seconds:0>2} {}", {
-            if let Some(cache) = &self.stat_cache {
-                cache.to_string()
-            } else {
-                "".to_string()
-            }
+            self.stat_cache
+                .as_ref()
+                .map_or_else(|| "".to_string(), |cache| cache.to_string())
         })))
     }
 

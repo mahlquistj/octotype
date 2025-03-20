@@ -170,7 +170,7 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
         values.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
 
     let std_dev = variance.sqrt();
-    let res = 100.0 - ((std_dev / mean) * 100.0);
+    let res = (std_dev / mean).mul_add(-100.0, 100.0);
     if res.is_finite() {
         return res;
     }

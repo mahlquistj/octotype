@@ -3,7 +3,7 @@ use std::fmt::Display;
 use ratatui::{
     layout::Constraint,
     style::{Style, Stylize},
-    text::{Line, Span},
+    text::Line,
     widgets::{Block, Padding, Paragraph},
 };
 
