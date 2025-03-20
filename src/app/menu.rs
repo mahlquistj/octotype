@@ -224,7 +224,7 @@ impl Page for Menu {
                             (self.max_word_length > 0).then_some(self.max_word_length);
 
                         // Spawn a `LoadingScreen` that loads the `TypingSession`
-                        let session_loader = LoadingScreen::load(move || {
+                        let session_loader = LoadingScreen::load("Loading words...", move || {
                             Self::create_session(source, words_amount, max_word_length)
                                 .map(|session| Message::Show(session.boxed()))
                         })

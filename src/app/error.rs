@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ratatui::{
     layout::Constraint,
     style::{Style, Stylize},
@@ -11,7 +13,13 @@ use crate::utils::{center, Page};
 ///
 /// Displays an error
 ///
-pub struct Error(pub Box<dyn std::error::Error>);
+pub struct Error(String);
+
+impl<E: Display> From<E> for Error {
+    fn from(value: E) -> Self {
+        Self(value.to_string())
+    }
+}
 
 impl Page for Error {
     fn render(
@@ -21,10 +29,10 @@ impl Page for Error {
         config: &crate::config::Config,
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
-        let text = Paragraph::new(Line::from(vec![
-            Span::styled("Error: ", Style::new().bold().fg(config.theme.text.error)),
-            Span::raw(self.0.to_string()),
-        ]))
+        let text = Paragraph::new(vec![
+            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)),
+            Line::raw(self.0.as_str()),
+        ])
         .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
 
         frame.render_widget(text, center);
@@ -32,11 +40,5 @@ impl Page for Error {
 
     fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
         Some(Line::raw("ERROR"))
-    }
-}
-
-impl<E: 'static + std::error::Error> From<E> for Error {
-    fn from(value: E) -> Self {
-        Self(Box::new(value))
     }
 }

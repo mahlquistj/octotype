@@ -1,11 +1,12 @@
+use std::{rc::Rc, time::Duration};
+
 use crossterm::event::{self, Event};
 use ratatui::{style::Stylize, text::ToLine, widgets::Padding, Frame};
-use std::rc::Rc;
-use std::time::Duration;
 
 use crate::config::Config;
 use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
 
+mod error;
 mod loadscreen;
 mod menu;
 
@@ -86,7 +87,7 @@ impl App {
     /// Global message handler
     fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
-            Message::Error(error) => self.page = crate::error::Error(error).boxed(),
+            Message::Error(error) => self.page = error::Error::from(error).boxed(),
             Message::Show(page) => self.page = page,
         }
 

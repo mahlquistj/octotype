@@ -1,4 +1,4 @@
-use std::{char, cmp::Ordering, collections::HashSet, ops::RangeInclusive};
+use std::{char, cmp::Ordering, collections::HashSet};
 
 use ratatui::{
     style::{Color, Modifier, Style, Stylize},
@@ -11,7 +11,7 @@ use crate::config::TextTheme;
 #[derive(Debug)]
 pub(crate) enum CharacterResult {
     /// The character didn't match the actual character in the text
-    Wrong(char), // TODO: Use character here to display multiple wrong characters after a word, like monkeytype does.
+    Wrong,
 
     /// The character was wrong before, but was now corrected
     Corrected,
@@ -23,7 +23,7 @@ pub(crate) enum CharacterResult {
 impl CharacterResult {
     /// Returns true if the characterresult is of the variant `Self::Wrong`
     fn is_wrong(&self) -> bool {
-        matches!(self, Self::Wrong(_))
+        matches!(self, Self::Wrong)
     }
 }
 
@@ -71,7 +71,7 @@ impl Segment {
             (false, _) => {
                 self.wrong_inputs.insert(current);
                 self.current_errors += 1;
-                (CharacterResult::Wrong(character), false)
+                (CharacterResult::Wrong, false)
             }
         };
         self.input.push(result);
@@ -167,7 +167,7 @@ impl Segment {
                     style = match c {
                         CharacterResult::Right => style.fg(colors.success),
                         CharacterResult::Corrected => style.fg(colors.warning),
-                        CharacterResult::Wrong(_) => {
+                        CharacterResult::Wrong => {
                             if is_space {
                                 style.bg(colors.error)
                             } else {
@@ -216,7 +216,7 @@ impl FromIterator<char> for Segment {
 
 #[cfg(test)]
 mod test {
-    use super::{CharacterResult, Segment};
+    use super::Segment;
 
     fn create_test_text() -> Segment {
         "This is a test, not an actual text ".chars().collect()
@@ -255,13 +255,6 @@ mod test {
         assert_eq!(words.next().unwrap(), &(20, 21)); // an
         assert_eq!(words.next().unwrap(), &(23, 28)); // actual
         assert_eq!(words.next().unwrap(), &(30, 33)); // text
-    }
-
-    #[test]
-    fn is_result_wrong() {
-        let result = CharacterResult::Wrong('x');
-
-        assert!(result.is_wrong());
     }
 
     #[test]

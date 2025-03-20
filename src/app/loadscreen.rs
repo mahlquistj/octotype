@@ -13,7 +13,6 @@ use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
 use crate::{
     config::Config,
-    error::Error,
     utils::{center, Message, Page},
 };
 
@@ -35,6 +34,7 @@ pub struct LoadingScreen {
     handle: Option<JoinHandle<Result<Message, LoadError>>>,
     state: ThrobberState,
     last_tick: Instant,
+    message: String,
 }
 
 impl LoadingScreen {
@@ -42,7 +42,7 @@ impl LoadingScreen {
     ///
     /// * `F`: The closure to run in the background
     /// * `E`: The error type returned by the closure (`F`)
-    pub fn load<F, E>(func: F) -> Self
+    pub fn load<F, E>(message: &str, func: F) -> Self
     where
         F: FnOnce() -> Result<Message, E> + Send + 'static,
         E: std::error::Error + Send + 'static,
@@ -52,6 +52,7 @@ impl LoadingScreen {
             handle: Some(std::thread::spawn(wrapper)),
             state: ThrobberState::default(),
             last_tick: Instant::now(),
+            message: message.to_string(),
         }
     }
 
@@ -93,7 +94,7 @@ impl Page for LoadingScreen {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
-            .label("Loading...")
+            .label(&self.message)
             .throbber_style(Style::default().fg(config.theme.spinner_color).bold())
             .throbber_set(config.theme.spinner_symbol.as_set())
             .use_type(WhichUse::Spin);
