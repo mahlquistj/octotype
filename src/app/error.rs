@@ -30,8 +30,8 @@ impl Page for Error {
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let text = Paragraph::new(vec![
-            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)),
-            Line::raw(self.0.as_str()),
+            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
+            Line::raw(self.0.as_str()).centered(),
         ])
         .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
 

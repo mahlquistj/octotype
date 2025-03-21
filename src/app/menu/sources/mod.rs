@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use strum::{EnumCount, EnumIter, EnumString, IntoStaticStr, VariantNames};
+
 mod quote_api;
 mod random_words;
 
@@ -36,7 +38,7 @@ impl Display for SourceError {
 }
 
 /// The different souces we get words from
-#[derive(Clone)]
+#[derive(VariantNames, IntoStaticStr, EnumString, Clone)]
 pub enum Source {
     CommonWords {
         // The language selected

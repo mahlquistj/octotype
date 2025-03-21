@@ -1,3 +1,5 @@
+use std::{fmt::Display, str::FromStr};
+
 use super::{
     session::{Segment, TypingSession},
     LoadingScreen,
@@ -5,11 +7,12 @@ use super::{
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::{Alignment, Constraint},
+    layout::{Alignment, Constraint, Layout},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Padding, Paragraph},
+    widgets::{Block, List, ListState, Padding, Paragraph},
 };
+use strum::{IntoEnumIterator, VariantNames};
 
 use crate::{
     config::Config,
@@ -21,17 +24,21 @@ use sources::{Source, SourceError};
 
 /// Page: Main menu
 pub struct Menu {
+    source_variants: Vec<String>,
     source: Source,
     words_amount: u32,
     max_word_length: u32,
+    source_list_state: ListState,
 }
 
 impl Default for Menu {
     fn default() -> Self {
         Self {
+            source_variants: Source::VARIANTS.iter().map(|s| s.to_string()).collect(),
             source: Source::default(),
             words_amount: 10,
             max_word_length: 0,
+            source_list_state: ListState::default(),
         }
     }
 }
@@ -81,6 +88,23 @@ impl Page for Menu {
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
+        if let Some(selected) = self.source_list_state.selected() {
+            let current_str: &'static str = self.source.clone().into();
+            let selected_str = &self.source_variants[selected];
+            if selected_str != current_str {
+                self.source = Source::from_str(selected_str).expect("Unknown variant");
+            }
+        }
+
+        // TODO: Refactor away the clone. Maybe create own VARIANTS const on Source
+        let list = List::new(self.source_variants.clone())
+            .highlight_style(Style::new().reversed())
+            .highlight_symbol(">");
+
+        let [source_area, text_area] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(block.inner(center));
+
         let text = vec![
             Line::from(vec![
                 Span::raw(format!("Words     : {}", self.words_amount)),
@@ -96,7 +120,8 @@ impl Page for Menu {
             .alignment(Alignment::Center)
             .block(block);
 
-        frame.render_widget(settings, center);
+        frame.render_stateful_widget(list, source_area, &mut self.source_list_state);
+        frame.render_widget(settings, text_area);
     }
 
     fn handle_events(
@@ -112,6 +137,8 @@ impl Page for Menu {
 
                     KeyCode::Right => self.max_word_length = self.max_word_length.saturating_add(1),
                     KeyCode::Left => self.max_word_length = self.max_word_length.saturating_sub(1),
+
+                    KeyCode::Tab => self.source_list_state.select_next(),
 
                     KeyCode::Enter => {
                         let source = self.source.clone();
