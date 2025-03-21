@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use strum::{EnumCount, EnumIter, EnumString, IntoStaticStr, VariantNames};
+use strum::{EnumString, IntoStaticStr, VariantNames};
 
 mod quote_api;
 mod random_words;
@@ -73,3 +73,53 @@ impl Source {
         Ok(words)
     }
 }
+
+pub enum SettingEvent {
+    // Useful for numbers and lists
+    Increment,
+    Decrement,
+
+    // Useful for strings
+    Input(char),
+    RemoveInput,
+}
+
+pub struct SourceSetting<T: SettingValue> {
+    name: String,
+    current_value: T,
+}
+
+pub trait SettingValue {
+    fn update(&mut self, event: &SettingEvent);
+}
+
+impl SettingValue for String {
+    fn update(&mut self, event: &SettingEvent) {
+        match event {
+            SettingEvent::Input(ch) => self.push(*ch),
+            SettingEvent::RemoveInput => {
+                self.pop();
+            }
+            _ => (),
+        }
+    }
+}
+
+macro_rules! impl_number {
+    ($number:ty) => {
+        impl SettingValue for $number {
+            fn update(&mut self, event: &SettingEvent) {
+                match event {
+                    SettingEvent::Increment => *self += 1,
+                    SettingEvent::Decrement => *self -= 1,
+                    _ => (),
+                }
+            }
+        }
+    };
+    ($($number:ty),*) => {
+        $(impl_number!($number);)*
+    };
+}
+
+impl_number!(i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
