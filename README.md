@@ -16,6 +16,8 @@ inspired by [Monkeytype](monkeytype)
   - [ ] Multiple modes (Normal, Timed, and custom)
 -
   - [ ] Ability to save statistics for future viewing and to track improvement
+-
+  - [ ] Nix flake package
 
 ## ❓ Why
 
@@ -44,7 +46,7 @@ configuration folder for your system:
 | MacOS   | `$HOME/Library/Application Support/com.Mahlquist.OctoType/config.toml`          |
 | Windows | `%AppData%\OctoType\config\config.toml`                                         |
 
-### Default configuration
+### 📘 Default configuration
 
 The default configuration looks like so:
 
@@ -67,7 +69,7 @@ scatter_symbol = "Dot"
 line_symbol = "HalfBlock"
 ```
 
-### Keys
+### ✅ Options
 
 | Key                         | Type            | Description                                          |
 | --------------------------- | --------------- | ---------------------------------------------------- |
@@ -83,10 +85,10 @@ line_symbol = "HalfBlock"
 | `theme.plot.scatter_symbol` | `PlotSymbol`    | Sets the symbols of scatter-type plots (errors)      |
 | `theme.plot.line_symbol`    | `PlotSymbol`    | Sets the symbols of line-type plots (wpm, accurracy) |
 
-### Types
+### ❗ Types
 
 <details>
-    <summary><h4>Colors - Click to expand</h4></summary>
+    <summary>Colors - Click to expand<summary>
 
     Two different types of colors can be supplied:
     ANSI or Custom which sets a specific color.
@@ -115,7 +117,7 @@ line_symbol = "HalfBlock"
 </details>
 
 <details>
-    <summary><h4>PlotSymbols - Click to expand</h4></summary>
+    <summary>PlotSymbols - Click to expand</summary>
 
 | Symbol      |
 | ----------- |
@@ -128,7 +130,7 @@ line_symbol = "HalfBlock"
 </details>
 
 <details>
-    <summary><h4>SpinnerSymbols - Click to expand</h4></summary>
+    <summary>SpinnerSymbols - Click to expand</summary>
 
 | Symbol               |
 | -------------------- |
