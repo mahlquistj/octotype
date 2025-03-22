@@ -1,20 +1,29 @@
 # OctoType - A typing trainer for your terminal
 
-OctoType is a simple TUI typing trainer made with [Ratatui](ratatui) and heavily inspired by [Monkeytype](monkeytype)
+OctoType is a simple TUI typing trainer made with [Ratatui](ratatui) and heavily
+inspired by [Monkeytype](monkeytype)
 
 ## 🔍 Features
 
-- [x] - Configurable
-- [x] - In-depth statistics to improve your bad habits
-- [x] - Two word-generating APIs to chooose from: Quotes and Random words (More to come)
-- [ ] - Multiple modes (Normal, Timed, and custom)
-- [ ] - Ability to save statistics for future viewing and to track improvement
+-
+  - [x] Configurable
+-
+  - [x] In-depth statistics to improve your bad habits
+-
+  - [x] Two word-generating APIs to chooose from: Quotes and Random words (More
+        to come)
+-
+  - [ ] Multiple modes (Normal, Timed, and custom)
+-
+  - [ ] Ability to save statistics for future viewing and to track improvement
 
 ## ❓ Why
 
-I made this when i got a new split keyboard while trying to get into vim.
-I found myself using [Monkeytype](monkeytype) a lot (Which is where the inspiration came from), and needed a project to work on to not only practice my keyboard
-skills, but also something to do in my new neovim setup that wasn't too heavy.
+I made this when i got a new split keyboard while trying to get into vim. I
+found myself using [Monkeytype](monkeytype) a lot (Which is where the
+inspiration came from), and needed a project to work on to not only practice my
+keyboard skills, but also something to do in my new neovim setup that wasn't too
+heavy.
 
 ## 🔖 Arguments
 
@@ -26,7 +35,8 @@ skills, but also something to do in my new neovim setup that wasn't too heavy.
 
 ## ⚙️ Configuration
 
-OctoType accepts a configuration file in the TOML format, located in the default configuration folder for your system:
+OctoType accepts a configuration file in the TOML format, located in the default
+configuration folder for your system:
 
 | System  | Location                                                                        |
 | ------- | ------------------------------------------------------------------------------- |
@@ -75,10 +85,11 @@ line_symbol = "HalfBlock"
 
 ### Types
 
-#### Color
+<details>
+    <summary><h4>Colors - Click to expand</h4></summary>
 
-Two different types of colors can be supplied:
-ANSI or Custom which sets a specific color.
+    Two different types of colors can be supplied:
+    ANSI or Custom which sets a specific color.
 
 | Color          | Type   | Description |
 | -------------- | ------ | ----------- |
@@ -101,7 +112,10 @@ ANSI or Custom which sets a specific color.
 | `LightCyan`    | ANSI   |             |
 | `White`        | ANSI   |             |
 
-#### PlotSymbol
+</details>
+
+<details>
+    <summary>PlotSymbols - Click to expand</summary>
 
 | Symbol      |
 | ----------- |
@@ -111,7 +125,10 @@ ANSI or Custom which sets a specific color.
 | `Braille`   |
 | `Bar`       |
 
-#### SpinnerSymbol
+</details>
+
+<details>
+    <summary>SpinnerSymbols - Click to expand</summary>
 
 | Symbol               |
 | -------------------- |
@@ -139,9 +156,13 @@ ANSI or Custom which sets a specific color.
 | `WhiteCircle`        |
 | `WhiteSquare`        |
 
+</details>
+
 ## ⭐ Contributing
 
-While the project is still new, feel free to open an issue with suggestions or alike. When i feel like the project is mature enough, i will be accepting pull-requests as well.
+While the project is still new, feel free to open an issue with suggestions or
+alike. When i feel like the project is mature enough, i will be accepting
+pull-requests as well.
 
 <!-- LINKS -->
 
