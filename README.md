@@ -115,7 +115,7 @@ line_symbol = "HalfBlock"
 </details>
 
 <details>
-    <summary>PlotSymbols - Click to expand</summary>
+    <summary><h4>PlotSymbols - Click to expand</h4></summary>
 
 | Symbol      |
 | ----------- |
@@ -128,7 +128,7 @@ line_symbol = "HalfBlock"
 </details>
 
 <details>
-    <summary>SpinnerSymbols - Click to expand</summary>
+    <summary><h4>SpinnerSymbols - Click to expand</h4></summary>
 
 | Symbol               |
 | -------------------- |
