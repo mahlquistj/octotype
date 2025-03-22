@@ -1,6 +1,6 @@
 [package]
 name = "typers"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2024"
 
 
@@ -14,10 +14,13 @@ nursery = { level = "deny", priority = -1 }
 
 [dependencies]
 ratatui = { version = "0.29", features = ["serde"] }
-throbber-widgets-tui = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
-crossterm = "0.28"
-minreq = { version = "2.13", features = ["https", "json-using-serde"] }
-directories = "6.0"
 strum = { version = "0.27", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
+minreq = { version = "2.13", features = ["https", "json-using-serde"] }
+
+crossterm = "0.28"
+directories = "6.0"
+toml = "0.8"
+throbber-widgets-tui = "0.8"

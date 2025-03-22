@@ -22,8 +22,8 @@ impl Default for TextTheme {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Symbol {
+#[serde(rename_all = "PascalCase")]
+pub enum PlotSymbol {
     Dot,
     Block,
     HalfBlock,
@@ -31,7 +31,7 @@ pub enum Symbol {
     Bar,
 }
 
-impl Symbol {
+impl PlotSymbol {
     /// Returns the marker that the symbol corresponds to.
     ///
     /// This doesn't use the `From` trait, as we can't make that a const fn
@@ -54,8 +54,8 @@ pub struct PlotTheme {
     pub actual_wpm: Color,
     pub accurracy: Color,
     pub errors: Color,
-    pub scatter_symbol: Symbol,
-    pub line_symbol: Symbol,
+    pub scatter_symbol: PlotSymbol,
+    pub line_symbol: PlotSymbol,
 }
 
 impl Default for PlotTheme {
@@ -65,15 +65,15 @@ impl Default for PlotTheme {
             actual_wpm: Color::Yellow,
             accurracy: Color::Gray,
             errors: Color::Red,
-            scatter_symbol: Symbol::Dot,
-            line_symbol: Symbol::HalfBlock,
+            scatter_symbol: PlotSymbol::Dot,
+            line_symbol: PlotSymbol::HalfBlock,
         }
     }
 }
 
 /// The different kinds of symbols available for the loading-screen spinner
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "PascalCase")]
 pub enum SpinnerSymbol {
     Ascii,
 

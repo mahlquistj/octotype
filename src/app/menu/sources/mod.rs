@@ -1,16 +1,16 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     style::{Style, Stylize},
-    text::{Line, Span},
+    text::Span,
 };
 use strum::{EnumString, IntoStaticStr, VariantNames};
 
 mod quote_api;
 mod random_words;
 
-pub type Args = HashMap<String, Box<dyn SettingValue + Send>>;
+pub type Args = Vec<(&'static str, Box<dyn SettingValue + Send>)>;
 
 /// Errors from word sources
 #[derive(Debug)]
@@ -65,26 +65,26 @@ impl Source {
         match self {
             Self::Quote => Args::new(),
             Self::RandomWords => {
-                let mut args = Args::new();
-                args.insert(
-                    "length".to_string(),
-                    Box::new(SourceSetting {
-                        values: (),
-                        selected: 80usize,
-                    }),
-                );
-                args.insert(
-                    "amount".to_string(),
-                    Box::new(SourceSetting {
-                        values: (),
-                        selected: 15usize,
-                    }),
-                );
-
-                args
+                vec![
+                    (
+                        "length",
+                        Box::new(SourceSetting {
+                            values: (),
+                            selected: 80usize,
+                        }),
+                    ),
+                    (
+                        "amount",
+                        Box::new(SourceSetting {
+                            values: (),
+                            selected: 15usize,
+                        }),
+                    ),
+                ]
             }
         }
     }
+
     pub const fn uses_request(&self) -> bool {
         match self {
             Self::Quote | Self::RandomWords => true,
@@ -166,13 +166,14 @@ impl<'event> TryFrom<&'event KeyEvent> for SettingEvent {
 
 #[derive(Clone)]
 pub struct SourceSetting<V, S> {
+    #[allow(dead_code)] // Allowing dead code for now, as this might be used in the future
     values: V,
     selected: S,
 }
 
 pub trait SettingValue {
     fn update(&mut self, event: &SettingEvent);
-    fn render(&self) -> Line;
+    fn render(&self) -> Vec<Span>;
     fn get_selected(&self) -> String;
 }
 
@@ -187,7 +188,7 @@ impl SettingValue for SourceSetting<(), String> {
         }
     }
 
-    fn render(&self) -> Line {
+    fn render(&self) -> Vec<Span> {
         let len = self.selected.len().saturating_sub(1);
 
         let mut text_vec = vec![];
@@ -198,7 +199,7 @@ impl SettingValue for SourceSetting<(), String> {
 
         text_vec.push(Span::styled(" ", Style::default().reversed()));
 
-        Line::from(text_vec)
+        text_vec
     }
 
     fn get_selected(&self) -> String {
@@ -217,8 +218,8 @@ macro_rules! impl_number {
                 }
             }
 
-            fn render(&self) -> Line {
-                Line::raw(self.selected.to_string())
+            fn render(&self) -> Vec<Span> {
+                vec![Span::raw(self.selected.to_string())]
             }
 
             fn get_selected(&self) -> String {

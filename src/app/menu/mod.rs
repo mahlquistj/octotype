@@ -10,7 +10,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Layout},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List, ListState, Padding, Paragraph},
+    widgets::{Block, List, ListState, Padding, Paragraph, Wrap},
 };
 use strum::VariantNames;
 
@@ -25,21 +25,21 @@ use sources::{Source, SourceError};
 /// Page: Main menu
 pub struct Menu {
     source_variants: Vec<String>,
+    source_list_state: ListState,
     source: Source,
     args: sources::Args,
-    source_list_state: ListState,
+    args_list_state: ListState,
 }
 
 impl Default for Menu {
     fn default() -> Self {
-        let mut menu = Self {
+        let menu = Self {
             source_variants: Source::VARIANTS.iter().map(|s| s.to_string()).collect(),
+            source_list_state: ListState::default().with_selected(Some(0)),
             source: Source::default(),
             args: Source::default().get_default_args(),
-            source_list_state: ListState::default(),
+            args_list_state: ListState::default(),
         };
-
-        menu.source_list_state.select(Some(0));
 
         menu
     }
@@ -86,11 +86,16 @@ impl Page for Menu {
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
-        if let Some(selected) = self.source_list_state.selected() {
+        if let Some(selected_source) = self.source_list_state.selected() {
             let current_str: &'static str = self.source.clone().into();
-            let selected_str = &self.source_variants[selected];
+            let selected_str = &self.source_variants[selected_source];
             if selected_str != current_str {
                 self.source = Source::from_str(selected_str).expect("Unknown variant");
+                self.args = self.source.get_default_args();
+
+                if !self.args.is_empty() {
+                    self.args_list_state.select(Some(0));
+                }
             }
         }
 
@@ -103,20 +108,30 @@ impl Page for Menu {
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(block.inner(center));
 
-        let text = vec![
-            Line::from(vec![
-                Span::raw(format!("Words     : {}", self.words_amount)),
-                Span::styled("↕", Style::new().bold()),
-            ]),
-            Line::from(vec![
-                Span::raw(format!("Max length: {}", self.max_word_length)),
-                Span::styled("↔", Style::new().bold()),
-            ]),
-        ];
+        let lines = self
+            .args
+            .iter()
+            .enumerate()
+            .map(|(idx, (name, value))| {
+                let mut value_text = value.render();
+                let mut name_text = Span::raw(format!("{name}:"));
 
-        let settings = Paragraph::new(text)
+                if let Some(selected_arg) = self.args_list_state.selected() {
+                    if selected_arg == idx {
+                        name_text = name_text.bold();
+                    }
+                }
+
+                let mut text = vec![name_text];
+                text.append(&mut value_text);
+
+                Line::from(text)
+            })
+            .collect::<Vec<Line>>();
+
+        let settings = Paragraph::new(lines)
             .alignment(Alignment::Center)
-            .block(block);
+            .wrap(Wrap { trim: false });
 
         frame.render_stateful_widget(list, source_area, &mut self.source_list_state);
         frame.render_widget(settings, text_area);
@@ -129,8 +144,32 @@ impl Page for Menu {
     ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
-                todo!("Keep track of focues argument and update it - also render argument");
                 match key.code {
+                    KeyCode::Tab => {
+                        self.source_list_state.select_next();
+
+                        if Some(self.source_variants.len()) == self.source_list_state.selected() {
+                            self.source_list_state.select(Some(0));
+                        }
+                    }
+                    KeyCode::Up => {
+                        if !self.args.is_empty() {
+                            if Some(0) == self.args_list_state.selected() {
+                                self.args_list_state.select(Some(self.args.len() - 1));
+                            } else {
+                                self.args_list_state.select_previous();
+                            }
+                        }
+                    }
+                    KeyCode::Down => {
+                        if !self.args.is_empty() {
+                            self.args_list_state.select_next();
+
+                            if Some(self.args.len()) == self.args_list_state.selected() {
+                                self.args_list_state.select(Some(0));
+                            }
+                        }
+                    }
                     KeyCode::Enter => {
                         let source = self.source.clone();
 
@@ -145,6 +184,15 @@ impl Page for Menu {
                         return Some(Message::Show(session_loader));
                     }
                     _ => (),
+                }
+
+                if let Some(selected_arg) = self.args_list_state.selected() {
+                    if let Ok(setting_event) = key.try_into() {
+                        let arg = &mut self.args[selected_arg].1;
+                        arg.update(&setting_event);
+                    }
+                } else if !self.args.is_empty() {
+                    self.args_list_state.select(Some(0));
                 }
             }
         }
