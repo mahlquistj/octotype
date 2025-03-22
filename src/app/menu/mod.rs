@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
 use super::{
     session::{Segment, TypingSession},
@@ -12,7 +12,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, List, ListState, Padding, Paragraph},
 };
-use strum::{IntoEnumIterator, VariantNames};
+use strum::VariantNames;
 
 use crate::{
     config::Config,
@@ -26,20 +26,22 @@ use sources::{Source, SourceError};
 pub struct Menu {
     source_variants: Vec<String>,
     source: Source,
-    words_amount: u32,
-    max_word_length: u32,
+    args: sources::Args,
     source_list_state: ListState,
 }
 
 impl Default for Menu {
     fn default() -> Self {
-        Self {
+        let mut menu = Self {
             source_variants: Source::VARIANTS.iter().map(|s| s.to_string()).collect(),
             source: Source::default(),
-            words_amount: 10,
-            max_word_length: 0,
+            args: Source::default().get_default_args(),
             source_list_state: ListState::default(),
-        }
+        };
+
+        menu.source_list_state.select(Some(0));
+
+        menu
     }
 }
 
@@ -50,12 +52,8 @@ impl Menu {
     }
 
     /// Create a `TypingSession` with the given parameters
-    fn create_session(
-        source: Source,
-        words_amount: u32,
-        max_word_length: Option<u32>,
-    ) -> Result<TypingSession, SourceError> {
-        let words = source.fetch(words_amount, max_word_length)?;
+    fn create_session(source: Source, args: sources::Args) -> Result<TypingSession, SourceError> {
+        let words = source.fetch(args)?;
 
         let words = words
             .chunks(5)
@@ -131,25 +129,15 @@ impl Page for Menu {
     ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
+                todo!("Keep track of focues argument and update it - also render argument");
                 match key.code {
-                    KeyCode::Up => self.words_amount = self.words_amount.saturating_add(1),
-                    KeyCode::Down => self.words_amount = self.words_amount.saturating_sub(1),
-
-                    KeyCode::Right => self.max_word_length = self.max_word_length.saturating_add(1),
-                    KeyCode::Left => self.max_word_length = self.max_word_length.saturating_sub(1),
-
-                    KeyCode::Tab => self.source_list_state.select_next(),
-
                     KeyCode::Enter => {
                         let source = self.source.clone();
-                        let words_amount = self.words_amount;
 
-                        let max_word_length =
-                            (self.max_word_length > 0).then_some(self.max_word_length);
-
+                        let args = std::mem::take(&mut self.args);
                         // Spawn a `LoadingScreen` that loads the `TypingSession`
                         let session_loader = LoadingScreen::load("Loading words...", move || {
-                            Self::create_session(source, words_amount, max_word_length)
+                            Self::create_session(source, args)
                                 .map(|session| Message::Show(session.boxed()))
                         })
                         .boxed();
