@@ -479,6 +479,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "octotype"
+version = "0.3.0"
+dependencies = [
+ "clap",
+ "crossterm",
+ "directories",
+ "figment",
+ "minreq",
+ "ratatui",
+ "serde",
+ "strum 0.27.1",
+ "throbber-widgets-tui",
+ "toml",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -943,22 +959,6 @@ dependencies = [
  "serde_spanned",
  "toml_datetime",
  "winnow",
-]
-
-[[package]]
-name = "typers"
-version = "0.3.0"
-dependencies = [
- "clap",
- "crossterm",
- "directories",
- "figment",
- "minreq",
- "ratatui",
- "serde",
- "strum 0.27.1",
- "throbber-widgets-tui",
- "toml",
 ]
 
 [[package]]

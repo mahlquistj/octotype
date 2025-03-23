@@ -1,13 +1,16 @@
 use std::fmt::Display;
 
+use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::Constraint,
+    layout::{Constraint, Layout},
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Padding, Paragraph},
 };
 
-use crate::utils::{center, Page};
+use crate::utils::{center, KeyEventHelper, Message, Page};
+
+use super::Menu;
 
 /// Page: Error
 ///
@@ -39,6 +42,23 @@ impl Page for Error {
     }
 
     fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
-        Some(Line::raw("ERROR"))
+        Some(Line::from("<Enter> to return to menu"))
+    }
+
+    fn handle_events(
+        &mut self,
+        event: &Event,
+        _config: &crate::config::Config,
+    ) -> Option<crate::utils::Message> {
+        if let Event::Key(key) = event {
+            if key.is_press() {
+                return match key.code {
+                    KeyCode::Enter => Some(Message::Show(Menu::new().boxed())),
+                    _ => None,
+                };
+            };
+        }
+
+        None
     }
 }

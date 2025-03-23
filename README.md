@@ -1,23 +1,24 @@
-# OctoType - A typing trainer for your terminal
+# 🐙 OctoType - A typing trainer for your terminal
 
 OctoType is a simple TUI typing trainer made with [Ratatui](ratatui) and heavily
 inspired by [Monkeytype](monkeytype)
 
 ## 🔍 Features
 
--
-  - [x] Configurable
--
-  - [x] In-depth statistics to improve your bad habits
--
-  - [x] Two word-generating APIs to chooose from: Quotes and Random words (More
-        to come)
--
-  - [ ] Multiple modes (Normal, Timed, and custom)
--
-  - [ ] Ability to save statistics for future viewing and to track improvement
--
-  - [ ] Nix flake package
+- [x] Configurable
+
+- [x] In-depth statistics to improve your bad habits
+
+- [x] Two word-generating APIs to chooose from: Quotes and Random words (More to
+      come)
+
+- [ ] Multiple modes (Normal, Timed, and custom)
+
+- [ ] Ability to save statistics for future viewing and to track improvement
+
+- [ ] Nix flake package
+
+- [ ] Nix flake home-manager module
 
 ## ❓ Why
 
@@ -34,6 +35,11 @@ heavy.
 | `-p`        | `--print-config`  | Prints the current configuration             |
 | `-c <path>` | `--config <path>` | Overrides the default config location        |
 | `-h`        | `--help`          | Shows a help page with the list of arguments |
+
+## 💻 Development
+
+A nix flake dev-shell is provided to run with `nix-develop` otherwise, it should
+be pretty straight forward using cargo.
 
 ## ⚙️ Configuration
 
