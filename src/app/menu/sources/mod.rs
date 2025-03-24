@@ -5,7 +5,10 @@ use ratatui::{
     style::{Style, Stylize},
     text::Span,
 };
+use serde::Deserialize;
 use strum::{EnumString, IntoStaticStr, VariantNames};
+
+use crate::app::session::EmptySessionError;
 
 mod quote_api;
 mod random_words;
@@ -16,8 +19,12 @@ pub type Args = Vec<(&'static str, Box<dyn SettingValue + Send>)>;
 #[derive(Debug)]
 pub enum SourceError {
     IO(std::io::Error),
-    Request(minreq::Error),
+    Request {
+        error: minreq::Error,
+        content: Option<String>,
+    },
     MissingArg(String),
+    EmptySession,
 }
 
 impl std::error::Error for SourceError {}
@@ -30,16 +37,29 @@ impl From<std::io::Error> for SourceError {
 
 impl From<minreq::Error> for SourceError {
     fn from(value: minreq::Error) -> Self {
-        Self::Request(value)
+        Self::Request {
+            error: value,
+            content: None,
+        }
+    }
+}
+
+impl From<EmptySessionError> for SourceError {
+    fn from(_value: EmptySessionError) -> Self {
+        Self::EmptySession
     }
 }
 
 impl Display for SourceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error = match self {
-            Self::Request(e) => format!("Request error: {e}"),
+            Self::Request { error, content } => content.as_ref().map_or_else(
+                || format!("Request error: {error}"),
+                |c| format!("Request error: {error}\nContents: {c}"),
+            ),
             Self::IO(e) => format!("Request error: {e}"),
             Self::MissingArg(arg) => format!("Missing argument: {arg}"),
+            Self::EmptySession => format!("Source returned 0 words.."),
         };
 
         write!(f, "{error}")
@@ -74,7 +94,7 @@ impl Source {
                         }),
                     ),
                     (
-                        "amount",
+                        "number",
                         Box::new(SourceSetting {
                             values: (),
                             selected: 15usize,
@@ -99,16 +119,27 @@ impl Source {
         }
     }
 
+    fn parse_response_json<'d, T: Deserialize<'d>>(
+        response: &'d minreq::Response,
+    ) -> Result<T, SourceError> {
+        match response.json::<T>() {
+            Ok(json) => Ok(json),
+            Err(error) => Err(SourceError::Request {
+                error,
+                content: response.as_str().map(str::to_string).ok(),
+            }),
+        }
+    }
+
     pub fn parse_response(&self, response: minreq::Response) -> Result<Vec<String>, SourceError> {
         let parsed = match self {
-            Self::Quote => response
-                .json::<quote_api::QuoteWrapper>()?
+            Self::Quote => Self::parse_response_json::<quote_api::QuoteWrapper>(&response)?
                 .quote
                 .content
                 .split_ascii_whitespace()
                 .map(str::to_string)
                 .collect::<Vec<String>>(),
-            Self::RandomWords => response.json()?,
+            Self::RandomWords => Self::parse_response_json(&response)?,
         };
 
         Ok(parsed)

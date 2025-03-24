@@ -4,8 +4,8 @@ use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::Constraint,
     style::{Style, Stylize},
-    text::Line,
-    widgets::{Block, Padding, Paragraph},
+    text::{Line, ToLine},
+    widgets::{Block, Padding, Paragraph, Wrap},
 };
 
 use crate::utils::{center, KeyEventHelper, Message, Page};
@@ -32,11 +32,25 @@ impl Page for Error {
         config: &crate::config::Config,
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
-        let text = Paragraph::new(vec![
-            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
-            Line::raw(self.0.as_str()).centered(),
-        ])
-        .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
+
+        let mut lines =
+            vec![
+                Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
+            ];
+
+        let error_lines = self
+            .0
+            .split('\n')
+            .map(str::to_string)
+            .collect::<Vec<String>>();
+
+        for line in &error_lines {
+            lines.push(line.to_line().centered());
+        }
+
+        let text = Paragraph::new(lines)
+            .wrap(Wrap { trim: false })
+            .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
 
         frame.render_widget(text, center);
     }

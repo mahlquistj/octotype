@@ -42,6 +42,8 @@ impl Display for StatsCache {
     }
 }
 
+pub struct EmptySessionError;
+
 /// Page: TypingSession
 #[derive(Debug, Default)]
 pub struct TypingSession {
@@ -60,11 +62,15 @@ pub struct TypingSession {
 
 impl TypingSession {
     /// Creates a new `TypingSession`
-    pub fn new(text: Vec<Segment>) -> Self {
-        Self {
+    pub fn new(text: Vec<Segment>) -> Result<Self, EmptySessionError> {
+        if text.is_empty() {
+            return Err(EmptySessionError);
+        }
+
+        Ok(Self {
             text,
             ..Default::default()
-        }
+        })
     }
 
     /// Get the current input length of all the segments

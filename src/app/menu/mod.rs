@@ -71,7 +71,7 @@ impl Menu {
             })
             .collect();
 
-        Ok(TypingSession::new(words))
+        Ok(TypingSession::new(words)?)
     }
 }
 
