@@ -14,7 +14,7 @@ inspired by [Monkeytype](monkeytype)
 
 - [ ] Multiple modes (Normal, Timed, and custom)
 
-- [ ] Ability to save statistics for future viewing and to track improvement
+- [ ] Ability to save statistics to track improvements
 
 - [ ] Nix flake package
 
