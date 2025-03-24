@@ -96,8 +96,8 @@ line_symbol = "HalfBlock"
 <details>
     <summary>Colors - Click to expand</summary>
 
-    Two different types of colors can be supplied:
-    ANSI or Custom which sets a specific color.
+Two different types of colors can be supplied:
+ANSI or Custom which sets a specific color.
 
 | Color          | Type   | Description |
 | -------------- | ------ | ----------- |
