@@ -59,7 +59,7 @@ impl Display for SourceError {
             ),
             Self::IO(e) => format!("Request error: {e}"),
             Self::MissingArg(arg) => format!("Missing argument: {arg}"),
-            Self::EmptySession => format!("Source returned 0 words.."),
+            Self::EmptySession => "Source returned 0 words..".to_string(),
         };
 
         write!(f, "{error}")
@@ -86,13 +86,7 @@ impl Source {
             Self::Quote => Args::new(),
             Self::RandomWords => {
                 vec![
-                    (
-                        "length",
-                        Box::new(SourceSetting {
-                            values: (),
-                            selected: 80usize,
-                        }),
-                    ),
+                    ("length", Box::new(None::<SourceSetting<(), usize>>)),
                     (
                         "number",
                         Box::new(SourceSetting {
@@ -159,7 +153,9 @@ impl Source {
         let mut req = minreq::get(url);
 
         for (key, value) in args {
-            let value = value.get_selected();
+            let Some(value) = value.get_selected() else {
+                continue;
+            };
             req = req.with_param(key, &value);
         }
 
@@ -197,7 +193,8 @@ impl<'event> TryFrom<&'event KeyEvent> for SettingEvent {
 
 #[derive(Clone)]
 pub struct SourceSetting<V, S> {
-    #[allow(dead_code)] // Allowing dead code for now, as this might be used in the future
+    #[allow(dead_code)]
+    // Allowing dead code for now, as this might be used for lists or ranges in the future
     values: V,
     selected: S,
 }
@@ -205,7 +202,7 @@ pub struct SourceSetting<V, S> {
 pub trait SettingValue {
     fn update(&mut self, event: &SettingEvent);
     fn render(&self) -> Vec<Span>;
-    fn get_selected(&self) -> String;
+    fn get_selected(&self) -> Option<String>;
 }
 
 impl SettingValue for SourceSetting<(), String> {
@@ -233,8 +230,43 @@ impl SettingValue for SourceSetting<(), String> {
         text_vec
     }
 
-    fn get_selected(&self) -> String {
-        self.selected.clone()
+    fn get_selected(&self) -> Option<String> {
+        Some(self.selected.clone())
+    }
+}
+
+impl<V: Default, S: Default> Default for SourceSetting<V, S> {
+    fn default() -> Self {
+        Self {
+            values: V::default(),
+            selected: S::default(),
+        }
+    }
+}
+
+// TODO: Temporary: Find a better solution for optional values
+impl<S: SettingValue + Default> SettingValue for Option<S> {
+    fn update(&mut self, event: &SettingEvent) {
+        let setting = if let Some(s) = self {
+            s
+        } else {
+            *self = Some(S::default());
+            self.as_mut().unwrap() // We just set it, so we know it exists
+        };
+
+        setting.update(event);
+    }
+
+    fn render(&self) -> Vec<Span> {
+        if let Some(setting) = &self {
+            return setting.render();
+        }
+
+        vec![Span::raw("-")]
+    }
+
+    fn get_selected(&self) -> Option<String> {
+        self.as_ref().and_then(SettingValue::get_selected)
     }
 }
 
@@ -253,8 +285,8 @@ macro_rules! impl_number {
                 vec![Span::raw(self.selected.to_string())]
             }
 
-            fn get_selected(&self) -> String {
-                self.selected.to_string()
+            fn get_selected(&self) -> Option<String> {
+                Some(self.selected.to_string())
             }
         }
     };
