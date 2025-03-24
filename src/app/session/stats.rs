@@ -49,7 +49,7 @@ pub struct RunningStats {
     wpm: Vec<(Timestamp, Wpm)>,
 
     /// How many times a deletion occurred
-    deletetions: u16,
+    deletions: u16,
 
     /// Y-axis bounds for wpm
     y_bounds: [f64; 2],
@@ -85,18 +85,26 @@ impl RunningStats {
         self.acc.push((time, acc));
 
         if delete {
-            self.deletetions += 1;
+            self.deletions += 1;
         }
     }
 
     /// Builds the `RunningStats` into a `Stats` page
     pub fn build_stats(
-        &self,
+        self,
         text: &[Segment],
         final_wpm: Wpm,
         final_acc: f64,
         time: Timestamp,
     ) -> Stats {
+        let Self {
+            errors,
+            acc,
+            wpm,
+            deletions,
+            y_bounds,
+        } = self;
+
         let errors_count = text.iter().map(Segment::actual_errors).sum();
         let corrected = text
             .iter()
@@ -106,7 +114,7 @@ impl RunningStats {
 
         let mut character_collection = HashMap::<char, u16>::new();
 
-        self.errors.iter().for_each(|(_, char)| {
+        errors.iter().for_each(|(_, char)| {
             character_collection
                 .entry(*char)
                 .and_modify(|count| *count += 1)
@@ -124,14 +132,13 @@ impl RunningStats {
                     .or_insert_with(|| vec![character]);
             });
 
-        let (raw_wpm, actual_wpm) = self
-            .wpm
+        let (raw_wpm, actual_wpm) = wpm
             .iter()
             .copied()
             .map(|(time, wpm)| ((time, wpm.raw), (time, wpm.actual)))
             .collect::<(Vec<(f64, f64)>, Vec<(f64, f64)>)>();
 
-        let errors = self.errors.iter().map(|(ts, _)| (*ts, 0.5)).collect();
+        let errors = errors.iter().map(|(ts, _)| (*ts, 0.5)).collect();
 
         let consistency = coefficient_of_variation(&raw_wpm);
 
@@ -140,16 +147,16 @@ impl RunningStats {
             raw_wpm,
             actual_wpm,
             errors,
-            acc: self.acc.clone(),
-            deletions: self.deletetions,
+            acc,
+            deletions,
             errors_count,
             corrected,
             final_wpm,
             final_acc,
-            y_bounds: self.y_bounds,
+            y_bounds,
             x_bounds: [
-                self.wpm.first().expect("No data").0,
-                self.wpm.last().expect("No data").0,
+                wpm.first().expect("No data").0,
+                wpm.last().expect("No data").0,
             ],
             consistency,
             time,
@@ -171,8 +178,9 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
 
     let std_dev = variance.sqrt();
     let res = (std_dev / mean).mul_add(-100.0, 100.0);
+
     if res.is_finite() {
-        return res;
+        return res.abs();
     }
 
     0.0

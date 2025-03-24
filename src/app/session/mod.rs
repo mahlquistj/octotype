@@ -97,7 +97,8 @@ impl TypingSession {
             let input_length = self.input_length();
             let wpm = self.calculate_wpm(time, input_length);
             let acc = self.calculate_acc();
-            return Some(Box::new(self.stats.build_stats(&self.text, wpm, acc, time)));
+            let stats = std::mem::take(&mut self.stats);
+            return Some(Box::new(stats.build_stats(&self.text, wpm, acc, time)));
         }
 
         None

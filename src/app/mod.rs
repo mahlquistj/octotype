@@ -51,7 +51,7 @@ impl App {
     fn draw(&mut self, frame: &mut Frame) {
         let mut block = ROUNDED_BLOCK
             .padding(Padding::new(1, 1, 0, 0))
-            .title_top("TYPERS".to_line().bold().centered())
+            .title_top("OCTOTYPE".to_line().bold().centered())
             .title_top("<CTRL-Q> to exit".to_line().right_aligned());
 
         let area = frame.area();
