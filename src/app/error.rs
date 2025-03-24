@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::Constraint,
     style::{Style, Stylize},
     text::Line,
     widgets::{Block, Padding, Paragraph},

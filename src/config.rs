@@ -9,6 +9,7 @@ pub struct TextTheme {
     pub success: Color,
     pub warning: Color,
     pub error: Color,
+    pub highlight: Color,
 }
 
 impl Default for TextTheme {
@@ -17,6 +18,7 @@ impl Default for TextTheme {
             success: Color::Green,
             warning: Color::Yellow,
             error: Color::Red,
+            highlight: Color::Blue,
         }
     }
 }

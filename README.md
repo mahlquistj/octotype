@@ -65,6 +65,7 @@ spinner_symbol = "BrailleSix"
 success = "Green"
 warning = "Yellow"
 error = "Red"
+highlight = "Blue"
 
 [theme.plot]
 raw_wpm = "Gray"
@@ -84,6 +85,7 @@ line_symbol = "HalfBlock"
 | `theme.text.success`        | `Color`         | Sets the color of `success`-type text                |
 | `theme.text.warning`        | `Color`         | Sets the color of `warning`-type text                |
 | `theme.text.error`          | `Color`         | Sets the color of `error`-type text                  |
+| `theme.text.highlight`      | `Color`         | Sets the color of highlighted text                   |
 | `theme.plot.raw_wpm`        | `Color`         | Sets the color of the raw_wpm datapoints             |
 | `theme.plot.actual_wpm`     | `Color`         | Sets the color of the actual_wpm datapoints          |
 | `theme.plot.accurracy`      | `Color`         | Sets the color of the accurracy datapoints           |

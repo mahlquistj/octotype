@@ -80,7 +80,7 @@ impl Page for Menu {
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
-        _config: &Config,
+        config: &Config,
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
@@ -118,7 +118,7 @@ impl Page for Menu {
 
                 if let Some(selected_arg) = self.args_list_state.selected() {
                     if selected_arg == idx {
-                        name_text = name_text.bold();
+                        name_text = name_text.bold().fg(config.theme.text.highlight)
                     }
                 }
 
