@@ -86,14 +86,8 @@ impl Source {
             Self::Quote => Args::new(),
             Self::RandomWords => {
                 vec![
-                    ("length", Box::new(None::<SourceSetting<(), usize>>)),
-                    (
-                        "number",
-                        Box::new(SourceSetting {
-                            values: (),
-                            selected: 15usize,
-                        }),
-                    ),
+                    ("number", Box::new(15usize)),
+                    ("length", Box::new(None::<usize>)),
                 ]
             }
         }
@@ -173,6 +167,8 @@ pub enum SettingEvent {
     // Useful for strings
     Input(char),
     RemoveInput,
+
+    Clear,
 }
 
 impl<'event> TryFrom<&'event KeyEvent> for SettingEvent {
@@ -184,6 +180,7 @@ impl<'event> TryFrom<&'event KeyEvent> for SettingEvent {
             KeyCode::Left => Self::Decrement,
             KeyCode::Char(c) => Self::Input(c),
             KeyCode::Backspace => Self::RemoveInput,
+            KeyCode::Delete => Self::Clear,
             _ => return Err(()),
         };
 
@@ -192,47 +189,11 @@ impl<'event> TryFrom<&'event KeyEvent> for SettingEvent {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
+// Allowing dead code for now, as this might be used for lists or ranges in the future
 pub struct SourceSetting<V, S> {
-    #[allow(dead_code)]
-    // Allowing dead code for now, as this might be used for lists or ranges in the future
     values: V,
     selected: S,
-}
-
-pub trait SettingValue {
-    fn update(&mut self, event: &SettingEvent);
-    fn render(&self) -> Vec<Span>;
-    fn get_selected(&self) -> Option<String>;
-}
-
-impl SettingValue for SourceSetting<(), String> {
-    fn update(&mut self, event: &SettingEvent) {
-        match event {
-            SettingEvent::Input(ch) => self.selected.push(*ch),
-            SettingEvent::RemoveInput => {
-                self.selected.pop();
-            }
-            _ => (),
-        }
-    }
-
-    fn render(&self) -> Vec<Span> {
-        let len = self.selected.len().saturating_sub(1);
-
-        let mut text_vec = vec![];
-
-        if len > 0 {
-            text_vec.push(Span::raw(&self.selected[0..(len)])); // Get everything up to the second last
-        }
-
-        text_vec.push(Span::styled(" ", Style::default().reversed()));
-
-        text_vec
-    }
-
-    fn get_selected(&self) -> Option<String> {
-        Some(self.selected.clone())
-    }
 }
 
 impl<V: Default, S: Default> Default for SourceSetting<V, S> {
@@ -244,17 +205,55 @@ impl<V: Default, S: Default> Default for SourceSetting<V, S> {
     }
 }
 
+pub trait SettingValue {
+    fn update(&mut self, event: &SettingEvent);
+    fn render(&self) -> Vec<Span>;
+    fn get_selected(&self) -> Option<String>;
+}
+
+impl SettingValue for String {
+    fn update(&mut self, event: &SettingEvent) {
+        match event {
+            SettingEvent::Input(ch) => self.push(*ch),
+            SettingEvent::RemoveInput => {
+                self.pop();
+            }
+            _ => (),
+        }
+    }
+
+    fn render(&self) -> Vec<Span> {
+        let len = self.len().saturating_sub(1);
+
+        let mut text_vec = vec![];
+
+        if len > 0 {
+            text_vec.push(Span::raw(&self[0..(len)])); // Get everything up to the second last
+        }
+
+        text_vec.push(Span::styled(" ", Style::default().reversed()));
+
+        text_vec
+    }
+
+    fn get_selected(&self) -> Option<String> {
+        Some(self.clone())
+    }
+}
+
 // TODO: Temporary: Find a better solution for optional values
 impl<S: SettingValue + Default> SettingValue for Option<S> {
     fn update(&mut self, event: &SettingEvent) {
-        let setting = if let Some(s) = self {
-            s
-        } else {
-            *self = Some(S::default());
-            self.as_mut().unwrap() // We just set it, so we know it exists
-        };
+        if matches!(*event, SettingEvent::Clear) {
+            *self = None;
+            return;
+        }
+
+        let mut setting = self.take().unwrap_or_default();
 
         setting.update(event);
+
+        *self = Some(setting);
     }
 
     fn render(&self) -> Vec<Span> {
@@ -272,21 +271,21 @@ impl<S: SettingValue + Default> SettingValue for Option<S> {
 
 macro_rules! impl_number {
     ($number:ty) => {
-        impl SettingValue for SourceSetting<(), $number> {
+        impl SettingValue for $number {
             fn update(&mut self, event: &SettingEvent) {
                 match event {
-                    SettingEvent::Increment => self.selected += 1 as $number,
-                    SettingEvent::Decrement => self.selected -= 1 as $number,
+                    SettingEvent::Increment => *self += 1,
+                    SettingEvent::Decrement => *self -= 1,
                     _ => (),
                 }
             }
 
             fn render(&self) -> Vec<Span> {
-                vec![Span::raw(self.selected.to_string())]
+                vec![Span::raw(self.to_string())]
             }
 
             fn get_selected(&self) -> Option<String> {
-                Some(self.selected.to_string())
+                Some(self.to_string())
             }
         }
     };
@@ -295,4 +294,4 @@ macro_rules! impl_number {
     };
 }
 
-impl_number!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64, usize, isize);
+impl_number!(i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
