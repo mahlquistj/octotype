@@ -3,7 +3,7 @@
 OctoType is a simple TUI typing trainer made with [Ratatui](ratatui) and heavily
 inspired by [Monkeytype](monkeytype)
 
-## 🔍 Features
+# 🔍 Features
 
 - [x] Configurable
 
@@ -20,7 +20,7 @@ inspired by [Monkeytype](monkeytype)
 
 - [ ] Nix flake home-manager module
 
-## ❓ Why
+# ❓ Why
 
 I made this when i got a new split keyboard while trying to get into vim. I
 found myself using [Monkeytype](monkeytype) a lot (Which is where the
@@ -28,7 +28,7 @@ inspiration came from), and needed a project to work on to not only practice my
 keyboard skills, but also something to do in my new neovim setup that wasn't too
 heavy.
 
-## 🔖 Arguments
+# 🔖 Arguments
 
 | Short       | Long              | Description                                  |
 | ----------- | ----------------- | -------------------------------------------- |
@@ -36,12 +36,12 @@ heavy.
 | `-c <path>` | `--config <path>` | Overrides the default config location        |
 | `-h`        | `--help`          | Shows a help page with the list of arguments |
 
-## 💻 Development
+# 💻 Development
 
 A nix flake dev-shell is provided to run with `nix-develop` otherwise, it should
 be pretty straight forward using cargo.
 
-## ⚙️ Configuration
+# ⚙️ Configuration
 
 OctoType accepts a configuration file in the TOML format, located in the default
 configuration folder for your system:
@@ -52,7 +52,7 @@ configuration folder for your system:
 | MacOS   | `$HOME/Library/Application Support/com.Mahlquist.OctoType/config.toml`          |
 | Windows | `%AppData%\OctoType\config\config.toml`                                         |
 
-### 📘 Default configuration
+## 📘 Default configuration
 
 The default configuration looks like so:
 
@@ -76,7 +76,7 @@ scatter_symbol = "Dot"
 line_symbol = "HalfBlock"
 ```
 
-### ✅ Options
+## ✅ Options
 
 | Key                         | Type            | Description                                          |
 | --------------------------- | --------------- | ---------------------------------------------------- |
@@ -93,7 +93,7 @@ line_symbol = "HalfBlock"
 | `theme.plot.scatter_symbol` | `PlotSymbol`    | Sets the symbols of scatter-type plots (errors)      |
 | `theme.plot.line_symbol`    | `PlotSymbol`    | Sets the symbols of line-type plots (wpm, accurracy) |
 
-### ❗ Types
+## ❗ Types
 
 <details>
     <summary>Colors - Click to expand</summary>
@@ -168,7 +168,7 @@ specific color.
 
 </details>
 
-## ⭐ Contributing
+# ⭐ Contributing
 
 While the project is still new, feel free to open an issue with suggestions or
 alike. When i feel like the project is mature enough, i will be accepting
