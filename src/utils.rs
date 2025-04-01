@@ -1,12 +1,8 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
-    text::Line,
     widgets::{Block, BorderType},
-    Frame,
 };
-
-use crate::config::Config;
 
 /// Timestamp type for more clarity
 pub type Timestamp = f64;
@@ -60,48 +56,5 @@ impl KeyEventHelper for KeyEvent {
 
     fn has_mods(&self, mods: KeyModifiers) -> bool {
         self.modifiers.contains(mods)
-    }
-}
-
-/// An app message
-///
-/// This only has one variant for now, but keeping as an enum for future message-implementations
-///
-pub enum Message {
-    Error(Box<dyn std::error::Error + Send>),
-    Show(Box<dyn Page + Send>),
-}
-
-pub trait Page {
-    /// Renders the page. Called every cycle
-    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config);
-
-    /// Renders a line in the top left of the window.
-    ///
-    /// Called every cycle, before render.
-    fn render_top(&mut self, _config: &Config) -> Option<Line> {
-        None
-    }
-
-    /// Handles events for the page.
-    ///
-    /// Called every time an event appears, after render
-    fn handle_events(&mut self, _event: &Event, _config: &Config) -> Option<Message> {
-        None
-    }
-
-    /// Polls the page for any extra messages (e.g. loadingscreen finished).
-    ///
-    /// Called before handle_events
-    fn poll(&mut self, _config: &Config) -> Option<Message> {
-        None
-    }
-
-    /// Boxes the page
-    fn boxed(self) -> Box<Self>
-    where
-        Self: Sized,
-    {
-        Box::new(self)
     }
 }

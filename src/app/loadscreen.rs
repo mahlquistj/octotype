@@ -11,10 +11,9 @@ use ratatui::{
 };
 use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
-use crate::{
-    config::Config,
-    utils::{center, Message, Page},
-};
+use crate::{config::Config, utils::center};
+
+use super::{Message, Page};
 
 /// An error during loading
 #[derive(Debug)]

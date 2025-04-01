@@ -13,6 +13,7 @@ use figment::{
     Figment,
 };
 
+/// Cli-Arguments
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct AppArgs {

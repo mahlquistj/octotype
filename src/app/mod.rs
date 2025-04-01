@@ -1,10 +1,16 @@
 use std::{rc::Rc, time::Duration};
 
 use crossterm::event::{self, Event};
-use ratatui::{style::Stylize, text::ToLine, widgets::Padding, Frame};
+use ratatui::{
+    layout::Rect,
+    style::Stylize,
+    text::{Line, ToLine},
+    widgets::Padding,
+    Frame,
+};
 
 use crate::config::Config;
-use crate::utils::{KeyEventHelper, Message, Page, ROUNDED_BLOCK};
+use crate::utils::{KeyEventHelper, ROUNDED_BLOCK};
 
 mod error;
 mod loadscreen;
@@ -13,6 +19,49 @@ mod session;
 
 pub use loadscreen::LoadingScreen;
 pub use menu::Menu;
+
+pub trait Page {
+    /// Renders the page. Called every cycle
+    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config);
+
+    /// Renders a line in the top left of the window.
+    ///
+    /// Called every cycle, before render.
+    fn render_top(&mut self, _config: &Config) -> Option<Line> {
+        None
+    }
+
+    /// Handles events for the page.
+    ///
+    /// Called every time an event appears, after render
+    fn handle_events(&mut self, _event: &Event, _config: &Config) -> Option<Message> {
+        None
+    }
+
+    /// Polls the page for any extra messages (e.g. loadingscreen finished).
+    ///
+    /// Called before handle_events
+    fn poll(&mut self, _config: &Config) -> Option<Message> {
+        None
+    }
+
+    /// Boxes the page
+    fn boxed(self) -> Box<Self>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
+    }
+}
+
+/// An app message
+///
+/// This only has one variant for now, but keeping as an enum for future message-implementations
+///
+pub enum Message {
+    Error(Box<dyn std::error::Error + Send>),
+    Show(Box<dyn Page + Send>),
+}
 
 /// The app itself
 pub struct App {

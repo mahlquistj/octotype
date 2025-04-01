@@ -13,9 +13,9 @@ use ratatui::{
 };
 
 use crate::{
-    app::Menu,
+    app::{Menu, Message, Page},
     config::Config,
-    utils::{Message, Page, Timestamp, ROUNDED_BLOCK},
+    utils::{Timestamp, ROUNDED_BLOCK},
 };
 
 /// A struct describing words pr. min
@@ -359,5 +359,16 @@ impl Page for Stats {
         }
 
         None
+    }
+
+    fn poll(&mut self, _config: &Config) -> Option<crate::app::Message> {
+        None
+    }
+
+    fn boxed(self) -> Box<Self>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
     }
 }

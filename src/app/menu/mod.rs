@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use super::{
     session::{Segment, TypingSession},
-    LoadingScreen,
+    LoadingScreen, Message, Page,
 };
 
 use crossterm::event::{Event, KeyCode};
@@ -16,7 +16,7 @@ use strum::VariantNames;
 
 use crate::{
     config::Config,
-    utils::{center, KeyEventHelper, Message, Page},
+    utils::{center, KeyEventHelper},
 };
 
 mod sources;

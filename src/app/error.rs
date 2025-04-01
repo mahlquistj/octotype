@@ -8,9 +8,9 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::utils::{center, KeyEventHelper, Message, Page};
+use crate::utils::{center, KeyEventHelper};
 
-use super::Menu;
+use super::{Menu, Message, Page};
 
 /// Page: Error
 ///
@@ -59,11 +59,7 @@ impl Page for Error {
         Some(Line::from("<Enter> to return to menu"))
     }
 
-    fn handle_events(
-        &mut self,
-        event: &Event,
-        _config: &crate::config::Config,
-    ) -> Option<crate::utils::Message> {
+    fn handle_events(&mut self, event: &Event, _config: &crate::config::Config) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 return match key.code {

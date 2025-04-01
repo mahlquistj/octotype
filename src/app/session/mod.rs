@@ -15,7 +15,7 @@ use ratatui::{
 
 use crate::{
     config::Config,
-    utils::{KeyEventHelper, Message, Page, Timestamp},
+    utils::{KeyEventHelper, Timestamp},
 };
 
 mod stats;
@@ -24,6 +24,8 @@ mod text;
 use stats::Wpm;
 pub use stats::{RunningStats, Stats};
 pub use text::Segment;
+
+use super::{Message, Page};
 
 /// Helper struct for caching stats throughout the session
 #[derive(Debug)]

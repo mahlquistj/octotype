@@ -9,8 +9,8 @@ inspired by [Monkeytype](monkeytype)
 
 - [x] In-depth statistics to improve your bad habits
 
-- [x] Two word-generating APIs to chooose from: Quotes and Random words (More to
-      come)
+- [x] Multiple word-generating APIs to chooose from: Quotes and Random words
+      (More to come)
 
 - [ ] Multiple modes (Normal, Timed, and custom)
 
@@ -98,8 +98,8 @@ line_symbol = "HalfBlock"
 <details>
     <summary>Colors - Click to expand</summary>
 
-Two different types of colors can be supplied:
-ANSI or Custom which sets a specific color.
+Two different types of colors can be supplied: ANSI or Custom which sets a
+specific color.
 
 | Color          | Type   | Description |
 | -------------- | ------ | ----------- |
