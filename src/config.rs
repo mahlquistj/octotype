@@ -54,7 +54,7 @@ impl PlotSymbol {
 pub struct PlotTheme {
     pub raw_wpm: Color,
     pub actual_wpm: Color,
-    pub accurracy: Color,
+    pub accuracy: Color,
     pub errors: Color,
     pub scatter_symbol: PlotSymbol,
     pub line_symbol: PlotSymbol,
@@ -65,7 +65,7 @@ impl Default for PlotTheme {
         Self {
             raw_wpm: Color::Gray,
             actual_wpm: Color::Yellow,
-            accurracy: Color::Gray,
+            accuracy: Color::Gray,
             errors: Color::Red,
             scatter_symbol: PlotSymbol::Dot,
             line_symbol: PlotSymbol::HalfBlock,
@@ -87,7 +87,7 @@ pub enum SpinnerSymbol {
     BoxDrawing,
 
     BrailleOne,
-    BrialleDouble,
+    BrailleDouble,
     BrailleSix,
     BrailleSixDouble,
     BrailleEight,
@@ -127,7 +127,7 @@ impl SpinnerSymbol {
             Self::BlackCircle => BLACK_CIRCLE,
             Self::BoxDrawing => BOX_DRAWING,
             Self::BrailleOne => BRAILLE_ONE,
-            Self::BrialleDouble => BRAILLE_DOUBLE,
+            Self::BrailleDouble => BRAILLE_DOUBLE,
             Self::BrailleSix => BRAILLE_SIX,
             Self::BrailleSixDouble => BRAILLE_SIX_DOUBLE,
             Self::BrailleEight => BRAILLE_EIGHT,

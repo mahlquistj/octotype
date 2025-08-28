@@ -211,7 +211,7 @@ pub struct Stats {
 
 // Rendering logic
 impl Stats {
-    pub fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, config: &Config) {
         let [text, charts] =
             Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .areas(area);
@@ -252,7 +252,7 @@ impl Stats {
             .name("Accuracy")
             .marker(theme.line_symbol.as_marker())
             .graph_type(GraphType::Line)
-            .style(Style::default().fg(theme.accurracy))
+            .style(Style::default().fg(theme.accuracy))
             .data(&self.acc);
 
         let wpm_chart = Chart::new(vec![raw_wpm, actual_wpm])
@@ -345,12 +345,12 @@ impl Stats {
         frame.render_widget(character_errors, characters);
     }
 
-    pub fn render_top(&mut self, _config: &Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &Config) -> Option<Line> {
         Some(Line::raw("<Enter> to go back to the menu"))
     }
 
     pub fn handle_events(
-        &mut self,
+        &self,
         event: &crossterm::event::Event,
         _config: &Config,
     ) -> Option<Message> {

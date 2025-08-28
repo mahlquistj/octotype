@@ -27,7 +27,7 @@ impl<E: Display> From<E> for Error {
 /// Rendering logic
 impl Error {
     pub fn render(
-        &mut self,
+        &self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         config: &crate::config::Config,
@@ -55,15 +55,11 @@ impl Error {
         frame.render_widget(text, center);
     }
 
-    pub fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &crate::config::Config) -> Option<Line> {
         Some(Line::from("<Enter> to return to menu"))
     }
 
-    pub fn handle_events(
-        &mut self,
-        event: &Event,
-        _config: &crate::config::Config,
-    ) -> Option<Message> {
+    pub fn handle_events(&self, event: &Event, _config: &crate::config::Config) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 return match key.code {

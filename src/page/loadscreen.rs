@@ -75,8 +75,9 @@ impl Loading {
     fn join(&mut self) -> Result<Option<Message>, LoadError> {
         self.handle
             .take()
-            .map(|th| {
-                th.join()
+            .map(|handle| {
+                handle
+                    .join()
                     .unwrap_or_else(|_| Err(LoadError("Failed to join threadhandle".to_string())))
             })
             .transpose()
@@ -86,7 +87,7 @@ impl Loading {
 // Rendering logic
 impl Loading {
     pub fn render(
-        &mut self,
+        &self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         config: &Config,
