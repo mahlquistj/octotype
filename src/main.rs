@@ -9,8 +9,8 @@ use clap::Parser;
 use config::Config;
 use directories::ProjectDirs;
 use figment::{
-    providers::{Format, Serialized, Toml},
     Figment,
+    providers::{Format, Serialized, Toml},
 };
 
 /// Cli-Arguments
