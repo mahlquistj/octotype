@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use super::{
+    Message,
+    loadscreen::Loading,
     session::{Segment, TypingSession},
-    LoadingScreen, Message, Page,
 };
 
 use crossterm::event::{Event, KeyCode};
@@ -14,13 +15,8 @@ use ratatui::{
 };
 use strum::VariantNames;
 
-use crate::{
-    config::Config,
-    utils::{center, KeyEventHelper},
-};
-
-mod sources;
-use sources::{Source, SourceError};
+use crate::sources::{self, Source, SourceError};
+use crate::{config::Config, utils::center};
 
 /// Page: Main menu
 pub struct Menu {
@@ -75,8 +71,9 @@ impl Menu {
     }
 }
 
-impl Page for Menu {
-    fn render(
+// Rendering logic
+impl Menu {
+    pub fn render(
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
@@ -137,7 +134,7 @@ impl Page for Menu {
         frame.render_widget(settings, text_area);
     }
 
-    fn handle_events(
+    pub fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
         _config: &Config,
@@ -175,13 +172,12 @@ impl Page for Menu {
 
                         let args = std::mem::take(&mut self.args);
                         // Spawn a `LoadingScreen` that loads the `TypingSession`
-                        let session_loader = LoadingScreen::load("Loading words...", move || {
+                        let session_loader = Loading::load("Loading words...", move || {
                             Self::create_session(source, args)
-                                .map(|session| Message::Show(session.boxed()))
-                        })
-                        .boxed();
+                                .map(|session| Message::Show(session.into()))
+                        });
 
-                        return Some(Message::Show(session_loader));
+                        return Some(Message::Show(session_loader.into()));
                     }
                     _ => (),
                 }

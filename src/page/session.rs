@@ -7,16 +7,13 @@ use std::{
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Rect},
     text::Line,
     widgets::{Block, Padding, Paragraph, Wrap},
-    Frame,
 };
 
-use crate::{
-    config::Config,
-    utils::{KeyEventHelper, Timestamp},
-};
+use crate::{config::Config, utils::Timestamp};
 
 mod stats;
 mod text;
@@ -25,7 +22,7 @@ use stats::Wpm;
 pub use stats::{RunningStats, Stats};
 pub use text::Segment;
 
-use super::{Message, Page};
+use super::Message;
 
 /// Helper struct for caching stats throughout the session
 #[derive(Debug)]
@@ -99,14 +96,14 @@ impl TypingSession {
     /// Polls the session.
     ///
     /// Returns the stats if the session is done. Returns `None` otherwise
-    fn poll_stats(&mut self) -> Option<Box<Stats>> {
+    fn poll_stats(&mut self) -> Option<Stats> {
         if self.text.iter().all(|seg| seg.is_done()) {
             let time = self.elapsed_minutes();
             let input_length = self.input_length();
             let wpm = self.calculate_wpm(time, input_length);
             let acc = self.calculate_acc();
             let stats = std::mem::take(&mut self.stats);
-            return Some(Box::new(stats.build_stats(&self.text, wpm, acc, time)));
+            return Some(stats.build_stats(&self.text, wpm, acc, time));
         }
 
         None
@@ -172,7 +169,7 @@ impl TypingSession {
         let actual_char = segment
             .get_char(segment.input_length())
             .expect("No character found"); // refactor
-                                           // this expect out
+        // this expect out
 
         let is_error = !segment.add_input(character);
 
@@ -247,8 +244,9 @@ impl TypingSession {
     }
 }
 
-impl Page for TypingSession {
-    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
+// Rendering logic
+impl TypingSession {
+    pub fn render(&self, frame: &mut Frame, area: Rect, config: &Config) {
         // TODO: Find a better way to handle
         if self.current_segment_idx == self.text.len() {
             return;
@@ -273,7 +271,7 @@ impl Page for TypingSession {
         frame.render_widget(paragraph.block(block), center);
     }
 
-    fn render_top(&mut self, _config: &Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &Config) -> Option<Line> {
         let time = self.elapsed();
         let seconds = time.as_secs().rem(60);
         let minutes = time.as_secs() / 60;
@@ -284,11 +282,11 @@ impl Page for TypingSession {
         })))
     }
 
-    fn poll(&mut self, _config: &Config) -> Option<Message> {
-        self.poll_stats().map(|stats| Message::Show(stats))
+    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
+        self.poll_stats().map(|stats| Message::Show(stats.into()))
     }
 
-    fn handle_events(
+    pub fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
         _config: &Config,

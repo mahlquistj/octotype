@@ -8,7 +8,7 @@ use ratatui::{
 use serde::Deserialize;
 use strum::{EnumString, IntoStaticStr, VariantNames};
 
-use crate::app::session::EmptySessionError;
+use crate::page::session::EmptySessionError;
 
 mod quote_api;
 mod random_words;

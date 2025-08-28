@@ -8,9 +8,9 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::utils::{center, KeyEventHelper};
+use crate::utils::center;
 
-use super::{Menu, Message, Page};
+use super::{Message, menu::Menu};
 
 /// Page: Error
 ///
@@ -24,8 +24,9 @@ impl<E: Display> From<E> for Error {
     }
 }
 
-impl Page for Error {
-    fn render(
+/// Rendering logic
+impl Error {
+    pub fn render(
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
@@ -33,10 +34,9 @@ impl Page for Error {
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
-        let mut lines =
-            vec![
-                Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
-            ];
+        let mut lines = vec![
+            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
+        ];
 
         let error_lines = self
             .0
@@ -55,15 +55,19 @@ impl Page for Error {
         frame.render_widget(text, center);
     }
 
-    fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
+    pub fn render_top(&mut self, _config: &crate::config::Config) -> Option<Line> {
         Some(Line::from("<Enter> to return to menu"))
     }
 
-    fn handle_events(&mut self, event: &Event, _config: &crate::config::Config) -> Option<Message> {
+    pub fn handle_events(
+        &mut self,
+        event: &Event,
+        _config: &crate::config::Config,
+    ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.is_press() {
                 return match key.code {
-                    KeyCode::Enter => Some(Message::Show(Menu::new().boxed())),
+                    KeyCode::Enter => Some(Message::Show(Menu::new().into())),
                     _ => None,
                 };
             };

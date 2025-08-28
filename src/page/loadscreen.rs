@@ -13,7 +13,7 @@ use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
 use crate::{config::Config, utils::center};
 
-use super::{Message, Page};
+use super::Message;
 
 /// An error during loading
 #[derive(Debug)]
@@ -27,8 +27,8 @@ impl Display for LoadError {
     }
 }
 
-/// Page: LoadingScreen
-pub struct LoadingScreen {
+/// Page: Loading
+pub struct Loading {
     /// The handle of the underlying thread
     handle: Option<JoinHandle<Result<Message, LoadError>>>,
     state: ThrobberState,
@@ -36,7 +36,7 @@ pub struct LoadingScreen {
     message: String,
 }
 
-impl LoadingScreen {
+impl Loading {
     /// Creats a new `LoadingScreen`.
     ///
     /// * `F`: The closure to run in the background
@@ -83,8 +83,9 @@ impl LoadingScreen {
     }
 }
 
-impl Page for LoadingScreen {
-    fn render(
+// Rendering logic
+impl Loading {
+    pub fn render(
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
@@ -107,7 +108,7 @@ impl Page for LoadingScreen {
         frame.render_widget(text, center);
     }
 
-    fn poll(&mut self, _config: &Config) -> Option<Message> {
+    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
         self.tick();
 
         if !self.is_finished() {

@@ -3,19 +3,20 @@ use std::collections::{BTreeMap, HashMap};
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, ToSpan},
     widgets::{
         Axis, Block, Borders, Chart, Dataset, GraphType, LegendPosition, Padding, Paragraph,
     },
-    Frame,
 };
 
 use crate::{
-    app::{Menu, Message, Page},
+    app::Message,
     config::Config,
-    utils::{Timestamp, ROUNDED_BLOCK},
+    page,
+    utils::{ROUNDED_BLOCK, Timestamp},
 };
 
 /// A struct describing words pr. min
@@ -208,8 +209,9 @@ pub struct Stats {
     time: f64,
 }
 
-impl Page for Stats {
-    fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
+// Rendering logic
+impl Stats {
+    pub fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
         let [text, charts] =
             Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .areas(area);
@@ -343,32 +345,21 @@ impl Page for Stats {
         frame.render_widget(character_errors, characters);
     }
 
-    fn render_top(&mut self, _config: &Config) -> Option<Line> {
+    pub fn render_top(&mut self, _config: &Config) -> Option<Line> {
         Some(Line::raw("<Enter> to go back to the menu"))
     }
 
-    fn handle_events(
+    pub fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
         _config: &Config,
     ) -> Option<Message> {
         if let Event::Key(key) = event {
             if key.code == KeyCode::Enter {
-                return Some(Message::Show(Menu::new().boxed()));
+                return Some(Message::Show(page::Menu::new().into()));
             }
         }
 
         None
-    }
-
-    fn poll(&mut self, _config: &Config) -> Option<crate::app::Message> {
-        None
-    }
-
-    fn boxed(self) -> Box<Self>
-    where
-        Self: Sized,
-    {
-        Box::new(self)
     }
 }
