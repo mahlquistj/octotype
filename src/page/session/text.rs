@@ -5,7 +5,7 @@ use ratatui::{
     text::ToSpan,
 };
 
-use crate::config::TextTheme;
+use crate::config::theme::TextTheme;
 
 /// A result from an input
 #[derive(Debug)]
@@ -131,6 +131,30 @@ impl Segment {
 
         let word = &self.input[range];
         word.iter().any(CharacterResult::is_wrong)
+    }
+
+    // Mode support methods
+    
+    pub fn count_completed_words(&self) -> usize {
+        // Count words that have been fully typed
+        let input_len = self.input.len();
+        if input_len == 0 {
+            return 0;
+        }
+        
+        self.words.iter()
+            .filter(|(_start, end)| *end < input_len)
+            .count()
+    }
+    
+    pub fn count_completed_chars(&self) -> usize {
+        // Count characters that have been typed (correctly or incorrectly)
+        self.input.len()
+    }
+    
+    pub fn count_errors(&self) -> usize {
+        // Count typing errors in this segment
+        self.wrong_inputs.len()
     }
 
     /// Renders the segment as a `ratatui::Line`

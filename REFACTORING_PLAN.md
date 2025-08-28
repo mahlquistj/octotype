@@ -6,6 +6,29 @@ This document outlines the refactoring plan to make OctoType feature-complete
 and more maintainable before release. The focus is on config-driven
 functionality, better code organization, and implementing missing features.
 
+## 🚨 CURRENT STATUS (2025-08-28)
+
+**Codebase State**: ❌ **BROKEN** - Does not compile
+
+**What's Working**: ✅
+- Page trait → enum conversion (completed successfully)
+- Statistics configuration structure added to Config
+- App structure updated to work with Page enum
+
+**What's Broken**: ❌
+- `src/sources.rs` file emptied but no external source system implemented
+- `src/page/menu.rs` references deleted `Source` and `SourceError` types
+- `src/page/session/text.rs` references missing `TextTheme`
+- Built-in source implementations deleted (`quote_api.rs`, `random_words.rs`) with no replacement
+
+**Immediate Next Steps**:
+1. Implement minimal external source system to restore compilation
+2. Fix menu.rs and session/text.rs import errors  
+3. Create basic external source configurations
+4. Test that application runs again
+
+**Progress on Refactoring Plan**: ~30% complete (Page enum ✅, Sources system 🔄)
+
 ## Missing Features (from README)
 
 - [ ] Multiple modes (Normal, Timed, and custom)
@@ -18,26 +41,30 @@ functionality, better code organization, and implementing missing features.
 ```
 src/
 ├── main.rs                    # CLI parsing, config loading, app initialization
-├── config.rs                  # Theme and configuration structs
+├── config.rs                  # Theme and StatisticsConfig structs (✅ updated)
+├── config/
+│   └── theme.rs              # Theme configuration
+├── sources.rs                 # Empty file - source system removed (❌ BROKEN)
 ├── utils.rs                   # Helper functions and traits
-└── app/
-    ├── mod.rs                 # App struct, Page trait, message handling
+├── app.rs                     # App struct with Page enum (✅ updated)
+└── page/                      # Page implementations
+    ├── mod.rs                 # Page enum (✅ converted from trait)
     ├── error.rs               # Error display page
     ├── loadscreen.rs          # Loading screen with spinner
-    ├── menu/                  # Main menu and source selection
-    │   ├── mod.rs
-    │   └── sources/           # Word source implementations
+    ├── menu.rs                # Main menu (❌ BROKEN - references deleted sources)
     └── session/               # Typing session logic
         ├── mod.rs             # Main typing session
-        ├── text.rs            # Text segment handling
+        ├── text.rs            # Text segment handling (❌ BROKEN - missing TextTheme)
         └── stats.rs           # Statistics calculation and display
 ```
 
-## [ ] 1. Architecture Overhaul: Replace Page Trait with Enum
+**Current State**: Codebase is in transitional state - Page enum conversion succeeded but source system removal broke compilation.
 
-### Current Issue
+## [✅] 1. Architecture Overhaul: Replace Page Trait with Enum
 
-The current `Page` trait system is over-engineered for this application:
+### ✅ COMPLETED - Page Enum Conversion
+
+The Page trait system has been successfully converted to an enum-based approach as planned:
 
 ```rust
 // Current trait-based approach
@@ -149,18 +176,25 @@ pub enum Message {
 5. Remove `boxed()` methods from all page implementations
 6. Update all page transitions to use enum variants
 
-This change will make the codebase more performant, type-safe, and easier to
-debug while removing unnecessary abstraction.
+✅ **COMPLETED**: This change has been successfully implemented and is working correctly.
 
-## 2. Configuration System Enhancements
+## [🔄] 2. Configuration System Enhancements
 
-### Current State
+### ✅ PARTIALLY COMPLETED - Statistics Config Added
 
 ```rust
-// config.rs - Current structure
+// config.rs - Current structure (UPDATED)
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     pub theme: Theme,
+    pub statistic: StatisticsConfig,  // ✅ ADDED
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct StatisticsConfig {
+    pub save_enabled: bool,
+    pub history_limit: usize,
+    pub directory: Option<PathBuf>,
 }
 ```
 
@@ -196,6 +230,22 @@ spinner_color = "Yellow"
 
 ## 3. Advanced Mode System with TUI Customization
 
+### ✅ IMPROVED ARCHITECTURE: Conditions vs Parameters
+
+The mode system has been redesigned to clearly separate two distinct concepts:
+
+- **🎯 Conditions** (`[mode.conditions]`): Define WHEN a session ends (win-conditions)
+  - Time limits, word count goals, accuracy thresholds
+  - Used by `is_complete()` method to determine session completion
+  - Range and float range types for numeric goals
+
+- **⚙️ Parameters** (`[mode.parameters]`): Define HOW a session behaves (customization)  
+  - Text processing options, difficulty levels, categories
+  - Used by source overrides to customize content generation
+  - Select, toggle, text, and multi-select types for options
+
+This separation eliminates confusion and creates a cleaner, more maintainable architecture.
+
 ### Current Session Structure
 
 ```rust
@@ -228,25 +278,34 @@ pub struct ResolvedModeConfig {
     pub source_overrides: HashMap<String, SourceOverride>,
     pub pipeline: Vec<PipelineStep>,
     pub parameter_values: ParameterValues,
+    pub conditions: ConditionValues,  // Separate win-conditions
 }
 
 impl ResolvedModeConfig {
     pub fn is_complete(&self, session: &TypingSession) -> bool {
-        // Check completion based on resolved parameter values
-        if let Some(time_limit) = self.parameter_values.get_duration("time_limit") {
+        // Check win-conditions (NOT parameters)
+        if let Some(time_limit) = self.conditions.get_duration("time_limit") {
             if let Some(start) = session.first_keypress {
                 return start.elapsed() >= time_limit;
             }
         }
         
-        if let Some(word_count) = self.parameter_values.get_integer("word_count") {
-            let current_count = session.text.iter().map(|seg| seg.input_length()).sum::<usize>();
-            if current_count >= word_count as usize {
+        if let Some(word_count) = self.conditions.get_integer("word_count") {
+            let typed_words = session.stats.word_count();
+            if typed_words >= word_count as usize {
                 return true;
             }
         }
         
-        // Default: all segments completed
+        if let Some(accuracy_threshold) = self.conditions.get_float("accuracy_threshold") {
+            let current_accuracy = session.stats.accuracy();
+            let min_chars = self.conditions.get_integer("min_chars").unwrap_or(50);
+            if session.stats.char_count() >= min_chars as usize {
+                return current_accuracy >= accuracy_threshold;
+            }
+        }
+        
+        // Default: all segments completed (infinite mode)
         session.text.iter().all(|seg| seg.is_done())
     }
 }
@@ -272,19 +331,26 @@ pipeline = [
     { builtin = "ensure_min_length", args = ["4"] }
 ]
 
-# Dynamic parameters (adjustable in TUI)
-[mode.parameters]
+# Win-conditions: when the session ends
+[mode.conditions]
 time_limit = { min = 30, max = 900, default = 300, step = 30, suffix = "seconds" }
+
+# Customization parameters: how the session behaves
+[mode.parameters]
 text_processing = { 
     options = ["normal", "no_punctuation", "lowercase"], 
     default = "normal" 
 }
+difficulty = {
+    options = ["easy", "medium", "hard"],
+    default = "medium"
+}
 
-# Template usage with dynamic parameters  
+# Template usage with parameters (NOT conditions)
 [mode.source_overrides.quotes]
 args = [
     "--processing", "{text_processing}",
-    "--time-limit", "{time_limit}"
+    "--difficulty", "{difficulty}"
 ]
 ```
 
@@ -295,22 +361,17 @@ args = [
 pub struct ModeConfig {
     pub name: String,
     pub description: Option<String>,
-    pub parameters: HashMap<String, ParameterDefinition>,
+    pub parameters: HashMap<String, ParameterDefinition>,     // Customization options
+    pub conditions: HashMap<String, ConditionDefinition>,     // Win-conditions
     pub source_overrides: HashMap<String, SourceOverride>,
     pub pipeline: Vec<PipelineStep>,
     pub source: Option<String>,
 }
 
+// Parameter definitions for customization options
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ParameterDefinition {
-    Range {
-        min: i32,
-        max: Option<i32>,  // None = unbounded range
-        default: i32,
-        step: Option<i32>,
-        suffix: Option<String>, // "seconds", "words", etc.
-    },
     Select {
         options: Vec<String>,
         default: String,
@@ -332,18 +393,48 @@ pub enum ParameterDefinition {
     },
 }
 
-// Runtime parameter values with type-safe access
+// Condition definitions for win-conditions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ConditionDefinition {
+    Range {
+        min: i32,
+        max: Option<i32>,  // None = unbounded range
+        default: i32,
+        step: Option<i32>,
+        suffix: Option<String>, // "seconds", "words", "% accuracy", etc.
+    },
+    FloatRange {
+        min: f64,
+        max: f64,
+        default: f64,
+        step: f64,
+        suffix: Option<String>, // "% accuracy", etc.
+    },
+}
+
+// Runtime parameter values with type-safe access (customization)
 #[derive(Debug, Clone)]
 pub struct ParameterValues {
     values: HashMap<String, ParameterValue>,
 }
 
 impl ParameterValues {
-    pub fn get_integer(&self, key: &str) -> Option<i32> { /* ... */ }
     pub fn get_string(&self, key: &str) -> Option<&str> { /* ... */ }
     pub fn get_string_list(&self, key: &str) -> Option<&[String]> { /* ... */ }
-    pub fn get_duration(&self, key: &str) -> Option<Duration> { /* ... */ }
     pub fn get_boolean(&self, key: &str) -> Option<bool> { /* ... */ }
+}
+
+// Runtime condition values with type-safe access (win-conditions)
+#[derive(Debug, Clone)]
+pub struct ConditionValues {
+    values: HashMap<String, ConditionValue>,
+}
+
+impl ConditionValues {
+    pub fn get_integer(&self, key: &str) -> Option<i32> { /* ... */ }
+    pub fn get_float(&self, key: &str) -> Option<f64> { /* ... */ }
+    pub fn get_duration(&self, key: &str) -> Option<Duration> { /* ... */ }
 }
 ```
 
@@ -357,7 +448,9 @@ pub enum MenuState {
     ModeCustomization { 
         mode: ModeConfig, 
         parameter_values: ParameterValues,
-        selected_param: usize 
+        condition_values: ConditionValues,
+        selected_section: CustomizationSection, // Parameters vs Conditions
+        selected_item: usize 
     },
     SourceSelection { selected: usize },
     Ready { 
@@ -366,52 +459,157 @@ pub enum MenuState {
     },
 }
 
-// User sees customization interface like:
+#[derive(Debug)]
+pub enum CustomizationSection {
+    Conditions,  // Win-conditions (when session ends)
+    Parameters,  // Customization options (how session behaves)
+}
+
+// User sees separated customization interface:
 // ┌─ Customize: Timed Challenge ────────────────┐
+// │ 📍 WIN CONDITIONS (when session ends):      │
 // │ > time_limit: 300 seconds    [←→ to adjust] │
+// │                                             │
+// │ ⚙️  PARAMETERS (session behavior):           │
+// │   text_processing: normal    [←→ to cycle]  │
 // │   difficulty: medium         [←→ to cycle]  │
-// │   word_count: 150 words      [←→ to adjust] │
-// │   categories: [traits]       [Space toggle] │
 // │   include_symbols: false     [Space toggle] │
 // │                                             │
 // │ [Enter] to confirm, [Esc] to go back       │
 // └─────────────────────────────────────────────┘
 ```
 
+#### Win-Condition Examples
+
+```toml
+# Time-based challenge
+[mode.conditions]
+time_limit = { min = 30, max = 1800, default = 300, step = 30, suffix = "seconds" }
+
+# Word count goal
+[mode.conditions]
+word_count = { min = 10, max = 500, default = 100, step = 10, suffix = "words" }
+
+# Accuracy challenge
+[mode.conditions]
+accuracy_threshold = { min = 80.0, max = 100.0, default = 95.0, step = 1.0, suffix = "% accuracy" }
+min_chars = { min = 50, max = 1000, default = 100, step = 50, suffix = "characters" }
+
+# Marathon mode (unbounded)
+[mode.conditions]
+marathon_duration = { min = 300, step = 60, default = 1800, suffix = "seconds" }
+```
+
 #### Parameter Examples
 
 ```toml
-# Unbounded range (no maximum)
-marathon_duration = { min = 300, step = 60, default = 1800 }
+# Text processing options
+[mode.parameters]
+text_processing = { 
+    options = ["normal", "no_punctuation", "lowercase"], 
+    default = "normal" 
+}
 
-# Validated text input  
+# Difficulty selection
+difficulty = {
+    options = ["beginner", "intermediate", "advanced"],
+    default = "intermediate"
+}
+
+# Multi-select categories
+categories = { 
+    type = "multi_select",
+    options = ["quotes", "code", "literature", "technical"],
+    default = ["quotes"],
+    min_selections = 1,
+    max_selections = 3
+}
+
+# Custom theme name
 custom_theme = { 
     type = "text", 
     default = "default", 
     max_length = 20,
     pattern = "^[a-zA-Z_][a-zA-Z0-9_]*$"
 }
+```
 
-# Multi-select with constraints
-focus_areas = { 
+### Example Mode Configurations
+
+#### 1. Time Challenge Mode
+```toml
+[mode]
+name = "Time Challenge"
+description = "Type as much as possible within a time limit"
+source = "quotes"
+
+[mode.conditions]
+time_limit = { min = 30, max = 1800, default = 300, step = 30, suffix = "seconds" }
+
+[mode.parameters]
+text_processing = { options = ["normal", "no_punctuation"], default = "normal" }
+difficulty = { options = ["easy", "medium", "hard"], default = "medium" }
+```
+
+#### 2. Accuracy Challenge Mode  
+```toml
+[mode]
+name = "Accuracy Challenge"
+description = "Maintain high accuracy over a minimum text length"
+source = "random_words"
+
+[mode.conditions]
+accuracy_threshold = { min = 85.0, max = 99.0, default = 95.0, step = 1.0, suffix = "% accuracy" }
+min_chars = { min = 100, max = 1000, default = 200, step = 50, suffix = "characters" }
+
+[mode.parameters]
+word_length = { options = ["short", "medium", "long"], default = "medium" }
+include_numbers = { type = "toggle", default = false, label = "Include numbers" }
+```
+
+#### 3. Sprint Mode
+```toml
+[mode]
+name = "Sprint Mode"
+description = "Type a fixed number of words as fast as possible"
+source = "processed_quotes"
+
+[mode.conditions]
+word_count = { min = 25, max = 200, default = 50, step = 25, suffix = "words" }
+
+[mode.parameters]
+text_processing = { options = ["normal", "lowercase"], default = "normal" }
+categories = { 
     type = "multi_select",
-    options = ["syntax", "algorithms", "patterns", "stdlib"],
-    default = ["syntax"],
-    min_selections = 1,
-    max_selections = 3
+    options = ["motivational", "technical", "literature"],
+    default = ["motivational"],
+    max_selections = 2
 }
+```
+
+#### 4. Infinite Practice Mode
+```toml
+[mode]
+name = "Practice Mode"
+description = "Continuous typing practice with no end condition"
+source = "system_words"
+
+# No conditions = infinite mode (only ends when user quits)
+[mode.conditions]
+
+[mode.parameters]
+word_difficulty = { options = ["common", "uncommon", "advanced"], default = "common" }
+shuffle_order = { type = "toggle", default = true, label = "Shuffle word order" }
 ```
 
 ### Mode-Source Integration Benefits
 
-1. **Static + Dynamic**: Config files define structure, TUI allows runtime
-   customization
-2. **Type Safety**: Parameter definitions enforce valid ranges and options
-3. **Template Integration**: Dynamic values seamlessly integrate with source
-   overrides
-4. **Validation**: Built-in parameter validation and constraints
-5. **User Friendly**: Intuitive TUI controls with real-time feedback
-6. **Extensible**: Easy to add new parameter types and behaviors
+1. **Clear Separation**: Conditions determine WHEN to stop, parameters determine HOW to behave
+2. **Type Safety**: Parameter and condition definitions enforce valid ranges and options
+3. **Template Integration**: Parameters (NOT conditions) integrate with source overrides
+4. **Simple Logic**: `is_complete()` only needs to check conditions, not parameters
+5. **User Friendly**: TUI can separate "Set Goal" vs "Customize Session"
+6. **Extensible**: Easy to add new condition types (WPM threshold, error limit, etc.)
 
 ## 4. Statistics Persistence System
 
@@ -1228,15 +1426,23 @@ pub struct SourceArgs {
 
 ### Phase 1: Architectural Foundation
 
-- [ ] **Replace Page trait with AppPage enum** (highest priority)
-- [ ] **Replace Source enum with ExternalSource struct**
-- [ ] **Remove all built-in source code completely** (Quote, RandomWords
-      implementations)
-- [ ] **Implement external source system** with discovery and execution
-- [ ] Fix all TODO comments and `expect()` calls
-- [ ] Fix typos throughout codebase (accurracy → accuracy, BrialleDouble →
-      BrailleDouble)
-- [ ] Add proper unified error handling protocol
+- [✅] **Replace Page trait with AppPage enum** (COMPLETED)
+- [🔄] **Replace Source enum with ExternalSource struct** (sources.rs emptied but not replaced)
+- [🔄] **Remove all built-in source code completely** (Quote, RandomWords deleted but no replacement)
+- [❌] **Implement external source system** with discovery and execution (NOT STARTED)
+- [❌] Fix all TODO comments and `expect()` calls
+- [❌] Fix typos throughout codebase (accurracy → accuracy, BrialleDouble → BrailleDouble)
+- [❌] Add proper unified error handling protocol
+
+**CRITICAL**: Compilation is currently broken due to incomplete source system migration.
+
+### Phase 1.5: **URGENT** - Fix Broken Compilation
+
+- [❌] **Implement minimal external source system** to replace deleted built-in sources
+- [❌] **Fix menu.rs compilation errors** (Source/SourceError references)
+- [❌] **Add missing TextTheme** to config system
+- [❌] **Create basic external source configurations** (quotes.toml, random_words.toml)
+- [❌] **Test that application compiles and runs**
 
 ### Phase 2: Mode System Implementation
 
@@ -1267,6 +1473,18 @@ pub struct SourceArgs {
 - [ ] Create Nix flake and home-manager module
 
 ## Expected File Changes
+
+### Files Already Modified ✅
+- `src/page.rs` - Successfully converted to Page enum
+- `src/app.rs` - Updated to work with Page enum
+- `src/config.rs` - Added StatisticsConfig structure
+- `src/sources.rs` - **EMPTIED** (causing compilation errors)
+- Deleted: `src/sources/quote_api.rs`, `src/sources/random_words.rs`
+
+### Current Broken State ❌
+- `src/page/menu.rs` - References non-existent Source types
+- `src/page/session/text.rs` - References missing TextTheme
+- **Application does not compile**
 
 ### New Files
 
@@ -1313,11 +1531,12 @@ pub struct SourceArgs {
 
 ## Estimated Implementation Time
 
-- Phase 1: 2-3 days
-- Phase 2: 1-2 days
-- Phase 3: 3-4 days
-- Phase 4: 2-3 days
-- Phase 5: 1-2 days
+- Phase 1: ✅ Partially complete (Page enum ✅, Source system ❌)
+- Phase 1.5: **URGENT** 1-2 days to fix compilation
+- Phase 2: 2-3 days (Mode system implementation)
+- Phase 3: 3-4 days (Statistics persistence)
+- Phase 4: 2-3 days (Polish and default configurations)
 
-**Total: ~10-15 days of development time**
+**Remaining: ~8-12 days of development time**
+**Next Priority: Fix broken compilation (Phase 1.5)**
 

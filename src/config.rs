@@ -1,6 +1,8 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
-mod theme;
+pub mod theme;
 
 use theme::Theme;
 
@@ -14,6 +16,7 @@ pub struct Config {
 pub struct StatisticsConfig {
     pub save_enabled: bool,
     pub history_limit: usize,
+    pub directory: Option<PathBuf>,
 }
 
 impl Default for StatisticsConfig {
@@ -21,6 +24,7 @@ impl Default for StatisticsConfig {
         Self {
             save_enabled: true,
             history_limit: 10,
+            directory: None,
         }
     }
 }

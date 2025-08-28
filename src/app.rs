@@ -5,6 +5,7 @@ use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
 
 use crate::config::Config;
 use crate::page;
+use crate::session_factory::SessionFactory;
 use crate::utils::{KeyEventHelper, ROUNDED_BLOCK};
 
 /// An app message
@@ -20,14 +21,16 @@ pub enum Message {
 pub struct App {
     page: page::Page,
     config: Rc<Config>,
+    session_factory: SessionFactory,
 }
 
 impl App {
     /// Creates a new `App`
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, session_factory: SessionFactory) -> Self {
         Self {
             page: page::Menu::new().into(),
             config: Rc::new(config),
+            session_factory,
         }
     }
 

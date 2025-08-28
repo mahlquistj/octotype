@@ -183,10 +183,8 @@ impl Menu {
                 }
 
                 if let Some(selected_arg) = self.args_list_state.selected() {
-                    if let Ok(setting_event) = key.try_into() {
-                        let arg = &mut self.args[selected_arg].1;
-                        arg.update(&setting_event);
-                    }
+                    let arg = &mut self.args[selected_arg].1;
+                    arg.update(key);
                 } else if !self.args.is_empty() {
                     self.args_list_state.select(Some(0));
                 }
