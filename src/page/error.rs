@@ -60,14 +60,14 @@ impl Error {
     }
 
     pub fn handle_events(&self, event: &Event, _config: &crate::config::Config) -> Option<Message> {
-        if let Event::Key(key) = event {
-            if key.is_press() {
-                return match key.code {
-                    KeyCode::Enter => Some(Message::Show(Menu::new().into())),
-                    _ => None,
-                };
+        if let Event::Key(key) = event
+            && key.is_press()
+        {
+            return match key.code {
+                KeyCode::Enter => Some(Message::Show(Menu::new().into())),
+                _ => None,
             };
-        }
+        };
 
         None
     }

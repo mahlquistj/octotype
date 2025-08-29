@@ -219,12 +219,11 @@ impl ResolvedModeConfig {
 
     pub fn is_complete(&self, session: &mut crate::page::session::TypingSession) -> bool {
         // Time-based completion
-        if let Some(time_limit) = self.condition_values.get_duration("time_limit") {
-            if let Some(start) = session.get_first_keypress() {
-                if start.elapsed() >= time_limit {
-                    return true;
-                }
-            }
+        if let Some(time_limit) = self.condition_values.get_duration("time_limit")
+            && let Some(start) = session.get_first_keypress()
+            && start.elapsed() >= time_limit
+        {
+            return true;
         }
 
         // Word count completion
@@ -436,4 +435,3 @@ impl ModeManager {
 struct ModeFileConfig {
     mode: ModeConfig,
 }
-

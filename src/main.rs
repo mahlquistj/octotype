@@ -12,13 +12,13 @@ use app::App;
 use clap::Parser;
 use config::Config;
 use directories::ProjectDirs;
-use sources::SourceManager;
-use modes::ModeManager;
-use session_factory::SessionFactory;
 use figment::{
     Figment,
     providers::{Format, Serialized, Toml},
 };
+use modes::ModeManager;
+use session_factory::SessionFactory;
+use sources::SourceManager;
 
 /// Cli-Arguments
 #[derive(Parser)]
@@ -68,22 +68,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         PathBuf::from(".")
     };
-    
+
     // Load sources and modes
-    let source_manager = SourceManager::load_from_config_dir(&config_dir)
-        .unwrap_or_else(|e| {
-            eprintln!("Warning: Failed to load sources: {}", e);
-            SourceManager::with_defaults()
-        });
-        
-    let mode_manager = ModeManager::load_from_config_dir(&config_dir)
-        .unwrap_or_else(|e| {
-            eprintln!("Warning: Failed to load modes: {}", e);
-            ModeManager::with_defaults()
-        });
-    
+    let source_manager = SourceManager::load_from_config_dir(&config_dir).unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load sources: {}", e);
+        SourceManager::with_defaults()
+    });
+
+    let mode_manager = ModeManager::load_from_config_dir(&config_dir).unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load modes: {}", e);
+        ModeManager::with_defaults()
+    });
+
     let session_factory = SessionFactory::new(source_manager, mode_manager);
-    
+
     App::new(config, session_factory).run()?;
 
     Ok(())

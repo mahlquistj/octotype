@@ -29,15 +29,13 @@ pub struct Menu {
 
 impl Default for Menu {
     fn default() -> Self {
-        let menu = Self {
+        Self {
             source_variants: Source::VARIANTS.iter().map(|s| s.to_string()).collect(),
             source_list_state: ListState::default().with_selected(Some(0)),
             source: Source::default(),
             args: Source::default().get_default_args(),
             args_list_state: ListState::default(),
-        };
-
-        menu
+        }
     }
 }
 
@@ -113,10 +111,10 @@ impl Menu {
                 let mut value_text = value.render();
                 let mut name_text = Span::raw(format!("{name}:"));
 
-                if let Some(selected_arg) = self.args_list_state.selected() {
-                    if selected_arg == idx {
-                        name_text = name_text.bold().fg(config.theme.text.highlight)
-                    }
+                if let Some(selected_arg) = self.args_list_state.selected()
+                    && selected_arg == idx
+                {
+                    name_text = name_text.bold().fg(config.theme.text.highlight)
                 }
 
                 let mut text = vec![name_text];
@@ -139,55 +137,55 @@ impl Menu {
         event: &crossterm::event::Event,
         _config: &Config,
     ) -> Option<Message> {
-        if let Event::Key(key) = event {
-            if key.is_press() {
-                match key.code {
-                    KeyCode::Tab => {
-                        self.source_list_state.select_next();
+        if let Event::Key(key) = event
+            && key.is_press()
+        {
+            match key.code {
+                KeyCode::Tab => {
+                    self.source_list_state.select_next();
 
-                        if Some(self.source_variants.len()) == self.source_list_state.selected() {
-                            self.source_list_state.select(Some(0));
-                        }
+                    if Some(self.source_variants.len()) == self.source_list_state.selected() {
+                        self.source_list_state.select(Some(0));
                     }
-                    KeyCode::Up => {
-                        if !self.args.is_empty() {
-                            if Some(0) == self.args_list_state.selected() {
-                                self.args_list_state.select(Some(self.args.len() - 1));
-                            } else {
-                                self.args_list_state.select_previous();
-                            }
-                        }
-                    }
-                    KeyCode::Down => {
-                        if !self.args.is_empty() {
-                            self.args_list_state.select_next();
-
-                            if Some(self.args.len()) == self.args_list_state.selected() {
-                                self.args_list_state.select(Some(0));
-                            }
-                        }
-                    }
-                    KeyCode::Enter => {
-                        let source = self.source.clone();
-
-                        let args = std::mem::take(&mut self.args);
-                        // Spawn a `LoadingScreen` that loads the `TypingSession`
-                        let session_loader = Loading::load("Loading words...", move || {
-                            Self::create_session(source, args)
-                                .map(|session| Message::Show(session.into()))
-                        });
-
-                        return Some(Message::Show(session_loader.into()));
-                    }
-                    _ => (),
                 }
-
-                if let Some(selected_arg) = self.args_list_state.selected() {
-                    let arg = &mut self.args[selected_arg].1;
-                    arg.update(key);
-                } else if !self.args.is_empty() {
-                    self.args_list_state.select(Some(0));
+                KeyCode::Up => {
+                    if !self.args.is_empty() {
+                        if Some(0) == self.args_list_state.selected() {
+                            self.args_list_state.select(Some(self.args.len() - 1));
+                        } else {
+                            self.args_list_state.select_previous();
+                        }
+                    }
                 }
+                KeyCode::Down => {
+                    if !self.args.is_empty() {
+                        self.args_list_state.select_next();
+
+                        if Some(self.args.len()) == self.args_list_state.selected() {
+                            self.args_list_state.select(Some(0));
+                        }
+                    }
+                }
+                KeyCode::Enter => {
+                    let source = self.source.clone();
+
+                    let args = std::mem::take(&mut self.args);
+                    // Spawn a `LoadingScreen` that loads the `TypingSession`
+                    let session_loader = Loading::load("Loading words...", move || {
+                        Self::create_session(source, args)
+                            .map(|session| Message::Show(session.into()))
+                    });
+
+                    return Some(Message::Show(session_loader.into()));
+                }
+                _ => (),
+            }
+
+            if let Some(selected_arg) = self.args_list_state.selected() {
+                let arg = &mut self.args[selected_arg].1;
+                arg.update(key);
+            } else if !self.args.is_empty() {
+                self.args_list_state.select(Some(0));
             }
         }
 

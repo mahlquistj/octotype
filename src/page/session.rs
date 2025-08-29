@@ -13,8 +13,8 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::{config::Config, utils::Timestamp};
 use crate::modes::ResolvedModeConfig;
+use crate::{config::Config, utils::Timestamp};
 
 mod stats;
 mod text;
@@ -47,7 +47,7 @@ impl Display for StatsCache {
 pub struct EmptySessionError;
 
 /// Page: TypingSession
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TypingSession {
     text: Vec<Segment>,
     current_segment_idx: usize,
@@ -61,23 +61,6 @@ pub struct TypingSession {
     stat_cache: Option<StatsCache>,
     last_wpm_poll: Option<Instant>,
     last_input_len: usize,
-}
-
-impl Default for TypingSession {
-    fn default() -> Self {
-        Self {
-            text: Vec::new(),
-            current_segment_idx: 0,
-            first_keypress: None,
-            stats: RunningStats::default(),
-            mode: None,
-            current_error_cache: HashMap::new(),
-            actual_error_cache: HashMap::new(),
-            stat_cache: None,
-            last_wpm_poll: None,
-            last_input_len: 0,
-        }
-    }
 }
 
 impl TypingSession {
@@ -305,32 +288,37 @@ impl TypingSession {
     }
 
     // Mode support methods
-    
+
     /// Creates a new `TypingSession` with mode configuration
-    pub fn new_with_mode(text: Vec<Segment>, mode: ResolvedModeConfig) -> Result<Self, EmptySessionError> {
+    pub fn new_with_mode(
+        text: Vec<Segment>,
+        mode: ResolvedModeConfig,
+    ) -> Result<Self, EmptySessionError> {
         let mut session = Self::new(text)?;
         session.mode = Some(mode);
         Ok(session)
     }
-    
+
     /// Get the first keypress timestamp for mode completion checking
-    pub fn get_first_keypress(&self) -> Option<Instant> {
+    pub const fn get_first_keypress(&self) -> Option<Instant> {
         self.first_keypress
     }
-    
+
     /// Helper methods for mode completion checking
     pub fn get_typed_word_count(&self) -> usize {
-        self.text.iter()
+        self.text
+            .iter()
             .map(|segment| segment.count_completed_words())
             .sum()
     }
-    
+
     pub fn get_typed_char_count(&self) -> usize {
-        self.text.iter()
+        self.text
+            .iter()
             .map(|segment| segment.count_completed_chars())
             .sum()
     }
-    
+
     pub fn calculate_accuracy(&mut self) -> f64 {
         let characters = self.input_length() as f64;
         let actual_errors = self.get_actual_errors() as f64;
@@ -339,11 +327,11 @@ impl TypingSession {
         }
         (1.0 - (actual_errors / characters)) * 100.0
     }
-    
+
     pub fn is_all_text_completed(&self) -> bool {
         self.text.iter().all(|segment| segment.is_done())
     }
-    
+
     /// Check if session should end based on mode conditions
     pub fn should_end(&mut self) -> bool {
         if let Some(mode) = self.mode.clone() {
@@ -363,13 +351,13 @@ impl TypingSession {
         event: &crossterm::event::Event,
         _config: &Config,
     ) -> Option<Message> {
-        if let Event::Key(key) = event {
-            if key.is_press() {
-                match key.code {
-                    KeyCode::Char(character) => self.add(character),
-                    KeyCode::Backspace => self.delete_input(),
-                    _ => (),
-                }
+        if let Event::Key(key) = event
+            && key.is_press()
+        {
+            match key.code {
+                KeyCode::Char(character) => self.add(character),
+                KeyCode::Backspace => self.delete_input(),
+                _ => (),
             }
         }
 

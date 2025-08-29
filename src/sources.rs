@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::page::session::EmptySessionError;
@@ -17,41 +17,44 @@ pub struct ExternalSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OutputFormat {
-    JsonArray,        // ["word1", "word2", "word3"]
-    Lines,            // "word1\nword2\nword3\n"
-    SpaceSeparated,   // "word1 word2 word3"
+    JsonArray,      // ["word1", "word2", "word3"]
+    Lines,          // "word1\nword2\nword3\n"
+    SpaceSeparated, // "word1 word2 word3"
 }
 
 #[derive(Debug, Error)]
 pub enum SourceError {
     #[error("External command '{command}' failed to execute: {error}")]
-    ExternalCommand { command: String, error: std::io::Error },
-    
-    #[error("External command '{command}' failed with exit code {exit_code:?}: {stderr}")]
-    ExternalCommandFailed { 
-        command: String, 
-        exit_code: Option<i32>, 
-        stderr: String 
+    ExternalCommand {
+        command: String,
+        error: std::io::Error,
     },
-    
+
+    #[error("External command '{command}' failed with exit code {exit_code:?}: {stderr}")]
+    ExternalCommandFailed {
+        command: String,
+        exit_code: Option<i32>,
+        stderr: String,
+    },
+
     #[error("Command timeout after {timeout_seconds} seconds")]
     Timeout { timeout_seconds: u64 },
-    
+
     #[error("Failed to parse command output: {0}")]
     ParseError(String),
-    
+
     #[error("No words returned from source")]
     EmptyOutput,
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
-    
+
     #[error("Session creation error: {0}")]
     SessionCreation(String),
-    
+
     #[error("Empty session error")]
     EmptySession(#[from] EmptySessionError),
 }
@@ -72,21 +75,19 @@ impl ExternalSource {
     pub fn fetch(&self, args: &SourceArgs) -> SourceResult<Vec<String>> {
         let mut cmd = Command::new(&self.command[0]);
         cmd.args(&self.command[1..]);
-        
+
         // Apply template substitutions
         for (key, template) in &self.args_template {
             let value = self.substitute_template(template, args);
             cmd.arg(format!("--{}", key)).arg(value);
         }
-        
+
         // Execute with timeout
-        let output = cmd
-            .output()
-            .map_err(|e| SourceError::ExternalCommand { 
-                command: self.command[0].clone(), 
-                error: e 
-            })?;
-            
+        let output = cmd.output().map_err(|e| SourceError::ExternalCommand {
+            command: self.command[0].clone(),
+            error: e,
+        })?;
+
         if !output.status.success() {
             return Err(SourceError::ExternalCommandFailed {
                 command: self.command[0].clone(),
@@ -94,42 +95,43 @@ impl ExternalSource {
                 stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             });
         }
-        
+
         self.parse_output(&output.stdout)
     }
-    
+
     fn substitute_template(&self, template: &str, args: &SourceArgs) -> String {
         template
             .replace("{word_count}", &args.word_count.unwrap_or(50).to_string())
             .replace("{max_length}", &args.max_length.unwrap_or(10).to_string())
-            .replace("{difficulty}", args.difficulty.as_deref().unwrap_or("medium"))
-            .replace("{text_processing}", args.text_processing.as_deref().unwrap_or("normal"))
+            .replace(
+                "{difficulty}",
+                args.difficulty.as_deref().unwrap_or("medium"),
+            )
+            .replace(
+                "{text_processing}",
+                args.text_processing.as_deref().unwrap_or("normal"),
+            )
     }
-    
+
     fn parse_output(&self, output: &[u8]) -> SourceResult<Vec<String>> {
         let content = String::from_utf8_lossy(output);
-        
+
         if content.trim().is_empty() {
             return Err(SourceError::EmptyOutput);
         }
-        
+
         let words = match self.output_format {
-            OutputFormat::JsonArray => {
-                serde_json::from_str::<Vec<String>>(&content)?
-            }
-            OutputFormat::Lines => {
-                content.lines()
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            }
+            OutputFormat::JsonArray => serde_json::from_str::<Vec<String>>(&content)?,
+            OutputFormat::Lines => content
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
             OutputFormat::SpaceSeparated => {
-                content.split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect()
+                content.split_whitespace().map(|s| s.to_string()).collect()
             }
         };
-        
+
         if words.is_empty() {
             Err(SourceError::EmptyOutput)
         } else {
@@ -149,13 +151,13 @@ impl SourceManager {
             sources: HashMap::new(),
         }
     }
-    
+
     pub fn with_defaults() -> Self {
         let mut manager = Self::new();
         manager.add_builtin_sources();
         manager
     }
-    
+
     fn add_builtin_sources(&mut self) {
         // Built-in quotes source
         let quotes_source = ExternalSource {
@@ -171,12 +173,12 @@ impl SourceManager {
             args_template: HashMap::new(),
         };
         self.sources.insert("quotes".to_string(), quotes_source);
-        
-        // Built-in random words source  
+
+        // Built-in random words source
         let mut random_words_template = HashMap::new();
         random_words_template.insert("word-count".to_string(), "{word_count}".to_string());
         random_words_template.insert("max-length".to_string(), "{max_length}".to_string());
-        
+
         let random_words_source = ExternalSource {
             name: "random_words".to_string(),
             command: vec![
@@ -189,34 +191,37 @@ impl SourceManager {
             description: Some("Random words from system dictionary".to_string()),
             args_template: random_words_template,
         };
-        self.sources.insert("random_words".to_string(), random_words_source);
+        self.sources
+            .insert("random_words".to_string(), random_words_source);
     }
-    
+
     pub fn load_from_config_dir(config_dir: &std::path::Path) -> SourceResult<Self> {
         let mut manager = Self::with_defaults();
-        
+
         let sources_dir = config_dir.join("sources");
         if !sources_dir.exists() {
             return Ok(manager);
         }
-        
+
         for entry in std::fs::read_dir(&sources_dir)? {
             let path = entry?.path();
-            if path.extension().map_or(false, |ext| ext == "toml") {
+            if path.extension().is_some_and(|ext| ext == "toml") {
                 let content = std::fs::read_to_string(&path)?;
-                let config: SourceConfig = toml::from_str(&content)
-                    .map_err(|e| SourceError::ParseError(e.to_string()))?;
-                manager.sources.insert(config.source.name.clone(), config.source);
+                let config: SourceConfig =
+                    toml::from_str(&content).map_err(|e| SourceError::ParseError(e.to_string()))?;
+                manager
+                    .sources
+                    .insert(config.source.name.clone(), config.source);
             }
         }
-        
+
         Ok(manager)
     }
-    
+
     pub fn get_source(&self, name: &str) -> Option<&ExternalSource> {
         self.sources.get(name)
     }
-    
+
     pub fn list_sources(&self) -> Vec<&str> {
         self.sources.keys().map(|s| s.as_str()).collect()
     }
@@ -243,13 +248,25 @@ impl Source {
     pub fn fetch(self, _args: Args) -> SourceResult<Vec<String>> {
         // Provide some default words for now
         Ok(vec![
-            "the".to_string(), "quick".to_string(), "brown".to_string(), "fox".to_string(),
-            "jumps".to_string(), "over".to_string(), "lazy".to_string(), "dog".to_string(),
-            "pack".to_string(), "my".to_string(), "box".to_string(), "with".to_string(),
-            "five".to_string(), "dozen".to_string(), "liquor".to_string(), "jugs".to_string(),
+            "the".to_string(),
+            "quick".to_string(),
+            "brown".to_string(),
+            "fox".to_string(),
+            "jumps".to_string(),
+            "over".to_string(),
+            "lazy".to_string(),
+            "dog".to_string(),
+            "pack".to_string(),
+            "my".to_string(),
+            "box".to_string(),
+            "with".to_string(),
+            "five".to_string(),
+            "dozen".to_string(),
+            "liquor".to_string(),
+            "jugs".to_string(),
         ])
     }
-    
+
     pub fn get_default_args(&self) -> Args {
         Args::default()
     }
@@ -265,10 +282,10 @@ impl From<Source> for &'static str {
 
 impl std::str::FromStr for Source {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "DefaultWords" => Ok(Source::DefaultWords),
+            "DefaultWords" => Ok(Self::DefaultWords),
             _ => Err(format!("Unknown source: {}", s)),
         }
     }
@@ -282,15 +299,15 @@ impl Args {
     pub fn new() -> Self {
         Self::default()
     }
-    
-    pub fn is_empty(&self) -> bool {
+
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    
-    pub fn len(&self) -> usize {
+
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
-    
+
     pub fn iter(&self) -> impl Iterator<Item = &(String, ArgValue)> {
         self.0.iter()
     }
@@ -298,7 +315,7 @@ impl Args {
 
 impl std::ops::Index<usize> for Args {
     type Output = (String, ArgValue);
-    
+
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
@@ -316,15 +333,15 @@ pub struct ArgValue {
 }
 
 impl ArgValue {
-    pub fn new(value: String) -> Self {
+    pub const fn new(value: String) -> Self {
         Self { value }
     }
-    
+
     pub fn render(&self) -> Vec<ratatui::text::Span<'static>> {
         vec![ratatui::text::Span::raw(self.value.clone())]
     }
-    
-    pub fn update(&mut self, event: &crossterm::event::KeyEvent) {
+
+    pub const fn update(&mut self, event: &crossterm::event::KeyEvent) {
         // Placeholder - actual implementation would handle key events
         // For now, just ignore the event to satisfy the type checker
         let _ = event;

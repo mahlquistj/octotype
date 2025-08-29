@@ -39,7 +39,7 @@ pub struct Segment {
 
 impl Segment {
     /// Returns true if the segment is done (Input length matches text length)
-    pub fn is_done(&self) -> bool {
+    pub const fn is_done(&self) -> bool {
         self.input.len() == self.tokens.len()
     }
 
@@ -91,7 +91,7 @@ impl Segment {
     }
 
     /// Returns the current input length of the segment
-    pub fn input_length(&self) -> usize {
+    pub const fn input_length(&self) -> usize {
         self.input.len()
     }
 
@@ -134,24 +134,25 @@ impl Segment {
     }
 
     // Mode support methods
-    
+
     pub fn count_completed_words(&self) -> usize {
         // Count words that have been fully typed
         let input_len = self.input.len();
         if input_len == 0 {
             return 0;
         }
-        
-        self.words.iter()
+
+        self.words
+            .iter()
             .filter(|(_start, end)| *end < input_len)
             .count()
     }
-    
-    pub fn count_completed_chars(&self) -> usize {
+
+    pub const fn count_completed_chars(&self) -> usize {
         // Count characters that have been typed (correctly or incorrectly)
         self.input.len()
     }
-    
+
     pub fn count_errors(&self) -> usize {
         // Count typing errors in this segment
         self.wrong_inputs.len()
@@ -256,10 +257,12 @@ mod test {
 
         println!("{:?}", segment.input);
 
-        assert!(segment
-            .words
-            .iter()
-            .all(|&word| segment.is_word_misspelled(word)))
+        assert!(
+            segment
+                .words
+                .iter()
+                .all(|&word| segment.is_word_misspelled(word))
+        )
     }
 
     #[test]

@@ -354,10 +354,10 @@ impl Stats {
         event: &crossterm::event::Event,
         _config: &Config,
     ) -> Option<Message> {
-        if let Event::Key(key) = event {
-            if key.code == KeyCode::Enter {
-                return Some(Message::Show(page::Menu::new().into()));
-            }
+        if let Event::Key(key) = event
+            && key.code == KeyCode::Enter
+        {
+            return Some(Message::Show(page::Menu::new().into()));
         }
 
         None
