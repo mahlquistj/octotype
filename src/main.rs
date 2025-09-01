@@ -63,11 +63,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Get config directory
-    let config_dir = if let Some(dirs) = ProjectDirs::from("com", "Mahlquist", "OctoType") {
-        dirs.config_dir().to_path_buf()
-    } else {
-        PathBuf::from(".")
-    };
+    let config_dir = ProjectDirs::from("com", "Mahlquist", "OctoType").map_or_else(
+        || PathBuf::from("."),
+        |dirs| dirs.config_dir().to_path_buf(),
+    );
 
     // Load sources and modes
     let source_manager = SourceManager::load_from_config_dir(&config_dir).unwrap_or_else(|e| {

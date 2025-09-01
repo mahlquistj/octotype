@@ -1,4 +1,5 @@
-use crate::modes::{ConditionValues, ModeManager, ParameterValues, ResolvedModeConfig};
+use crate::modes::{ConditionValues, ModeManager, ResolvedModeConfig};
+use crate::sources::ParameterValues;
 use crate::page::session::{Segment, TypingSession};
 use crate::sources::{SourceError, SourceManager};
 use thiserror::Error;
@@ -38,45 +39,42 @@ impl SessionFactory {
                     .ok_or_else(|| SessionCreationError::InvalidMode(mode_name.to_string()))?
             };
 
+        // For now, use default source selection (first available source)
+        let available_sources = self.source_manager.list_sources();
+        let default_source_name = available_sources
+            .first()
+            .ok_or_else(|| SessionCreationError::InvalidMode("No sources available".to_string()))?
+            .to_string();
+            
+        let source = self
+            .source_manager
+            .get_source(&default_source_name)
+            .ok_or_else(|| SessionCreationError::SourceNotFound(default_source_name.clone()))?;
+
+        // Apply mode parameter overrides to source
+        let source_overrides = mode_config.resolve_source_overrides(&default_source_name, &param_values);
+        let mut effective_source_params = source.create_default_parameters();
+        
+        // Override with mode-specified parameters
+        // TODO: Implement parameter merging logic
+        
         // Create resolved mode config
-        let resolved_mode =
-            ResolvedModeConfig::from_mode_config(mode_config, param_values, cond_values);
+        let resolved_mode = ResolvedModeConfig::new(
+            mode_config.name.clone(),
+            param_values,
+            cond_values,
+            default_source_name.clone(),
+            effective_source_params.clone(),
+        );
 
         // Get words from source
-        let words = if let Some(source_name) = &resolved_mode.source_name {
-            let source = self
-                .source_manager
-                .get_source(source_name)
-                .ok_or_else(|| SessionCreationError::SourceNotFound(source_name.clone()))?;
-
-            source.fetch(&resolved_mode.source_args)?
-        } else {
-            // Fallback to default words if no source specified
-            vec![
-                "the".to_string(),
-                "quick".to_string(),
-                "brown".to_string(),
-                "fox".to_string(),
-                "jumps".to_string(),
-                "over".to_string(),
-                "lazy".to_string(),
-                "dog".to_string(),
-                "pack".to_string(),
-                "my".to_string(),
-                "box".to_string(),
-                "with".to_string(),
-                "five".to_string(),
-                "dozen".to_string(),
-                "liquor".to_string(),
-                "jugs".to_string(),
-            ]
-        };
+        let words = source.fetch(&effective_source_params)?;
 
         // Convert words to segments
         let segments = self.words_to_segments(words);
 
-        // Create typing session with mode
-        TypingSession::new_with_mode(segments, resolved_mode)
+        // For now, create a simple session (will be enhanced later for mode support)
+        TypingSession::new(segments)
             .map_err(SessionCreationError::SessionCreation)
     }
 

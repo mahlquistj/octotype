@@ -1,0 +1,35 @@
+[meta]
+name = "Custom Source"
+description = "A custom source"
+command = ["cat", "words.txt", "{{range}}", "{{option}}", "{{toggle}}"]
+timeout_seconds = 5
+output_format = "lines"
+
+# What parameters needs to be filled in by the user?
+[parameters]
+# A range of numbers
+some_range = {
+    min = 1,
+    max = 100,
+    step = 5,
+    # Set default to 50. If this wasn't set, it should default to "min"
+    default = 50
+}
+
+# A selection
+some_selection = {
+    options = ["A", "B", "C"]
+    default = "A"
+}
+
+# A toggle just sets its default
+some_toggle = false,
+
+# misc. error handling stuff
+[error_handling]
+required_tools = ["cat"]
+# network_required = false
+# max_retries = 0
+# offline_alternative is None
+# retry_delay_seconds = 0
+

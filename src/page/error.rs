@@ -64,7 +64,7 @@ impl Error {
             && key.is_press()
         {
             return match key.code {
-                KeyCode::Enter => Some(Message::Show(Menu::new().into())),
+                KeyCode::Enter => None, // TODO: Return to menu - need to pass mode configs
                 _ => None,
             };
         };

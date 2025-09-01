@@ -27,8 +27,18 @@ pub struct App {
 impl App {
     /// Creates a new `App`
     pub fn new(config: Config, session_factory: SessionFactory) -> Self {
+        // Get mode configs and available sources from session factory
+        let mode_configs = session_factory.get_mode_manager().list_modes()
+            .into_iter()
+            .filter_map(|name| session_factory.get_mode_manager().get_mode(name).cloned())
+            .collect();
+        let available_sources = session_factory.get_source_manager().list_sources()
+            .into_iter()
+            .map(String::from)
+            .collect();
+            
         Self {
-            page: page::Menu::new().into(),
+            page: page::Menu::new(mode_configs, available_sources).into(),
             config: Rc::new(config),
             session_factory,
         }

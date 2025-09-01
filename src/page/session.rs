@@ -332,7 +332,20 @@ impl TypingSession {
         self.text.iter().all(|segment| segment.is_done())
     }
 
-    /// Check if session should end based on mode conditions
+    pub fn get_remaining_char_count(&self) -> usize {
+        // Calculate remaining characters across all segments
+        let mut remaining = 0;
+        for (i, segment) in self.text.iter().enumerate() {
+            if i >= self.current_segment_idx {
+                // For current and future segments, count characters not yet typed
+                let total_chars = segment.count_total_chars();
+                let typed_chars = segment.input_length();
+                remaining += total_chars.saturating_sub(typed_chars);
+            }
+        }
+        remaining
+    }
+
     pub fn should_end(&mut self) -> bool {
         if let Some(mode) = self.mode.clone() {
             mode.is_complete(self)

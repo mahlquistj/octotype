@@ -1,0 +1,35 @@
+[meta]
+name = "Custom mode"
+description = "A custom mode"
+# if sources is not set, all sources can be used.
+# multiple sources can be defined here
+sources = ["quotes"]
+
+# These are the configurable parameters for the mode, which should be presented in the TUI. These are not pre-defined, and could be named anything. The parameter "types" are shared between modes and sources, as they should mostly use the same types.
+[parameters]
+# A range of numbers
+word_count = {
+    min = 10,
+    max = 100,
+    step = 5,
+    default = 50,
+}
+# An unbounded range of numbers
+max_time = {
+    min = 30,
+    step = 30,
+    # no default is set, so default to `from` (30)
+}
+
+# Conditions describe when a mode should end. For now we only have the `time` spent typing. These are pre-defined within the code, as they relate to the `TypingSession`.
+[conditions]
+# This should serialize to a `Option<usize>` in the code, since wordcount is a number-range
+time = "{{max_time}}"
+words_types = 500
+# The above conditions would mean that the `TypingSession` ends as soon as the `max_time` has been reached, or 500 total words were typed.
+
+
+[source_overrides."Custom Source"]
+# Override the `some_range` parameter of the custom source with our `word_count`.
+# This should pre-fill the source with the parameter from the word count, which means our user doesn't have to select the `some_range` in the tui, upon selecting the source for this mode.
+some_range = "{{word_count}}"
