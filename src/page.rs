@@ -1,5 +1,4 @@
 use crossterm::event::Event;
-use derive_more::From;
 use ratatui::{Frame, layout::Rect, text::Line};
 
 pub mod error;
@@ -14,20 +13,31 @@ pub use session::{Stats, TypingSession};
 
 use crate::{app::Message, config::Config};
 
-#[derive(From)]
-pub enum Page {
-    Menu(Menu),
-    LoadingScreen(Loading),
-    TypingSession(TypingSession),
-    Stats(Stats),
-    Error(Error),
+macro_rules! make_page_enum {
+    ($($t:tt),*) => {
+        pub enum Page {
+            $(
+                $t(Box<$t>),
+            )*
+        }
+
+        $(
+            impl From<$t> for Page {
+                fn from(value: $t) -> Page {
+                    Page::$t(Box::new(value))
+                }
+            }
+        )*
+    };
 }
+
+make_page_enum!(Menu, Loading, Error, Stats, TypingSession);
 
 impl Page {
     pub fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
         match self {
             Self::Menu(page) => page.render(frame, area, config),
-            Self::LoadingScreen(page) => page.render(frame, area, config),
+            Self::Loading(page) => page.render(frame, area, config),
             Self::TypingSession(page) => page.render(frame, area, config),
             Self::Stats(page) => page.render(frame, area, config),
             Self::Error(page) => page.render(frame, area, config),
@@ -37,7 +47,7 @@ impl Page {
     pub fn render_top(&mut self, config: &Config) -> Option<Line> {
         match self {
             Self::Menu(_) => None,
-            Self::LoadingScreen(_) => None,
+            Self::Loading(_) => None,
             Self::TypingSession(page) => page.render_top(config),
             Self::Stats(page) => page.render_top(config),
             Self::Error(page) => page.render_top(config),
@@ -47,7 +57,7 @@ impl Page {
     pub fn handle_events(&mut self, event: &Event, config: &Config) -> Option<Message> {
         match self {
             Self::Menu(page) => page.handle_events(event, config),
-            Self::LoadingScreen(_) => None,
+            Self::Loading(_) => None,
             Self::TypingSession(page) => page.handle_events(event, config),
             Self::Stats(page) => page.handle_events(event, config),
             Self::Error(page) => page.handle_events(event, config),
@@ -57,7 +67,7 @@ impl Page {
     pub fn poll(&mut self, config: &Config) -> Option<Message> {
         match self {
             Self::Menu(_) => None,
-            Self::LoadingScreen(page) => page.poll(config),
+            Self::Loading(page) => page.poll(config),
             Self::TypingSession(page) => page.poll(config),
             Self::Stats(_) => None,
             Self::Error(_) => None,

@@ -2,7 +2,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
-use std::time::Duration;
 use thiserror::Error;
 
 use crate::page::session::EmptySessionError;
@@ -204,7 +203,7 @@ pub struct Source {
 }
 
 impl Source {
-    pub fn new(config: SourceConfig) -> Self {
+    pub const fn new(config: SourceConfig) -> Self {
         Self { config }
     }
 
@@ -216,13 +215,13 @@ impl Source {
         &self.config.meta.description
     }
 
-    pub fn get_parameter_definitions(&self) -> &HashMap<String, ParameterDefinition> {
+    pub const fn get_parameter_definitions(&self) -> &HashMap<String, ParameterDefinition> {
         &self.config.parameters
     }
 
     pub fn create_default_parameters(&self) -> ParameterValues {
         let mut params = ParameterValues::new();
-        
+
         for (key, param_def) in &self.config.parameters {
             match param_def {
                 ParameterDefinition::Range { min, default, .. } => {
@@ -237,7 +236,7 @@ impl Source {
                 }
             }
         }
-        
+
         params
     }
 
@@ -245,21 +244,23 @@ impl Source {
         for (key, param_def) in &self.config.parameters {
             match param_def {
                 ParameterDefinition::Range { min, max, .. } => {
-                    if let Some(value) = params.get_integer(key) {
-                        if value < *min || value > *max {
-                            return Err(SourceError::ParameterValidation(
-                                format!("Parameter '{}' value {} is out of range [{}, {}]", key, value, min, max)
-                            ));
-                        }
+                    if let Some(value) = params.get_integer(key)
+                        && (value < *min || value > *max)
+                    {
+                        return Err(SourceError::ParameterValidation(format!(
+                            "Parameter '{}' value {} is out of range [{}, {}]",
+                            key, value, min, max
+                        )));
                     }
                 }
                 ParameterDefinition::Selection { options, .. } => {
-                    if let Some(value) = params.get_string(key) {
-                        if !options.contains(&value.to_string()) {
-                            return Err(SourceError::ParameterValidation(
-                                format!("Parameter '{}' value '{}' is not in allowed options: {:?}", key, value, options)
-                            ));
-                        }
+                    if let Some(value) = params.get_string(key)
+                        && !options.contains(&value.to_string())
+                    {
+                        return Err(SourceError::ParameterValidation(format!(
+                            "Parameter '{}' value '{}' is not in allowed options: {:?}",
+                            key, value, options
+                        )));
                     }
                 }
                 ParameterDefinition::Toggle(_) => {
@@ -272,9 +273,9 @@ impl Source {
 
     pub fn fetch(&self, params: &ParameterValues) -> SourceResult<Vec<String>> {
         self.validate_parameters(params)?;
-        
+
         let resolved_command = self.resolve_command(params)?;
-        
+
         let mut cmd = Command::new(&resolved_command[0]);
         if resolved_command.len() > 1 {
             cmd.args(&resolved_command[1..]);
@@ -299,26 +300,32 @@ impl Source {
 
     fn resolve_command(&self, params: &ParameterValues) -> SourceResult<Vec<String>> {
         let mut resolved_command = Vec::new();
-        
+
         for part in &self.config.meta.command {
             let resolved_part = self.substitute_template(part, params)?;
             resolved_command.push(resolved_part);
         }
-        
+
         Ok(resolved_command)
     }
 
-    fn substitute_template(&self, template: &str, params: &ParameterValues) -> Result<String, TemplateError> {
-        let pattern = Regex::new(r"\{\{(\w+)\}\}").map_err(|_| TemplateError::InvalidSyntax("Invalid regex pattern".to_string()))?;
+    fn substitute_template(
+        &self,
+        template: &str,
+        params: &ParameterValues,
+    ) -> Result<String, TemplateError> {
+        let pattern = Regex::new(r"\{\{(\w+)\}\}")
+            .map_err(|_| TemplateError::InvalidSyntax("Invalid regex pattern".to_string()))?;
         let mut result = template.to_string();
-        
+
         for cap in pattern.captures_iter(template) {
             let var_name = &cap[1];
-            let value = params.get_as_string(var_name)
+            let value = params
+                .get_as_string(var_name)
                 .ok_or_else(|| TemplateError::UndefinedVariable(var_name.to_string()))?;
             result = result.replace(&cap[0], &value);
         }
-        
+
         Ok(result)
     }
 
@@ -376,7 +383,7 @@ impl SourceManager {
                 command: vec![
                     "bash".to_string(), 
                     "-c".to_string(), 
-                    r#"quote=$(curl -s --max-time 5 'https://api.quotable.io/random' | jq -r '.content' 2>/dev/null || echo "The quick brown fox jumps over the lazy dog"); echo "$quote" | tr ' ' '\n'"#.to_string()
+                    r#"quote=$(curl -s --max-time 5 'https://api.quotable.io/random' | jq -r '.content'; echo "$quote" | tr ' ' '\n'"#.to_string()
                 ],
                 timeout_seconds: 10,
                 output_format: OutputFormat::Lines,
@@ -396,7 +403,7 @@ impl SourceManager {
                 max: 200,
                 step: 5,
                 default: Some(50),
-            }
+            },
         );
         random_words_parameters.insert(
             "max_length".to_string(),
@@ -405,7 +412,7 @@ impl SourceManager {
                 max: 20,
                 step: 1,
                 default: Some(10),
-            }
+            },
         );
 
         let random_words_config = SourceConfig {
@@ -424,7 +431,8 @@ impl SourceManager {
             error_handling: SourceErrorHandling::default(),
         };
         let random_words_source = Source::new(random_words_config);
-        self.sources.insert("random_words".to_string(), random_words_source);
+        self.sources
+            .insert("random_words".to_string(), random_words_source);
     }
 
     pub fn load_from_config_dir(config_dir: &std::path::Path) -> SourceResult<Self> {
@@ -456,7 +464,7 @@ impl SourceManager {
         self.sources.keys().map(|s| s.as_str()).collect()
     }
 
-    pub fn get_sources(&self) -> &HashMap<String, Source> {
+    pub const fn get_sources(&self) -> &HashMap<String, Source> {
         &self.sources
     }
 }

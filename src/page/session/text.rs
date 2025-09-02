@@ -152,7 +152,7 @@ impl Segment {
         // Count characters that have been typed (correctly or incorrectly)
         self.input.len()
     }
-    
+
     pub const fn count_total_chars(&self) -> usize {
         self.tokens.len()
     }

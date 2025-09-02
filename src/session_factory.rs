@@ -1,6 +1,6 @@
 use crate::modes::{ConditionValues, ModeManager, ResolvedModeConfig};
-use crate::sources::ParameterValues;
 use crate::page::session::{Segment, TypingSession};
+use crate::sources::ParameterValues;
 use crate::sources::{SourceError, SourceManager};
 use thiserror::Error;
 
@@ -45,19 +45,20 @@ impl SessionFactory {
             .first()
             .ok_or_else(|| SessionCreationError::InvalidMode("No sources available".to_string()))?
             .to_string();
-            
+
         let source = self
             .source_manager
             .get_source(&default_source_name)
             .ok_or_else(|| SessionCreationError::SourceNotFound(default_source_name.clone()))?;
 
         // Apply mode parameter overrides to source
-        let source_overrides = mode_config.resolve_source_overrides(&default_source_name, &param_values);
+        let source_overrides =
+            mode_config.resolve_source_overrides(&default_source_name, &param_values);
         let mut effective_source_params = source.create_default_parameters();
-        
+
         // Override with mode-specified parameters
         // TODO: Implement parameter merging logic
-        
+
         // Create resolved mode config
         let resolved_mode = ResolvedModeConfig::new(
             mode_config.name.clone(),
@@ -74,8 +75,7 @@ impl SessionFactory {
         let segments = self.words_to_segments(words);
 
         // For now, create a simple session (will be enhanced later for mode support)
-        TypingSession::new(segments)
-            .map_err(SessionCreationError::SessionCreation)
+        TypingSession::new(segments).map_err(SessionCreationError::SessionCreation)
     }
 
     pub fn create_default_session(&self) -> Result<TypingSession, SessionCreationError> {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use thiserror::Error;
 
-use crate::sources::{Source, ParameterValues};
+use crate::sources::{ParameterValues, Source};
 
 #[derive(Debug, Error)]
 pub enum ModeError {
@@ -69,7 +69,6 @@ pub enum ConditionDefinition {
     Fixed(i32), // For conditions like "words_typed = 500"
 }
 
-
 // Runtime condition values (session termination conditions)
 #[derive(Debug, Clone, Default)]
 pub struct ConditionValues {
@@ -108,7 +107,7 @@ pub struct ResolvedModeConfig {
 }
 
 impl ResolvedModeConfig {
-    pub fn new(
+    pub const fn new(
         name: String,
         parameter_values: ParameterValues,
         condition_values: ConditionValues,
@@ -144,7 +143,7 @@ impl ResolvedModeConfig {
         // Default: all segments completed (for infinite modes)
         session.is_all_text_completed()
     }
-    
+
     pub fn should_fetch_more_content(&self, session: &crate::page::session::TypingSession) -> bool {
         // If session is near completion and we have infinite sources, fetch more
         let remaining_chars = session.get_remaining_char_count();
@@ -277,10 +276,7 @@ impl ModeManager {
         );
 
         let mut quick_conditions = HashMap::new();
-        quick_conditions.insert(
-            "words_typed".to_string(),
-            ConditionDefinition::Fixed(25),
-        );
+        quick_conditions.insert("words_typed".to_string(), ConditionDefinition::Fixed(25));
 
         let quick_practice_mode = ModeConfig {
             name: "quick_practice".to_string(),
@@ -334,7 +330,7 @@ impl ModeConfig {
         mode_params: &ParameterValues,
     ) -> ParameterValues {
         let mut result = ParameterValues::new();
-        
+
         if let Some(overrides) = self.source_overrides.get(source_name) {
             for (param_name, template) in overrides {
                 if let Ok(resolved) = self.substitute_template(template, mode_params) {
@@ -342,21 +338,28 @@ impl ModeConfig {
                 }
             }
         }
-        
+
         result
     }
-    
-    fn substitute_template(&self, template: &str, params: &ParameterValues) -> Result<String, crate::sources::TemplateError> {
-        let pattern = regex::Regex::new(r"\{\{(\w+)\}\}").map_err(|_| crate::sources::TemplateError::InvalidSyntax("Invalid regex pattern".to_string()))?;
+
+    fn substitute_template(
+        &self,
+        template: &str,
+        params: &ParameterValues,
+    ) -> Result<String, crate::sources::TemplateError> {
+        let pattern = regex::Regex::new(r"\{\{(\w+)\}\}").map_err(|_| {
+            crate::sources::TemplateError::InvalidSyntax("Invalid regex pattern".to_string())
+        })?;
         let mut result = template.to_string();
-        
+
         for cap in pattern.captures_iter(template) {
             let var_name = &cap[1];
-            let value = params.get_as_string(var_name)
-                .ok_or_else(|| crate::sources::TemplateError::UndefinedVariable(var_name.to_string()))?;
+            let value = params.get_as_string(var_name).ok_or_else(|| {
+                crate::sources::TemplateError::UndefinedVariable(var_name.to_string())
+            })?;
             result = result.replace(&cap[0], &value);
         }
-        
+
         Ok(result)
     }
 }
