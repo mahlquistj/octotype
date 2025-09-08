@@ -2,15 +2,15 @@ use std::fmt::Display;
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::Constraint,
+    layout::{Constraint, Rect},
     style::{Style, Stylize},
     text::{Line, ToLine},
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::utils::center;
+use crate::{config::Config, utils::center};
 
-use super::{Message, menu::Menu};
+use super::Message;
 
 /// Page: Error
 ///
@@ -26,12 +26,7 @@ impl<E: Display> From<E> for Error {
 
 /// Rendering logic
 impl Error {
-    pub fn render(
-        &self,
-        frame: &mut ratatui::Frame,
-        area: ratatui::prelude::Rect,
-        config: &crate::config::Config,
-    ) {
+    pub fn render(&self, frame: &mut ratatui::Frame, area: Rect, config: &Config) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let mut lines = vec![

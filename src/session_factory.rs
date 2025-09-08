@@ -124,11 +124,11 @@ impl SessionFactory {
             .collect()
     }
 
-    pub const fn get_source_manager(&self) -> &SourceManager {
+    pub const fn source_manager(&self) -> &SourceManager {
         &self.source_manager
     }
 
-    pub const fn get_mode_manager(&self) -> &ModeManager {
+    pub const fn mode_manager(&self) -> &ModeManager {
         &self.mode_manager
     }
 }

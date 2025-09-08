@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::{rc::Rc, time::Duration};
+use std::time::Duration;
 
 use crossterm::event::{self, Event};
 use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
@@ -19,22 +18,26 @@ pub enum Message {
     Reset,
 }
 
+pub struct State {
+    pub config: Config,
+    pub session_factory: SessionFactory,
+}
+
 /// The app itself
 pub struct App {
     page: page::Page,
-    config: Rc<Config>,
-    session_factory: Arc<SessionFactory>,
+    state: State,
 }
 
 impl App {
     /// Creates a new `App`
     pub fn new(config: Config, session_factory: SessionFactory) -> Self {
-        let session_factory = Arc::new(session_factory);
-
         Self {
-            page: page::Menu::new(session_factory.clone()).into(),
-            config: Rc::new(config),
-            session_factory,
+            page: page::Menu::new(&session_factory).into(),
+            state: State {
+                config,
+                session_factory,
+            },
         }
     }
 
@@ -66,23 +69,23 @@ impl App {
         let area = frame.area();
         let content = block.inner(area);
 
-        if let Some(top_msg) = self.page.render_top(&self.config) {
+        if let Some(top_msg) = self.page.render_top(&self.state) {
             block = block.title_top(top_msg);
         }
 
         frame.render_widget(block, area);
 
-        self.page.render(frame, content, &self.config);
+        self.page.render(frame, content, &self.state);
     }
 
     /// Global event handler
     fn handle_events(&mut self, event_opt: Option<Event>) -> std::io::Result<bool> {
-        if let Some(msg) = self.page.poll(&self.config) {
+        if let Some(msg) = self.page.poll(&self.state) {
             return Ok(self.handle_message(msg));
         }
 
         if let Some(event) = event_opt {
-            if let Some(msg) = self.page.handle_events(&event, &self.config) {
+            if let Some(msg) = self.page.handle_events(&event, &self.state) {
                 return Ok(self.handle_message(msg));
             }
 
@@ -99,7 +102,7 @@ impl App {
         match msg {
             Message::Error(error) => self.page = page::Error::from(error).into(),
             Message::Show(page) => self.page = page,
-            Message::Reset => self.page = page::Menu::new(self.session_factory.clone()).into(),
+            Message::Reset => self.page = page::Menu::new(&self.state.session_factory).into(),
         }
 
         false

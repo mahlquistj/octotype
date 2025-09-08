@@ -45,14 +45,13 @@ pub enum MenuState {
 /// Page: Main menu
 pub struct Menu {
     state: MenuState,
-    session_factory: Arc<SessionFactory>,
     available_modes: Vec<String>,
     available_sources: Vec<String>,
 }
 
 impl Menu {
     /// Creates a new menu
-    pub fn new(session_factory: Arc<SessionFactory>) -> Self {
+    pub fn new(session_factory: &SessionFactory) -> Self {
         let available_modes = session_factory
             .list_modes()
             .into_iter()
@@ -65,7 +64,6 @@ impl Menu {
             .collect();
         Self {
             state: MenuState::ModeSelect { selected_index: 0 },
-            session_factory,
             available_modes,
             available_sources,
         }
