@@ -357,7 +357,7 @@ impl Stats {
         if let Event::Key(key) = event
             && key.code == KeyCode::Enter
         {
-            return None; // TODO: Return to menu - need to pass mode configs
+            return Some(Message::Reset); // TODO: Return to menu - need to pass mode configs
         }
 
         None

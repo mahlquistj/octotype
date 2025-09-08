@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{
     Message,
     loadscreen::Loading,
@@ -6,15 +8,16 @@ use super::{
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
-    layout::{Alignment, Constraint, Layout},
+    layout::{Alignment, Constraint},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List, ListState, Padding, Paragraph, Wrap},
+    widgets::{Block, List, Padding, Paragraph},
 };
 
 use crate::{
     config::Config,
     modes::ModeConfig,
+    session_factory::SessionFactory,
     sources::{ParameterValues, SourceError},
     utils::center,
 };
@@ -22,12 +25,10 @@ use crate::{
 #[derive(Debug)]
 pub enum MenuState {
     ModeSelect {
-        modes: Vec<String>,
         selected_index: usize,
     },
     SourceSelect {
-        mode_name: String,
-        mode_params: ParameterValues,
+        mode: ModeConfig,
         available_sources: Vec<String>,
         selected_index: usize,
     },
@@ -44,21 +45,28 @@ pub enum MenuState {
 /// Page: Main menu
 pub struct Menu {
     state: MenuState,
-    mode_configs: Vec<ModeConfig>,
+    session_factory: Arc<SessionFactory>,
+    available_modes: Vec<String>,
     available_sources: Vec<String>,
 }
 
 impl Menu {
     /// Creates a new menu
-    pub fn new(mode_configs: Vec<ModeConfig>, available_sources: Vec<String>) -> Self {
-        let mode_names: Vec<String> = mode_configs.iter().map(|m| m.name.clone()).collect();
-
+    pub fn new(session_factory: Arc<SessionFactory>) -> Self {
+        let available_modes = session_factory
+            .list_modes()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let available_sources = session_factory
+            .list_sources()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
         Self {
-            state: MenuState::ModeSelect {
-                modes: mode_names,
-                selected_index: 0,
-            },
-            mode_configs,
+            state: MenuState::ModeSelect { selected_index: 0 },
+            session_factory,
+            available_modes,
             available_sources,
         }
     }
@@ -83,10 +91,6 @@ impl Menu {
 
         Ok(TypingSession::new(segments)?)
     }
-
-    fn get_mode_config(&self, name: &str) -> Option<&ModeConfig> {
-        self.mode_configs.iter().find(|m| m.name == name)
-    }
 }
 
 // Rendering logic
@@ -102,14 +106,17 @@ impl Menu {
         let inner = block.inner(center);
 
         match &self.state {
-            MenuState::ModeSelect {
-                modes,
-                selected_index,
-            } => {
-                self.render_mode_select(frame, inner, config, modes, *selected_index);
+            MenuState::ModeSelect { selected_index } => {
+                self.render_mode_select(
+                    frame,
+                    inner,
+                    config,
+                    &self.available_modes,
+                    *selected_index,
+                );
             }
             MenuState::SourceSelect {
-                mode_name,
+                mode,
                 available_sources,
                 selected_index,
                 ..
@@ -118,7 +125,7 @@ impl Menu {
                     frame,
                     inner,
                     config,
-                    mode_name,
+                    &mode.name,
                     available_sources,
                     *selected_index,
                 );
@@ -250,59 +257,62 @@ impl Menu {
             && key.is_press()
         {
             match &mut self.state {
-                MenuState::ModeSelect {
-                    modes,
-                    selected_index,
-                } => {
+                MenuState::ModeSelect { selected_index } => {
+                    let modes_len = self.available_modes.len();
                     match key.code {
-                        KeyCode::Up => {
+                        KeyCode::Up | KeyCode::Char('k') => {
                             *selected_index = if *selected_index == 0 {
-                                modes.len() - 1
+                                modes_len - 1
                             } else {
                                 *selected_index - 1
                             };
                         }
-                        KeyCode::Down => {
-                            *selected_index = (*selected_index + 1) % modes.len();
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            *selected_index = (*selected_index + 1) % modes_len;
                         }
                         KeyCode::Enter => {
-                            let mode_name = modes[*selected_index].clone();
-                            if let Some(mode_config) = self.get_mode_config(&mode_name) {
-                                let mode_params = self.create_default_mode_params(mode_config);
-                                let allowed_sources = mode_config
-                                    .allowed_sources
-                                    .clone()
-                                    .unwrap_or_else(|| self.available_sources.clone());
+                            // TODO: Handle/return errors for when mode doesn't exist
+                            let mode_name = self.available_modes.get(*selected_index)?;
+
+                            if let Some(mode) = self
+                                .session_factory
+                                .get_mode_manager()
+                                .get_mode(mode_name)
+                                .cloned()
+                            {
+                                let allowed_sources =
+                                    mode.allowed_sources.clone().unwrap_or_else(|| {
+                                        self.session_factory
+                                            .list_sources()
+                                            .into_iter()
+                                            .map(str::to_string)
+                                            .collect()
+                                    });
 
                                 self.state = MenuState::SourceSelect {
-                                    mode_name,
-                                    mode_params,
+                                    mode,
                                     available_sources: allowed_sources,
                                     selected_index: 0,
                                 };
                             }
                         }
-                        KeyCode::Esc => {
-                            // Exit application or go back
-                        }
                         _ => {}
                     }
                 }
                 MenuState::SourceSelect {
-                    mode_name,
-                    mode_params,
+                    mode,
                     available_sources,
                     selected_index,
                 } => {
                     match key.code {
-                        KeyCode::Up => {
+                        KeyCode::Up | KeyCode::Char('k') => {
                             *selected_index = if *selected_index == 0 {
                                 available_sources.len() - 1
                             } else {
                                 *selected_index - 1
                             };
                         }
-                        KeyCode::Down => {
+                        KeyCode::Down | KeyCode::Char('j') => {
                             *selected_index = (*selected_index + 1) % available_sources.len();
                         }
                         KeyCode::Enter => {
@@ -311,8 +321,8 @@ impl Menu {
                             let param_names = vec![]; // TODO: Get actual parameter names
 
                             self.state = MenuState::ParameterConfig {
-                                mode_name: mode_name.clone(),
-                                mode_params: mode_params.clone(),
+                                mode_name: mode.name.clone(),
+                                mode_params: create_default_mode_params(mode),
                                 source_name,
                                 source_params,
                                 editing_param_index: None,
@@ -320,12 +330,7 @@ impl Menu {
                             };
                         }
                         KeyCode::Esc => {
-                            let modes: Vec<String> =
-                                self.mode_configs.iter().map(|m| m.name.clone()).collect();
-                            self.state = MenuState::ModeSelect {
-                                modes,
-                                selected_index: 0,
-                            };
+                            self.state = MenuState::ModeSelect { selected_index: 0 };
                         }
                         _ => {}
                     }
@@ -359,25 +364,25 @@ impl Menu {
         }
         None
     }
+}
 
-    fn create_default_mode_params(&self, mode_config: &ModeConfig) -> ParameterValues {
-        let mut params = ParameterValues::new();
+fn create_default_mode_params(mode_config: &ModeConfig) -> ParameterValues {
+    let mut params = ParameterValues::new();
 
-        for (key, param_def) in &mode_config.parameters {
-            match param_def {
-                crate::sources::ParameterDefinition::Range { min, default, .. } => {
-                    let value = default.unwrap_or(*min);
-                    params.set_integer(key.clone(), value);
-                }
-                crate::sources::ParameterDefinition::Selection { default, .. } => {
-                    params.set_string(key.clone(), default.clone());
-                }
-                crate::sources::ParameterDefinition::Toggle(default_value) => {
-                    params.set_boolean(key.clone(), *default_value);
-                }
+    for (key, param_def) in &mode_config.parameters {
+        match param_def {
+            crate::sources::ParameterDefinition::Range { min, default, .. } => {
+                let value = default.unwrap_or(*min);
+                params.set_integer(key.clone(), value);
+            }
+            crate::sources::ParameterDefinition::Selection { default, .. } => {
+                params.set_string(key.clone(), default.clone());
+            }
+            crate::sources::ParameterDefinition::Toggle(default_value) => {
+                params.set_boolean(key.clone(), *default_value);
             }
         }
-
-        params
     }
+
+    params
 }

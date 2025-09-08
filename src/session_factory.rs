@@ -17,6 +17,14 @@ impl SessionFactory {
         }
     }
 
+    pub fn list_modes(&self) -> Vec<&str> {
+        self.mode_manager.list_modes()
+    }
+
+    pub fn list_sources(&self) -> Vec<&str> {
+        self.source_manager.list_sources()
+    }
+
     pub fn create_session(
         &self,
         mode_name: &str,
