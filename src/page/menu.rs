@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::{
     Message,
     loadscreen::Loading,
@@ -15,6 +13,7 @@ use ratatui::{
 };
 
 use crate::{
+    app::State,
     config::Config,
     modes::ModeConfig,
     session_factory::SessionFactory,
@@ -97,11 +96,12 @@ impl Menu {
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
-        config: &Config,
+        state: &State,
     ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
         let inner = block.inner(center);
+        let config = &state.config;
 
         match &self.state {
             MenuState::ModeSelect { selected_index } => {
@@ -249,7 +249,7 @@ impl Menu {
     pub fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
-        _config: &Config,
+        state: &State,
     ) -> Option<Message> {
         if let Event::Key(key) = event
             && key.is_press()
@@ -272,15 +272,16 @@ impl Menu {
                             // TODO: Handle/return errors for when mode doesn't exist
                             let mode_name = self.available_modes.get(*selected_index)?;
 
-                            if let Some(mode) = self
+                            if let Some(mode) = state
                                 .session_factory
-                                .get_mode_manager()
+                                .mode_manager()
                                 .get_mode(mode_name)
                                 .cloned()
                             {
                                 let allowed_sources =
                                     mode.allowed_sources.clone().unwrap_or_else(|| {
-                                        self.session_factory
+                                        state
+                                            .session_factory
                                             .list_sources()
                                             .into_iter()
                                             .map(str::to_string)

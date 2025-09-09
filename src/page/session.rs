@@ -47,33 +47,44 @@ impl Display for StatsCache {
 pub struct EmptySessionError;
 
 /// Page: TypingSession
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TypingSession {
     text: Vec<Segment>,
-    current_segment_idx: usize,
-    first_keypress: Option<Instant>,
+    mode: ResolvedModeConfig,
     stats: RunningStats,
-    mode: Option<ResolvedModeConfig>,
 
-    /// Caches
-    current_error_cache: HashMap<usize, u16>,
-    actual_error_cache: HashMap<usize, u16>,
-    stat_cache: Option<StatsCache>,
+    // Trackers
+    first_keypress: Option<Instant>,
     last_wpm_poll: Option<Instant>,
     last_input_len: usize,
+    current_segment_idx: usize,
+
+    // Caches
+    current_error_cache: HashMap<usize, usize>,
+    actual_error_cache: HashMap<usize, usize>,
+    stat_cache: Option<StatsCache>,
 }
 
 impl TypingSession {
     /// Creates a new `TypingSession`
-    pub fn new(text: Vec<Segment>) -> Result<Self, EmptySessionError> {
+    pub fn new(text: Vec<Segment>, mode: ResolvedModeConfig) -> Result<Self, EmptySessionError> {
         if text.is_empty() {
             return Err(EmptySessionError);
         }
 
+        let total_chars = text.iter().map(|seg| seg.len()).sum();
+
         Ok(Self {
             text,
-            mode: None,
-            ..Default::default()
+            mode,
+            stats: RunningStats::default(),
+            first_keypress: None,
+            last_wpm_poll: None,
+            last_input_len: 0,
+            current_segment_idx: 0,
+            current_error_cache: HashMap::with_capacity(total_chars),
+            actual_error_cache: HashMap::with_capacity(total_chars),
+            stat_cache: None,
         })
     }
 
@@ -83,7 +94,7 @@ impl TypingSession {
     }
 
     /// Get the current amount of errors in all of the segments
-    fn get_current_errors(&mut self) -> u16 {
+    fn get_current_errors(&mut self) -> usize {
         let current_errors = self.current_segment().current_errors();
         self.current_error_cache
             .insert(self.current_segment_idx, current_errors);
@@ -91,7 +102,7 @@ impl TypingSession {
     }
 
     /// Get the amount of actual errors (Corrected and uncorrected) in all of the segments
-    fn get_actual_errors(&mut self) -> u16 {
+    fn get_actual_errors(&mut self) -> usize {
         let actual_errors = self.current_segment().actual_errors();
         self.actual_error_cache
             .insert(self.current_segment_idx, actual_errors);
@@ -287,18 +298,6 @@ impl TypingSession {
         })))
     }
 
-    // Mode support methods
-
-    /// Creates a new `TypingSession` with mode configuration
-    pub fn new_with_mode(
-        text: Vec<Segment>,
-        mode: ResolvedModeConfig,
-    ) -> Result<Self, EmptySessionError> {
-        let mut session = Self::new(text)?;
-        session.mode = Some(mode);
-        Ok(session)
-    }
-
     /// Get the first keypress timestamp for mode completion checking
     pub const fn get_first_keypress(&self) -> Option<Instant> {
         self.first_keypress
@@ -347,12 +346,24 @@ impl TypingSession {
     }
 
     pub fn should_end(&mut self) -> bool {
-        if let Some(mode) = self.mode.clone() {
-            mode.is_complete(self)
-        } else {
-            // Default behavior: end when all text is completed
-            self.is_all_text_completed()
+        // Time-based completion
+        if let Some(time_limit) = self.mode.condition_values.get_duration("time")
+            && let Some(start_time) = self.get_first_keypress()
+            && start_time.elapsed() >= time_limit
+        {
+            return true;
         }
+
+        // Word count completion
+        if let Some(target_words) = self.mode.condition_values.get_integer("words_typed") {
+            let typed_words = self.get_typed_word_count();
+            if typed_words >= target_words as usize {
+                return true;
+            }
+        }
+
+        // Default: all segments completed
+        self.is_all_text_completed()
     }
 
     pub fn poll(&mut self, _config: &Config) -> Option<Message> {

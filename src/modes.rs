@@ -123,27 +123,6 @@ impl ResolvedModeConfig {
         }
     }
 
-    pub fn is_complete(&self, session: &mut crate::page::session::TypingSession) -> bool {
-        // Time-based completion
-        if let Some(time_limit) = self.condition_values.get_duration("time")
-            && let Some(start_time) = session.get_first_keypress()
-            && start_time.elapsed() >= time_limit
-        {
-            return true;
-        }
-
-        // Word count completion
-        if let Some(target_words) = self.condition_values.get_integer("words_typed") {
-            let typed_words = session.get_typed_word_count();
-            if typed_words >= target_words as usize {
-                return true;
-            }
-        }
-
-        // Default: all segments completed (for infinite modes)
-        session.is_all_text_completed()
-    }
-
     pub fn should_fetch_more_content(&self, session: &crate::page::session::TypingSession) -> bool {
         // If session is near completion and we have infinite sources, fetch more
         let remaining_chars = session.get_remaining_char_count();

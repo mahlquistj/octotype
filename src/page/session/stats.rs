@@ -50,7 +50,7 @@ pub struct RunningStats {
     wpm: Vec<(Timestamp, Wpm)>,
 
     /// How many times a deletion occurred
-    deletions: u16,
+    deletions: usize,
 
     /// Y-axis bounds for wpm
     y_bounds: [f64; 2],
@@ -110,10 +110,10 @@ impl RunningStats {
         let corrected = text
             .iter()
             .map(Segment::current_errors)
-            .sum::<u16>()
+            .sum::<usize>()
             .abs_diff(errors_count);
 
-        let mut character_collection = HashMap::<char, u16>::new();
+        let mut character_collection = HashMap::<char, usize>::new();
 
         errors.iter().for_each(|(_, char)| {
             character_collection
@@ -193,14 +193,14 @@ fn coefficient_of_variation(data: &[(f64, f64)]) -> f64 {
 ///
 #[derive(Debug, Clone)]
 pub struct Stats {
-    characters: BTreeMap<u16, Vec<char>>,
+    characters: BTreeMap<usize, Vec<char>>,
     raw_wpm: Vec<(Timestamp, f64)>,
     actual_wpm: Vec<(Timestamp, f64)>,
     errors: Vec<(Timestamp, f64)>,
     acc: Vec<(Timestamp, f64)>,
-    deletions: u16,
-    errors_count: u16,
-    corrected: u16,
+    deletions: usize,
+    errors_count: usize,
+    corrected: usize,
     final_wpm: Wpm,
     final_acc: f64,
     y_bounds: [f64; 2],

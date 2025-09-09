@@ -34,23 +34,28 @@ pub struct Segment {
     input: Vec<CharacterResult>,
     words: Vec<(usize, usize)>,
     wrong_inputs: HashSet<usize>,
-    current_errors: u16,
+    current_errors: usize,
 }
 
 impl Segment {
+    /// Returns the length of the segment (in chars)
+    pub const fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
     /// Returns true if the segment is done (Input length matches text length)
     pub const fn is_done(&self) -> bool {
         self.input.len() == self.tokens.len()
     }
 
     /// Returns the current errors in the segment
-    pub const fn current_errors(&self) -> u16 {
+    pub const fn current_errors(&self) -> usize {
         self.current_errors
     }
 
     /// Returns the actual errors (Corrected and uncorrected) in the segment
-    pub fn actual_errors(&self) -> u16 {
-        self.wrong_inputs.len() as u16
+    pub fn actual_errors(&self) -> usize {
+        self.wrong_inputs.len()
     }
 
     /// Gets a character at specific index

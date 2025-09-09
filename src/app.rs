@@ -70,12 +70,12 @@ impl App {
             .title_top("OCTOTYPE".to_line().bold().centered())
             .title_top("<CTRL-Q> to exit".to_line().right_aligned());
 
-        let area = frame.area();
-        let content = block.inner(area);
-
         if let Some(top_msg) = self.page.render_top(&self.state) {
             block = block.title_top(top_msg);
         }
+
+        let area = frame.area();
+        let content = block.inner(area);
 
         frame.render_widget(block, area);
 
@@ -84,30 +84,20 @@ impl App {
 
     /// Global event handler
     fn handle_events(&mut self, event_opt: Option<Event>) -> Option<Message> {
-        // Check for any events (keys, mouse, etc.)
-        if let Some(event) = event_opt {
-            // Global event handling
-            match event {
-                Event::Key(key) => return self.handle_key_event(key),
-                _ => (), // Reserved for future event handling
-            }
+        let event_message = event_opt.and_then(|event| {
+            self.page.handle_events(&event, &self.state).or_else(|| {
+                match event {
+                    Event::Key(key) => self.handle_key_event(key),
+                    _ => None, // Reserved for future event handling
+                }
+            })
+        });
 
-            // Page event handling
-            if let Some(msg) = self.page.handle_events(&event, &self.state) {
-                return Some(msg);
-            }
-        }
-
-        // Poll the current page
-        if let Some(msg) = self.page.poll(&self.state) {
-            return Some(msg);
-        }
-
-        None
+        event_message.or_else(|| self.page.poll(&self.state))
     }
 
-    /// Global
-    fn handle_key_event(&self, key: KeyEvent) -> Option<Message> {
+    /// Global key events
+    const fn handle_key_event(&self, key: KeyEvent) -> Option<Message> {
         match (key.code, key.modifiers) {
             (KeyCode::Char('q'), KeyModifiers::CONTROL) => Some(Message::Quit),
             (KeyCode::Esc, KeyModifiers::NONE) => Some(Message::Reset),

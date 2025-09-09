@@ -11,10 +11,7 @@ pub use loadscreen::Loading;
 pub use menu::Menu;
 pub use session::{Stats, TypingSession};
 
-use crate::{
-    app::{Message, State},
-    config::Config,
-};
+use crate::app::{Message, State};
 
 macro_rules! make_page_enum {
     ($($t:tt),*) => {
@@ -39,7 +36,7 @@ make_page_enum!(Menu, Loading, Error, Stats, TypingSession);
 impl Page {
     pub fn render(&mut self, frame: &mut Frame, area: Rect, state: &State) {
         match self {
-            Self::Menu(page) => page.render(frame, area, &state.config),
+            Self::Menu(page) => page.render(frame, area, state),
             Self::Loading(page) => page.render(frame, area, &state.config),
             Self::TypingSession(page) => page.render(frame, area, &state.config),
             Self::Stats(page) => page.render(frame, area, &state.config),
@@ -47,7 +44,7 @@ impl Page {
         }
     }
 
-    pub fn render_top(&mut self, state: &State) -> Option<Line> {
+    pub fn render_top(&mut self, state: &State) -> Option<Line<'_>> {
         match self {
             Self::Menu(_) => None,
             Self::Loading(_) => None,
@@ -59,7 +56,7 @@ impl Page {
 
     pub fn handle_events(&mut self, event: &Event, state: &State) -> Option<Message> {
         match self {
-            Self::Menu(page) => page.handle_events(event, &state.config),
+            Self::Menu(page) => page.handle_events(event, state),
             Self::Loading(_) => None,
             Self::TypingSession(page) => page.handle_events(event, &state.config),
             Self::Stats(page) => page.handle_events(event, &state.config),
