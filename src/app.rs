@@ -1,21 +1,23 @@
 use std::time::Duration;
 
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
 
 use crate::config::Config;
 use crate::page;
 use crate::session_factory::SessionFactory;
-use crate::utils::{KeyEventHelper, ROUNDED_BLOCK};
+use crate::utils::ROUNDED_BLOCK;
 
 /// An app message
-///
-/// This only has one variant for now, but keeping as an enum for future message-implementations
-///
 pub enum Message {
+    /// An error occurred
     Error(Box<dyn std::error::Error + Send>),
+    /// Show a specific page
     Show(page::Page),
+    /// Reset to the main menu
     Reset,
+    /// Quit the application
+    Quit,
 }
 
 pub struct State {
@@ -49,7 +51,9 @@ impl App {
             let event = event::poll(Duration::ZERO)?.then(event::read).transpose()?;
             terminal.draw(|frame| self.draw(frame))?;
 
-            if self.handle_events(event)? {
+            if let Some(message) = self.handle_events(event)
+                && self.handle_message(message)
+            {
                 break; // Quit
             }
         }
@@ -79,30 +83,47 @@ impl App {
     }
 
     /// Global event handler
-    fn handle_events(&mut self, event_opt: Option<Event>) -> std::io::Result<bool> {
-        if let Some(msg) = self.page.poll(&self.state) {
-            return Ok(self.handle_message(msg));
-        }
-
+    fn handle_events(&mut self, event_opt: Option<Event>) -> Option<Message> {
+        // Check for any events (keys, mouse, etc.)
         if let Some(event) = event_opt {
-            if let Some(msg) = self.page.handle_events(&event, &self.state) {
-                return Ok(self.handle_message(msg));
+            // Global event handling
+            match event {
+                Event::Key(key) => return self.handle_key_event(key),
+                _ => (), // Reserved for future event handling
             }
 
-            if let Event::Key(key) = event {
-                return Ok(key.is_ctrl_press_char('q'));
+            // Page event handling
+            if let Some(msg) = self.page.handle_events(&event, &self.state) {
+                return Some(msg);
             }
         }
 
-        Ok(false)
+        // Poll the current page
+        if let Some(msg) = self.page.poll(&self.state) {
+            return Some(msg);
+        }
+
+        None
+    }
+
+    /// Global
+    fn handle_key_event(&self, key: KeyEvent) -> Option<Message> {
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('q'), KeyModifiers::CONTROL) => Some(Message::Quit),
+            (KeyCode::Esc, KeyModifiers::NONE) => Some(Message::Reset),
+            _ => None,
+        }
     }
 
     /// Global message handler
+    ///
+    /// Returns `true` if the application should quit
     fn handle_message(&mut self, msg: Message) -> bool {
         match msg {
             Message::Error(error) => self.page = page::Error::from(error).into(),
             Message::Show(page) => self.page = page,
             Message::Reset => self.page = page::Menu::new(&self.state.session_factory).into(),
+            Message::Quit => return true,
         }
 
         false
