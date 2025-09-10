@@ -96,8 +96,12 @@ impl Loading {
 
         let throbber = Throbber::default()
             .label(&self.message)
-            .throbber_style(Style::default().fg(config.theme.spinner_color).bold())
-            .throbber_set(config.theme.spinner_symbol.as_set())
+            .throbber_style(
+                Style::default()
+                    .fg(config.settings.theme.spinner_color)
+                    .bold(),
+            )
+            .throbber_set(config.settings.theme.spinner_symbol.as_set())
             .use_type(WhichUse::Spin);
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));

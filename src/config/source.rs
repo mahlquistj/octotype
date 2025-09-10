@@ -53,7 +53,6 @@ pub fn get_sources(from_dir: PathBuf) -> Result<HashMap<String, SourceConfig>, S
 pub struct SourceConfig {
     pub meta: SourceMeta,
     pub parameters: ParameterValues,
-    pub error_handling: SourceErrorHandling,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,14 +65,8 @@ pub struct SourceMeta {
     offline_alternative: Option<String>,
     #[serde(default)]
     network_required: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SourceErrorHandling {
     #[serde(default)]
     required_tools: Vec<String>,
-    #[serde(default)]
-    max_retries: i8,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]

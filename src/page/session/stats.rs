@@ -15,7 +15,6 @@ use ratatui::{
 use crate::{
     app::Message,
     config::Config,
-    page,
     utils::{ROUNDED_BLOCK, Timestamp},
 };
 
@@ -225,7 +224,7 @@ impl Stats {
         let [summary, characters] =
             Layout::vertical([Constraint::Length(10), Constraint::Fill(1)]).areas(text_area);
 
-        let theme = &config.theme.plot;
+        let theme = &config.settings.theme.plot;
 
         let raw_wpm = Dataset::default()
             .name("Raw Wpm")

@@ -13,13 +13,13 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::config::mode::ConditionConfig;
 use crate::{config::Config, utils::Timestamp};
 
 mod mode;
 mod stats;
 mod text;
 
+pub use mode::{FetchError, Mode};
 use stats::Wpm;
 pub use stats::{RunningStats, Stats};
 pub use text::Segment;
@@ -43,17 +43,12 @@ impl Display for StatsCache {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("Cannot create session with empty text")]
-pub struct EmptySessionError;
-
 /// Page: TypingSession
 #[derive(Debug)]
 pub struct TypingSession {
     text: Vec<Segment>,
     stats: RunningStats,
-
-    conditions: ConditionConfig,
+    mode: Mode,
 
     // Trackers
     first_keypress: Option<Instant>,
@@ -69,11 +64,25 @@ pub struct TypingSession {
 
 impl TypingSession {
     /// Creates a new `TypingSession`
-    pub fn new(text: Vec<Segment>, mode: ResolvedModeConfig) -> Result<Self, EmptySessionError> {
-        if text.is_empty() {
-            return Err(EmptySessionError);
-        }
+    pub fn new(mut mode: Mode) -> Result<Self, FetchError> {
+        // TODO: Calculate segment size according to terminal size
+        let text: Vec<Segment> = mode
+            .source
+            .fetch()?
+            .chunks(5)
+            .map(|words| {
+                let string = words
+                    .iter()
+                    .cloned()
+                    .map(|mut word| {
+                        word.push(' ');
+                        word
+                    })
+                    .collect::<String>();
 
+                Segment::from_iter(string.chars())
+            })
+            .collect();
         let total_chars = text.iter().map(|seg| seg.len()).sum();
 
         Ok(Self {
@@ -274,7 +283,9 @@ impl TypingSession {
             .text
             .iter()
             .enumerate()
-            .map(|(idx, seg)| seg.render_line(idx == self.current_segment_idx, &config.theme.text))
+            .map(|(idx, seg)| {
+                seg.render_line(idx == self.current_segment_idx, &config.settings.theme.text)
+            })
             .collect::<Vec<Line>>();
 
         let paragraph = Paragraph::new(text)
@@ -349,7 +360,7 @@ impl TypingSession {
 
     pub fn should_end(&mut self) -> bool {
         // Time-based completion
-        if let Some(time_limit) = self.mode.condition_values.get_duration("time")
+        if let Some(time_limit) = self.mode.conditions.time
             && let Some(start_time) = self.get_first_keypress()
             && start_time.elapsed() >= time_limit
         {
@@ -357,7 +368,7 @@ impl TypingSession {
         }
 
         // Word count completion
-        if let Some(target_words) = self.mode.condition_values.get_integer("words_typed") {
+        if let Some(target_words) = self.mode.conditions.words_typed {
             let typed_words = self.get_typed_word_count();
             if typed_words >= target_words as usize {
                 return true;

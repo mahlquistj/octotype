@@ -9,38 +9,14 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::{mode::ModeConfig, source::SourceConfig};
+pub use mode::ModeConfig;
+pub use source::SourceConfig;
 
 pub mod mode;
+pub mod parameters;
 pub mod source;
 pub mod stats;
 pub mod theme;
-
-pub type ParameterValues = HashMap<String, ParameterDefinition>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ParameterDefinition<Number = usize> {
-    Range {
-        min: Number,
-        max: Number,
-        step: Number,
-        default: Option<Number>,
-    },
-    Selection {
-        options: Vec<String>,
-        default: Option<String>,
-    },
-    Toggle(bool), // Simple boolean with default value
-    FixedNumber(Number),
-    FixedString(String),
-}
-
-impl ParameterDefinition {
-    pub fn is_changeable(&self) -> bool {
-        !matches!(self, Self::FixedNumber(_) | Self::FixedString(_))
-    }
-}
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Settings {
@@ -78,6 +54,14 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn list_modes(&self) -> Vec<String> {
+        self.modes.keys().map(|key| key.to_string()).collect()
+    }
+
+    pub fn list_sources(&self) -> Vec<String> {
+        self.sources.keys().map(|key| key.to_string()).collect()
+    }
+
     pub fn get(override_path: Option<PathBuf>) -> Result<Self, ConfigError> {
         // Grab default configuration
         let mut settings = Figment::from(Serialized::defaults(Settings::default()));

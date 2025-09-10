@@ -4,7 +4,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{ParameterDefinition, ParameterValues};
+use crate::config::parameters::{Definition, ParameterDefinitions};
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {
@@ -53,7 +53,7 @@ pub fn get_modes(from_dir: PathBuf) -> Result<HashMap<String, ModeConfig>, ModeE
 pub struct ModeConfig {
     pub meta: ModeMeta,
     #[serde(default)]
-    pub parameters: ParameterValues,
+    pub parameters: ParameterDefinitions,
     #[serde(default)]
     pub conditions: ConditionConfig,
     #[serde(default)]
@@ -64,13 +64,18 @@ pub struct ModeConfig {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModeMeta {
     pub name: String,
+    #[serde(default = "default_description")]
     pub description: String,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct ConditionConfig {
-    pub time: Option<ParameterDefinition<u64>>,
-    pub words_typed: Option<ParameterDefinition>,
+    pub time: Option<Definition>,
+    pub words_typed: Option<Definition>,
     #[serde(default)]
     pub allow_deletions: bool,
+}
+
+pub fn default_description() -> String {
+    "No description".to_string()
 }

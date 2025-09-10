@@ -30,7 +30,11 @@ impl Error {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let mut lines = vec![
-            Line::styled("[Error]", Style::new().bold().fg(config.theme.text.error)).centered(),
+            Line::styled(
+                "[Error]",
+                Style::new().bold().fg(config.settings.theme.text.error),
+            )
+            .centered(),
         ];
 
         let error_lines = self

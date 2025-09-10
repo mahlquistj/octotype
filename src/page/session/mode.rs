@@ -1,6 +1,7 @@
 use std::{
     io::Read,
     process::{Child, Command},
+    time::Duration,
 };
 
 use derive_more::From;
@@ -8,20 +9,22 @@ use thiserror::Error;
 
 use crate::config::source::OutputFormat;
 
-pub struct SessionMode {
-    name: String,
-    conditions: Conditions,
-    source: Source,
+#[derive(Debug)]
+pub struct Mode {
+    pub name: String,
+    pub conditions: Conditions,
+    pub source: Source,
 }
 
+#[derive(Debug)]
 pub struct Conditions {
-    time: u64,
-    words_typed: usize,
+    pub time: Option<Duration>,
+    pub words_typed: Option<usize>,
 }
 
+#[derive(Debug)]
 pub struct Source {
     command: Command,
-    error_handler: (),
     child: Option<Child>,
     format: OutputFormat,
 }
@@ -36,7 +39,15 @@ pub enum FetchError {
 }
 
 impl Source {
-    pub fn fetch(&mut self) -> Result<Option<Vec<String>>, FetchError> {
+    pub fn fetch(&mut self) -> Result<Vec<String>, FetchError> {
+        loop {
+            if let Some(words) = self.try_fetch()? {
+                return Ok(words);
+            }
+        }
+    }
+
+    pub fn try_fetch(&mut self) -> Result<Option<Vec<String>>, FetchError> {
         let Some(child) = self.child.as_mut() else {
             self.child = Some(self.command.spawn()?);
             return Ok(None);

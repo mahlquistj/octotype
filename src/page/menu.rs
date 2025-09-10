@@ -1,7 +1,7 @@
 use super::{
     Message,
     loadscreen::Loading,
-    session::{Segment, TypingSession},
+    session::{TypingSession},
 };
 
 use crossterm::event::{Event, KeyCode};
@@ -14,30 +14,27 @@ use ratatui::{
 
 use crate::{
     app::State,
-    config::Config,
-    modes::{ModeConfig, ResolvedModeConfig},
-    session_factory::SessionFactory,
-    sources::{ParameterValues, SourceError},
+    config::{Config, ModeConfig, SourceConfig, parameters::Parameter},
+    page::session::Mode,
     utils::center,
 };
+
+pub type ParameterValues = Vec<(String, Parameter)>;
 
 #[derive(Debug)]
 pub enum MenuState {
     ModeSelect {
-        selected_index: usize,
+        mode_index: usize,
     },
     SourceSelect {
-        mode: ModeConfig,
-        available_sources: Vec<String>,
-        selected_index: usize,
+        selected_mode: String,
+        source_index: usize,
     },
     ParameterConfig {
-        mode_name: String,
-        mode_params: ParameterValues,
-        source_name: String,
-        source_params: ParameterValues,
-        editing_param_index: Option<usize>,
-        param_names: Vec<String>,
+        selected_mode: String,
+        selected_source: String,
+        parameters: ParameterValues,
+        param_index: usize,
     },
 }
 
@@ -50,46 +47,12 @@ pub struct Menu {
 
 impl Menu {
     /// Creates a new menu
-    pub fn new(session_factory: &SessionFactory) -> Self {
-        let available_modes = session_factory
-            .list_modes()
-            .into_iter()
-            .map(str::to_string)
-            .collect();
-        let available_sources = session_factory
-            .list_sources()
-            .into_iter()
-            .map(str::to_string)
-            .collect();
+    pub fn new(config: &Config) -> Self {
         Self {
-            state: MenuState::ModeSelect { selected_index: 0 },
-            available_modes,
-            available_sources,
+            state: MenuState::ModeSelect { mode_index: 0 },
+            available_modes: config.list_modes(),
+            available_sources: config.list_sources(),
         }
-    }
-
-    /// Create a `TypingSession` with the given parameters
-    fn create_session(
-        words: Vec<String>,
-        mode: ResolvedModeConfig,
-    ) -> Result<TypingSession, SourceError> {
-        let segments = words
-            .chunks(5)
-            .map(|words| {
-                let string = words
-                    .iter()
-                    .cloned()
-                    .map(|mut word| {
-                        word.push(' ');
-                        word
-                    })
-                    .collect::<String>();
-
-                Segment::from_iter(string.chars())
-            })
-            .collect();
-
-        Ok(TypingSession::new(segments)?)
     }
 }
 
@@ -107,13 +70,13 @@ impl Menu {
         let config = &state.config;
 
         match &self.state {
-            MenuState::ModeSelect { selected_index } => {
+            MenuState::ModeSelect { mode_index} => {
                 self.render_mode_select(
                     frame,
                     inner,
                     config,
                     &self.available_modes,
-                    *selected_index,
+                    *mode_index,
                 );
             }
             MenuState::SourceSelect {
@@ -161,12 +124,14 @@ impl Menu {
         modes: &[String],
         selected_index: usize,
     ) {
+
+        // TODO: Render selected mode description
         let items: Vec<Line> = modes
             .iter()
             .enumerate()
             .map(|(i, mode)| {
                 let style = if i == selected_index {
-                    Style::new().fg(config.theme.text.highlight).reversed()
+                    Style::new().fg(config.settings.theme.text.highlight).reversed()
                 } else {
                     Style::new()
                 };
@@ -347,9 +312,7 @@ impl Menu {
                     match key.code {
                         KeyCode::Enter => {
                             let session_loader = Loading::load("Loading words...", move || {
-                                state
-                                    .session_factory
-                                    .create_session(mode_name, mode_params, None)
+                                create_session(mode_name, mode_params)
                                     .map(|session| Message::Show(session.into()))
                             });
 
@@ -366,6 +329,17 @@ impl Menu {
         }
         None
     }
+}
+
+/// Create a `TypingSession` with the given parameters
+fn create_session(name: ) -> Result<TypingSession, FetchError> {
+
+
+    Ok(TypingSession::new(Mode {
+        name: ,
+        conditions: ,
+        source: ,
+    })?)
 }
 
 fn create_default_mode_params(mode_config: &ModeConfig) -> ParameterValues {
