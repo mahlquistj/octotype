@@ -13,9 +13,10 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::modes::ResolvedModeConfig;
+use crate::config::mode::ConditionConfig;
 use crate::{config::Config, utils::Timestamp};
 
+mod mode;
 mod stats;
 mod text;
 
@@ -50,8 +51,9 @@ pub struct EmptySessionError;
 #[derive(Debug)]
 pub struct TypingSession {
     text: Vec<Segment>,
-    mode: ResolvedModeConfig,
     stats: RunningStats,
+
+    conditions: ConditionConfig,
 
     // Trackers
     first_keypress: Option<Instant>,

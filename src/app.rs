@@ -5,7 +5,6 @@ use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
 
 use crate::config::Config;
 use crate::page;
-use crate::session_factory::SessionFactory;
 use crate::utils::ROUNDED_BLOCK;
 
 /// An app message

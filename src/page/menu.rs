@@ -15,7 +15,7 @@ use ratatui::{
 use crate::{
     app::State,
     config::Config,
-    modes::ModeConfig,
+    modes::{ModeConfig, ResolvedModeConfig},
     session_factory::SessionFactory,
     sources::{ParameterValues, SourceError},
     utils::center,
@@ -69,7 +69,10 @@ impl Menu {
     }
 
     /// Create a `TypingSession` with the given parameters
-    fn create_session(words: Vec<String>) -> Result<TypingSession, SourceError> {
+    fn create_session(
+        words: Vec<String>,
+        mode: ResolvedModeConfig,
+    ) -> Result<TypingSession, SourceError> {
         let segments = words
             .chunks(5)
             .map(|words| {
@@ -334,19 +337,19 @@ impl Menu {
                         _ => {}
                     }
                 }
-                MenuState::ParameterConfig { .. } => {
+                MenuState::ParameterConfig {
+                    mode_name,
+                    mode_params,
+                    source_name,
+                    source_params,
+                    ..
+                } => {
                     match key.code {
                         KeyCode::Enter => {
-                            // Create session with current parameters
-                            let words = vec![
-                                "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
-                            ]
-                            .into_iter()
-                            .map(String::from)
-                            .collect();
-
                             let session_loader = Loading::load("Loading words...", move || {
-                                Self::create_session(words)
+                                state
+                                    .session_factory
+                                    .create_session(mode_name, mode_params, None)
                                     .map(|session| Message::Show(session.into()))
                             });
 

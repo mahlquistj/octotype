@@ -1,30 +1,125 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
+use derive_more::From;
+use directories::ProjectDirs;
+use figment::{
+    Figment,
+    providers::{Format, Serialized, Toml},
+};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
+use crate::config::{mode::ModeConfig, source::SourceConfig};
+
+pub mod mode;
+pub mod source;
+pub mod stats;
 pub mod theme;
 
-use theme::Theme;
+pub type ParameterValues = HashMap<String, ParameterDefinition>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ParameterDefinition<Number = usize> {
+    Range {
+        min: Number,
+        max: Number,
+        step: Number,
+        default: Option<Number>,
+    },
+    Selection {
+        options: Vec<String>,
+        default: Option<String>,
+    },
+    Toggle(bool), // Simple boolean with default value
+    FixedNumber(Number),
+    FixedString(String),
+}
+
+impl ParameterDefinition {
+    pub fn is_changeable(&self) -> bool {
+        !matches!(self, Self::FixedNumber(_) | Self::FixedString(_))
+    }
+}
 
 #[derive(Debug, Default, Deserialize, Serialize)]
+pub struct Settings {
+    pub theme: theme::Theme,
+    pub statistic: stats::StatisticsConfig,
+    pub sources_dir: Option<PathBuf>,
+    pub modes_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, From, Error)]
+pub enum ConfigError {
+    #[error(
+        "Failed to get configuration directory. Please specify the location using the `--config <path>` flag"
+    )]
+    NoDirectory,
+
+    #[error("Failed to create config directory: {0}")]
+    CreateDirectory(std::io::Error),
+
+    #[error("Failed to parse config: {0}")]
+    Parse(figment::Error),
+
+    #[error("Failed to parse sources: {0}")]
+    ParseSources(source::SourceError),
+
+    #[error("Failed to parse modes: {0}")]
+    ParseModes(mode::ModeError),
+}
+
+#[derive(Debug, Default)]
 pub struct Config {
-    pub theme: Theme,
-    pub statistic: StatisticsConfig,
+    pub settings: Settings,
+    pub modes: HashMap<String, ModeConfig>,
+    pub sources: HashMap<String, SourceConfig>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct StatisticsConfig {
-    pub save_enabled: bool,
-    pub history_limit: usize,
-    pub directory: Option<PathBuf>,
-}
+impl Config {
+    pub fn get(override_path: Option<PathBuf>) -> Result<Self, ConfigError> {
+        // Grab default configuration
+        let mut settings = Figment::from(Serialized::defaults(Settings::default()));
 
-impl Default for StatisticsConfig {
-    fn default() -> Self {
-        Self {
-            save_enabled: true,
-            history_limit: 10,
-            directory: None,
+        // Check for toml file location
+        let config_dir = override_path
+            .or_else(|| {
+                ProjectDirs::from("com", "OctoType", "OctoType")
+                    .map(|dirs| dirs.config_dir().to_path_buf())
+            })
+            .ok_or(ConfigError::NoDirectory)?;
+
+        // Ensure path exists
+        if !config_dir.exists() {
+            std::fs::create_dir_all(&config_dir)?;
         }
+
+        let mut settings_toml = config_dir.clone();
+        settings_toml.push("settings.toml");
+
+        if settings_toml.exists() {
+            settings = settings.merge(Toml::file(settings_toml));
+        }
+
+        let settings: Settings = settings.extract()?;
+
+        let sources_dir = settings.sources_dir.clone().unwrap_or_else(|| {
+            let mut dir = config_dir.clone();
+            dir.push("sources");
+            dir
+        });
+
+        let modes_dir = settings.modes_dir.clone().unwrap_or_else(|| {
+            let mut dir = config_dir.clone();
+            dir.push("modes");
+            dir
+        });
+
+        Ok(Self {
+            settings,
+            sources: source::get_sources(sources_dir)?,
+            modes: mode::get_modes(modes_dir)?,
+        })
     }
 }
