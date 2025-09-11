@@ -4,7 +4,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::parameters::{Definition, ParameterDefinitions};
+use crate::config::parameters::{self, Definition, ParameterDefinitions};
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {
@@ -46,10 +46,93 @@ pub fn get_modes(from_dir: PathBuf) -> Result<HashMap<String, ModeConfig>, ModeE
         }
     }
 
+    if modes.is_empty() {
+        return Ok(get_default_modes());
+    }
+
     Ok(modes)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+pub fn get_default_modes() -> HashMap<String, ModeConfig> {
+    let mut modes = HashMap::new();
+
+    modes.insert(
+        "Default".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Default".to_string(),
+                description: "The normal typing-trainer experience".to_string(),
+            },
+            parameters: ParameterDefinitions::new(),
+            conditions: ConditionConfig {
+                allow_deletions: true,
+                ..Default::default()
+            },
+            sources: None,
+            source_overrides: HashMap::new(),
+        },
+    );
+
+    let mut parameters = ParameterDefinitions::new();
+    parameters.insert(
+        "word_count".to_string(),
+        Definition::Range {
+            min: 10,
+            max: usize::MAX,
+            step: 10,
+            default: Some(60),
+        },
+    );
+    modes.insert(
+        "WordCount".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "WordCount".to_string(),
+                description: "Type an amount of correct words".to_string(),
+            },
+            parameters,
+            conditions: ConditionConfig {
+                words_typed: Some(ConditionValue::String("{word_count}".to_string())),
+                allow_deletions: false,
+                ..Default::default()
+            },
+            sources: None,
+            source_overrides: HashMap::new(),
+        },
+    );
+
+    let mut parameters = ParameterDefinitions::new();
+    parameters.insert(
+        "time".to_string(),
+        Definition::Range {
+            min: 10,
+            max: usize::MAX,
+            step: 10,
+            default: Some(60),
+        },
+    );
+    modes.insert(
+        "Timed".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Timed".to_string(),
+                description: "A timed challenge".to_string(),
+            },
+            parameters,
+            conditions: ConditionConfig {
+                time: Some(ConditionValue::String("{time}".to_string())),
+                allow_deletions: true,
+                ..Default::default()
+            },
+            sources: None,
+            source_overrides: HashMap::new(),
+        },
+    );
+
+    modes
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModeConfig {
     pub meta: ModeMeta,
     #[serde(default)]
@@ -61,21 +144,32 @@ pub struct ModeConfig {
     pub sources: Option<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModeMeta {
     pub name: String,
     #[serde(default = "default_description")]
     pub description: String,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConditionValue {
+    String(String),
+    Number(usize),
+    Bool(bool),
+}
+
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct ConditionConfig {
-    pub time: Option<Definition>,
-    pub words_typed: Option<Definition>,
-    #[serde(default)]
+    pub time: Option<ConditionValue>,
+    pub words_typed: Option<ConditionValue>,
+    #[serde(default = "default_allow_deletions")]
     pub allow_deletions: bool,
 }
 
 pub fn default_description() -> String {
     "No description".to_string()
+}
+
+pub const fn default_allow_deletions() -> bool {
+    true
 }

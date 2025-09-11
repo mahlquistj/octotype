@@ -1,116 +1,107 @@
-use super::{
-    Message,
-    loadscreen::Loading,
-    session::{TypingSession},
-};
+use std::num::ParseIntError;
+
+use super::{Message, loadscreen::Loading, session::TypingSession};
 
 use crossterm::event::{Event, KeyCode};
+use derive_more::From;
 use ratatui::{
     layout::{Alignment, Constraint},
     style::{Style, Stylize},
     text::{Line, Span},
     widgets::{Block, List, Padding, Paragraph},
 };
+use thiserror::Error;
 
 use crate::{
     app::State,
-    config::{Config, ModeConfig, SourceConfig, parameters::Parameter},
-    page::session::Mode,
+    config::{
+        Config, ModeConfig, SourceConfig,
+        parameters::{Definition, ParameterValues},
+    },
+    page::session::{CreateModeError, FetchError, Mode},
     utils::center,
 };
 
-pub type ParameterValues = Vec<(String, Parameter)>;
+#[derive(Debug, Error, From)]
+pub enum CreateSessionError {
+    #[error("{0}")]
+    Mode(CreateModeError),
 
+    #[error("Failed to create session: {0}")]
+    Fetch(FetchError),
+}
+
+/// Page: Main menu
 #[derive(Debug)]
-pub enum MenuState {
+pub enum Menu {
     ModeSelect {
         mode_index: usize,
+        modes: Vec<String>,
     },
     SourceSelect {
         selected_mode: String,
         source_index: usize,
+        sources: Vec<String>,
     },
     ParameterConfig {
-        selected_mode: String,
-        selected_source: String,
+        mode: ModeConfig,
+        source: SourceConfig,
         parameters: ParameterValues,
         param_index: usize,
     },
 }
 
-/// Page: Main menu
-pub struct Menu {
-    state: MenuState,
-    available_modes: Vec<String>,
-    available_sources: Vec<String>,
-}
-
 impl Menu {
     /// Creates a new menu
     pub fn new(config: &Config) -> Self {
-        Self {
-            state: MenuState::ModeSelect { mode_index: 0 },
-            available_modes: config.list_modes(),
-            available_sources: config.list_sources(),
+        Self::ModeSelect {
+            mode_index: 0,
+            modes: config.list_modes(),
         }
     }
 }
 
 // Rendering logic
 impl Menu {
-    pub fn render(
-        &mut self,
-        frame: &mut ratatui::Frame,
-        area: ratatui::prelude::Rect,
-        state: &State,
-    ) {
+    pub fn render(&self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect, state: &State) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
         let inner = block.inner(center);
         let config = &state.config;
 
-        match &self.state {
-            MenuState::ModeSelect { mode_index} => {
-                self.render_mode_select(
-                    frame,
-                    inner,
-                    config,
-                    &self.available_modes,
-                    *mode_index,
-                );
+        match &self {
+            Self::ModeSelect { mode_index, modes } => {
+                self.render_mode_select(frame, inner, config, modes, *mode_index);
             }
-            MenuState::SourceSelect {
-                mode,
-                available_sources,
-                selected_index,
+            Self::SourceSelect {
+                selected_mode,
+                source_index,
+                sources,
                 ..
             } => {
                 self.render_source_select(
                     frame,
                     inner,
                     config,
-                    &mode.name,
-                    available_sources,
-                    *selected_index,
+                    selected_mode,
+                    sources,
+                    *source_index,
                 );
             }
-            MenuState::ParameterConfig {
-                mode_name,
-                source_name,
-                source_params,
-                editing_param_index,
-                param_names,
-                ..
+            Self::ParameterConfig {
+                mode,
+                source,
+                parameters,
+                param_index,
             } => {
                 self.render_parameter_config(
                     frame,
                     inner,
                     config,
-                    mode_name,
-                    source_name,
-                    source_params,
-                    editing_param_index,
-                    param_names,
+                    &mode.meta.name,
+                    &source.meta.name,
+                    parameters,
+                    *param_index,
                 );
             }
         }
@@ -122,16 +113,17 @@ impl Menu {
         area: ratatui::prelude::Rect,
         config: &Config,
         modes: &[String],
-        selected_index: usize,
+        index: usize,
     ) {
-
         // TODO: Render selected mode description
         let items: Vec<Line> = modes
             .iter()
             .enumerate()
             .map(|(i, mode)| {
-                let style = if i == selected_index {
-                    Style::new().fg(config.settings.theme.text.highlight).reversed()
+                let style = if i == index {
+                    Style::new()
+                        .fg(config.settings.theme.text.highlight)
+                        .reversed()
                 } else {
                     Style::new()
                 };
@@ -151,14 +143,16 @@ impl Menu {
         config: &Config,
         mode_name: &str,
         sources: &[String],
-        selected_index: usize,
+        index: usize,
     ) {
         let items: Vec<Line> = sources
             .iter()
             .enumerate()
             .map(|(i, source)| {
-                let style = if i == selected_index {
-                    Style::new().fg(config.theme.text.highlight).reversed()
+                let style = if i == index {
+                    Style::new()
+                        .fg(config.settings.theme.text.highlight)
+                        .reversed()
                 } else {
                     Style::new()
                 };
@@ -181,25 +175,23 @@ impl Menu {
         mode_name: &str,
         source_name: &str,
         params: &ParameterValues,
-        editing_index: &Option<usize>,
-        param_names: &[String],
+        index: usize,
     ) {
         let mut lines = vec![
             Line::from(format!("Configuring {} -> {}", mode_name, source_name)),
             Line::from(""),
         ];
 
-        for (i, param_name) in param_names.iter().enumerate() {
-            let value = params
-                .get_as_string(param_name)
-                .unwrap_or_else(|| "<not set>".to_string());
-            let style = if Some(i) == *editing_index {
-                Style::new().fg(config.theme.text.highlight).reversed()
+        for (i, (name, parameter)) in params.iter().enumerate() {
+            let style = if i == index {
+                Style::new()
+                    .fg(config.settings.theme.text.highlight)
+                    .reversed()
             } else {
                 Style::new()
             };
             lines.push(Line::from(Span::styled(
-                format!("{}: {}", param_name, value),
+                format!("{}: {}", name, parameter.value),
                 style,
             )));
         }
@@ -222,105 +214,121 @@ impl Menu {
         if let Event::Key(key) = event
             && key.is_press()
         {
-            match &mut self.state {
-                MenuState::ModeSelect { selected_index } => {
-                    let modes_len = self.available_modes.len();
+            match self {
+                Self::ModeSelect { mode_index, modes } => {
                     match key.code {
                         KeyCode::Up | KeyCode::Char('k') => {
-                            *selected_index = if *selected_index == 0 {
-                                modes_len - 1
-                            } else {
-                                *selected_index - 1
-                            };
+                            increment_index(mode_index, modes.len())
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
-                            *selected_index = (*selected_index + 1) % modes_len;
+                            decrement_index(mode_index, modes.len())
                         }
                         KeyCode::Enter => {
-                            // TODO: Handle/return errors for when mode doesn't exist
-                            let mode_name = self.available_modes.get(*selected_index)?;
+                            // SAFETY: The index is always within range of the `modes` Vec
+                            let mode_name = modes.get(*mode_index).unwrap();
 
-                            if let Some(mode) = state
-                                .session_factory
-                                .mode_manager()
-                                .get_mode(mode_name)
-                                .cloned()
-                            {
-                                let allowed_sources =
-                                    mode.allowed_sources.clone().unwrap_or_else(|| {
-                                        state
-                                            .session_factory
-                                            .list_sources()
-                                            .into_iter()
-                                            .map(str::to_string)
-                                            .collect()
-                                    });
+                            if let Some(mode) = state.config.modes.get(mode_name) {
+                                let sources = mode
+                                    .sources
+                                    .clone()
+                                    .unwrap_or_else(|| state.config.list_sources());
 
-                                self.state = MenuState::SourceSelect {
-                                    mode,
-                                    available_sources: allowed_sources,
-                                    selected_index: 0,
+                                *self = Self::SourceSelect {
+                                    selected_mode: mode_name.clone(),
+                                    sources,
+                                    source_index: 0,
                                 };
                             }
                         }
-                        _ => {}
+                        _ => (),
                     }
                 }
-                MenuState::SourceSelect {
+                Self::SourceSelect {
+                    selected_mode,
+                    source_index,
+                    sources,
+                } => match key.code {
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        increment_index(source_index, sources.len())
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        decrement_index(source_index, sources.len())
+                    }
+                    KeyCode::Enter => {
+                        let selected_source = sources[*source_index].clone();
+                        let mut source = state.config.sources.get(&selected_source)?.clone();
+                        let mut mode = state.config.modes.get(selected_mode)?.clone();
+                        let mut source_overrides = mode.source_overrides.get_mut(&selected_source);
+
+                        let mut parameters = ParameterValues::new();
+
+                        for (name, mut definition) in
+                            source.parameters.drain().chain(mode.parameters.drain())
+                        {
+                            if let Some(ref mut overrides) = source_overrides
+                                && let Some(override_param) = overrides.remove(&name)
+                            {
+                                definition = Definition::FixedString(override_param);
+                            }
+
+                            let parameter = match definition.into_parameter(false) {
+                                Ok(p) => p,
+                                Err(error) => return Some(Message::Error(Box::new(error))),
+                            };
+
+                            parameters.insert(name, parameter);
+                        }
+
+                        *self = Self::ParameterConfig {
+                            mode,
+                            source,
+                            parameters,
+                            param_index: 0,
+                        };
+                    }
+                    KeyCode::Backspace => {
+                        *self = Self::ModeSelect {
+                            mode_index: 0,
+                            modes: state.config.list_modes(),
+                        };
+                    }
+                    _ => {}
+                },
+                Self::ParameterConfig {
                     mode,
-                    available_sources,
-                    selected_index,
+                    source,
+                    parameters,
+                    param_index,
                 } => {
                     match key.code {
                         KeyCode::Up | KeyCode::Char('k') => {
-                            *selected_index = if *selected_index == 0 {
-                                available_sources.len() - 1
-                            } else {
-                                *selected_index - 1
-                            };
+                            increment_index(param_index, parameters.len())
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
-                            *selected_index = (*selected_index + 1) % available_sources.len();
+                            decrement_index(param_index, parameters.len())
                         }
                         KeyCode::Enter => {
-                            let source_name = available_sources[*selected_index].clone();
-                            let source_params = ParameterValues::new(); // TODO: Create defaults
-                            let param_names = vec![]; // TODO: Get actual parameter names
-
-                            self.state = MenuState::ParameterConfig {
-                                mode_name: mode.name.clone(),
-                                mode_params: create_default_mode_params(mode),
-                                source_name,
-                                source_params,
-                                editing_param_index: None,
-                                param_names,
-                            };
-                        }
-                        KeyCode::Esc => {
-                            self.state = MenuState::ModeSelect { selected_index: 0 };
-                        }
-                        _ => {}
-                    }
-                }
-                MenuState::ParameterConfig {
-                    mode_name,
-                    mode_params,
-                    source_name,
-                    source_params,
-                    ..
-                } => {
-                    match key.code {
-                        KeyCode::Enter => {
+                            let mode = mode.clone();
+                            let source = source.clone();
+                            let parameters = parameters.clone();
                             let session_loader = Loading::load("Loading words...", move || {
-                                create_session(mode_name, mode_params)
+                                // TODO: Create a shared error type for creating sessions, so we
+                                // can get rid of the unwrap
+                                let mode = Mode::from_config(mode, source, parameters)?;
+                                TypingSession::new(mode)
                                     .map(|session| Message::Show(session.into()))
+                                    .map_err(CreateSessionError::from)
                             });
 
                             return Some(Message::Show(session_loader.into()));
                         }
-                        KeyCode::Esc => {
+                        KeyCode::Backspace => {
                             // Go back to source selection
-                            // TODO: Implement proper state transition
+                            *self = Self::SourceSelect {
+                                selected_mode: mode.meta.name.clone(),
+                                source_index: 0,
+                                sources: state.config.list_sources(),
+                            }
                         }
                         _ => {}
                     }
@@ -331,34 +339,10 @@ impl Menu {
     }
 }
 
-/// Create a `TypingSession` with the given parameters
-fn create_session(name: ) -> Result<TypingSession, FetchError> {
-
-
-    Ok(TypingSession::new(Mode {
-        name: ,
-        conditions: ,
-        source: ,
-    })?)
+const fn increment_index(index: &mut usize, len: usize) {
+    *index = if *index == 0 { len - 1 } else { *index - 1 }
 }
 
-fn create_default_mode_params(mode_config: &ModeConfig) -> ParameterValues {
-    let mut params = ParameterValues::new();
-
-    for (key, param_def) in &mode_config.parameters {
-        match param_def {
-            crate::sources::ParameterDefinition::Range { min, default, .. } => {
-                let value = default.unwrap_or(*min);
-                params.set_integer(key.clone(), value);
-            }
-            crate::sources::ParameterDefinition::Selection { default, .. } => {
-                params.set_string(key.clone(), default.clone());
-            }
-            crate::sources::ParameterDefinition::Toggle(default_value) => {
-                params.set_boolean(key.clone(), *default_value);
-            }
-        }
-    }
-
-    params
+const fn decrement_index(index: &mut usize, len: usize) {
+    *index = (*index + 1) % len
 }

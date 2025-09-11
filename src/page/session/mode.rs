@@ -1,13 +1,33 @@
 use std::{
     io::Read,
-    process::{Child, Command},
+    num::ParseIntError,
+    process::{Child, Command, Stdio},
+    string::FromUtf8Error,
+    sync::LazyLock,
     time::Duration,
 };
 
 use derive_more::From;
+use regex::Regex;
 use thiserror::Error;
 
-use crate::config::source::OutputFormat;
+pub static RE_HANDLEBARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{(.+?)\}").unwrap());
+
+use crate::config::{
+    ModeConfig, SourceConfig,
+    mode::{ConditionConfig, ConditionValue},
+    parameters::ParameterValues,
+    source::OutputFormat,
+};
+
+#[derive(Debug, Error)]
+#[error("Failed to create mode: {error}\n{mode_config:?}\n{source_config:?}\n{parameters:?}")]
+pub struct CreateModeError {
+    error: ParseIntError,
+    mode_config: ModeConfig,
+    source_config: SourceConfig,
+    parameters: ParameterValues,
+}
 
 #[derive(Debug)]
 pub struct Mode {
@@ -16,10 +36,67 @@ pub struct Mode {
     pub source: Source,
 }
 
+impl Mode {
+    pub fn from_config(
+        mode: ModeConfig,
+        source: SourceConfig,
+        parameters: ParameterValues,
+    ) -> Result<Self, CreateModeError> {
+        let resolved_conditions = match Conditions::from_config(&mode.conditions, &parameters) {
+            Ok(conditions) => conditions,
+            Err(error) => {
+                return Err(CreateModeError {
+                    error,
+                    mode_config: mode,
+                    source_config: source,
+                    parameters,
+                });
+            }
+        };
+        let resolved_source = Source::from_config(source, &parameters);
+        Ok(Self {
+            name: mode.meta.name,
+            conditions: resolved_conditions,
+            source: resolved_source,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Conditions {
     pub time: Option<Duration>,
     pub words_typed: Option<usize>,
+}
+
+impl Conditions {
+    pub fn from_config(
+        config: &ConditionConfig,
+        parameters: &ParameterValues,
+    ) -> Result<Self, ParseIntError> {
+        let time = if let Some(value) = &config.time {
+            let secs = match value {
+                ConditionValue::String(string) => replace_parameters(string, parameters).parse()?,
+                ConditionValue::Number(num) => *num as u64,
+                ConditionValue::Bool(_) => unreachable!("TIME WAS BOOLEAN"),
+            };
+            Some(Duration::from_secs(secs))
+        } else {
+            None
+        };
+
+        let words_typed = if let Some(value) = &config.words_typed {
+            let words = match value {
+                ConditionValue::String(string) => replace_parameters(string, parameters).parse()?,
+                ConditionValue::Number(num) => *num,
+                ConditionValue::Bool(_) => unreachable!("WORDS WAS BOOLEAN"),
+            };
+            Some(words)
+        } else {
+            None
+        };
+
+        Ok(Self { time, words_typed })
+    }
 }
 
 #[derive(Debug)]
@@ -31,8 +108,11 @@ pub struct Source {
 
 #[derive(Debug, Error, From)]
 pub enum FetchError {
-    #[error("I/O Error: {0}")]
+    #[error("Fetch I/O Error: {0}")]
     IO(std::io::Error),
+
+    #[error("Failed to get output of command")]
+    Output(FromUtf8Error),
 
     #[error("Encountered error: {0}")]
     SourceError(String),
@@ -48,32 +128,74 @@ impl Source {
     }
 
     pub fn try_fetch(&mut self) -> Result<Option<Vec<String>>, FetchError> {
-        let Some(child) = self.child.as_mut() else {
+        // Take child process out
+        let Some(mut child) = self.child.take() else {
             self.child = Some(self.command.spawn()?);
             return Ok(None);
         };
 
         let Some(status) = child.try_wait()? else {
+            // Put child process back
+            self.child = Some(child);
             return Ok(None);
         };
 
+        let process_output = child.wait_with_output()?;
+
+        let stderr = String::from_utf8(process_output.stderr)?;
+        let stdout = String::from_utf8(process_output.stdout)?;
+
         if !status.success() {
             return Err(FetchError::SourceError(format!(
-                "Source process returned bad exit code: {status}"
+                "Source process returned bad exit code: {status}\nStderr: {stderr}\nStdout: {stdout}"
             )));
         }
 
-        let Some(mut stdout) = child.stdout.take() else {
+        if stdout.is_empty() {
             return Err(FetchError::SourceError(
-                "Source output was empty".to_string(),
+                "Source output was empty!".to_string(),
             ));
-        };
+        }
 
-        let mut output = String::new();
-        stdout.read_to_string(&mut output)?;
-
-        return Ok(parse_output(output, &self.format));
+        Ok(parse_output(stdout, &self.format))
     }
+
+    pub fn from_config(config: SourceConfig, parameters: &ParameterValues) -> Self {
+        let mut program = config
+            .meta
+            .command
+            .iter()
+            .map(|string| replace_parameters(string, parameters))
+            .collect::<Vec<String>>();
+
+        let mut command = std::process::Command::new(program.remove(0));
+        command
+            .args(program)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        Self {
+            command,
+            child: None,
+            format: config.meta.output,
+        }
+    }
+}
+
+fn replace_parameters(string: &str, parameters: &ParameterValues) -> String {
+    RE_HANDLEBARS
+        .replace_all(string, |caps: &regex::Captures| {
+            let Some(key) = caps.get(1).map(|m| m.as_str()) else {
+                return caps.get(0).unwrap().as_str().to_string();
+            };
+
+            let Some(param) = parameters.get(key) else {
+                return caps.get(0).unwrap().as_str().to_string();
+            };
+
+            param.value.to_string()
+        })
+        .to_string()
 }
 
 fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {
@@ -89,4 +211,12 @@ fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {
             .collect(),
     };
     Some(words)
+}
+
+#[cfg(test)]
+mod test {
+    // #[test]
+    // fn regex_replacement() {
+    //     let mut parameters = ParameterValues::new();
+    // }
 }

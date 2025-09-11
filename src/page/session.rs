@@ -19,7 +19,7 @@ mod mode;
 mod stats;
 mod text;
 
-pub use mode::{FetchError, Mode};
+pub use mode::{CreateModeError, FetchError, Mode};
 use stats::Wpm;
 pub use stats::{RunningStats, Stats};
 pub use text::Segment;

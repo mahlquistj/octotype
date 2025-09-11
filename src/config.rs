@@ -46,11 +46,21 @@ pub enum ConfigError {
     ParseModes(mode::ModeError),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Config {
     pub settings: Settings,
     pub modes: HashMap<String, ModeConfig>,
     pub sources: HashMap<String, SourceConfig>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            settings: Settings::default(),
+            modes: mode::get_default_modes(),
+            sources: source::get_default_sources(),
+        }
+    }
 }
 
 impl Config {

@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use derive_more::From;
+use derive_more::{Display, From};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type ParameterDefinitions = HashMap<String, Definition>;
+pub type ParameterValues = HashMap<String, Parameter>;
 
 #[derive(Debug, Error)]
 pub enum ParameterError {
@@ -24,16 +25,30 @@ pub enum ParameterError {
     EmptySelection,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parameter {
     pub value: ValueType,
     pub definition: Definition,
+    mutable: bool,
 }
 
-#[derive(Debug, From)]
+impl Parameter {
+    pub const fn is_mutable(&self) -> bool {
+        if self.mutable {
+            self.definition.is_mutable()
+        } else {
+            self.mutable
+        }
+    }
+}
+
+#[derive(Debug, Clone, From, Display)]
 pub enum ValueType {
+    #[display("{_0}")]
     Number(usize),
+    #[display("{_0}")]
     String(String),
+    #[display("{_0}")]
     Bool(bool),
 }
 
@@ -59,14 +74,15 @@ pub enum Definition {
 }
 
 impl Definition {
-    pub fn is_changeable(&self) -> bool {
+    const fn is_mutable(&self) -> bool {
         !matches!(self, Self::FixedNumber(_) | Self::FixedString(_))
     }
 
-    pub fn into_parameter(self) -> Result<Parameter, ParameterError> {
+    pub fn into_parameter(self, mutable: bool) -> Result<Parameter, ParameterError> {
         self.get_default_value().map(|value| Parameter {
             definition: self,
             value,
+            mutable,
         })
     }
 

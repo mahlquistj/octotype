@@ -21,7 +21,6 @@ pub enum Message {
 
 pub struct State {
     pub config: Config,
-    pub session_factory: SessionFactory,
 }
 
 /// The app itself
@@ -32,13 +31,10 @@ pub struct App {
 
 impl App {
     /// Creates a new `App`
-    pub fn new(config: Config, session_factory: SessionFactory) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
-            page: page::Menu::new(&session_factory).into(),
-            state: State {
-                config,
-                session_factory,
-            },
+            page: page::Menu::new(&config).into(),
+            state: State { config },
         }
     }
 
@@ -111,7 +107,7 @@ impl App {
         match msg {
             Message::Error(error) => self.page = page::Error::from(error).into(),
             Message::Show(page) => self.page = page,
-            Message::Reset => self.page = page::Menu::new(&self.state.session_factory).into(),
+            Message::Reset => self.page = page::Menu::new(&self.state.config).into(),
             Message::Quit => return true,
         }
 

@@ -4,7 +4,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::ParameterValues;
+use crate::config::parameters::{Definition, ParameterDefinitions};
 
 #[derive(Debug, From, Error)]
 pub enum SourceError {
@@ -34,39 +34,117 @@ pub fn get_sources(from_dir: PathBuf) -> Result<HashMap<String, SourceConfig>, S
             error,
         })?;
 
-    let mut modes = HashMap::new();
+    let mut sources = HashMap::new();
 
     for entry in files.into_iter() {
         let dir_entry = entry?;
         let path = dir_entry.path();
         if path.is_file() {
             let content = std::fs::read_to_string(path)?;
-            let mode: SourceConfig = toml::from_str(&content)?;
-            modes.insert(mode.meta.name.clone(), mode);
+            let source: SourceConfig = toml::from_str(&content)?;
+            sources.insert(source.meta.name.clone(), source);
         }
     }
 
-    Ok(modes)
+    if sources.is_empty() {
+        return Ok(get_default_sources());
+    }
+
+    Ok(sources)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+pub fn get_default_sources() -> HashMap<String, SourceConfig> {
+    let mut sources = HashMap::new();
+
+    let mut parameters = ParameterDefinitions::new();
+    parameters.insert(
+        "word_count".to_string(),
+        Definition::Range {
+            min: 1,
+            max: 30,
+            step: 1,
+            default: Some(10),
+        },
+    );
+    parameters.insert(
+        "word_length".to_string(),
+        Definition::Range {
+            min: 2,
+            max: 15,
+            step: 1,
+            default: Some(5),
+        },
+    );
+    sources.insert(
+        "Gibberish".to_string(),
+        SourceConfig {
+            meta: SourceMeta {
+                name: "Quotes API".to_string(),
+                description: "Supplies random quotes".to_string(),
+                command: [
+                    "tr",
+                    "-dc",
+                    "'a-zA-Z0-9'",
+                    "<",
+                    "/dev/urandom",
+                    "|",
+                    "head",
+                    "-c",
+                    "$(({word_count} * {word_length}))",
+                    "|",
+                    "fold",
+                    "-w",
+                    "{word_length}",
+                ]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+                required_tools: vec!["tr".to_string(), "head".to_string(), "fold".to_string()],
+                output: OutputFormat::Default,
+                offline_alternative: None,
+                network_required: false,
+            },
+            parameters,
+        },
+    );
+
+    sources.insert(
+        "pwd".to_string(),
+        SourceConfig {
+            meta: SourceMeta {
+                name: "Quotes API".to_string(),
+                description: "Supplies random quotes".to_string(),
+                command: vec!["echo".to_string(), "$(pwd)".to_string()],
+                required_tools: vec!["tr".to_string(), "head".to_string(), "fold".to_string()],
+                output: OutputFormat::Default,
+                offline_alternative: None,
+                network_required: false,
+            },
+            parameters: ParameterDefinitions::new(),
+        },
+    );
+
+    sources
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceConfig {
     pub meta: SourceMeta,
-    pub parameters: ParameterValues,
+    pub parameters: ParameterDefinitions,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceMeta {
-    name: String,
-    description: String,
-    command: Vec<String>,
-    output: OutputFormat,
+    pub name: String,
+    pub description: String,
+    pub command: Vec<String>,
+    pub output: OutputFormat,
     #[serde(default)]
-    offline_alternative: Option<String>,
+    pub offline_alternative: Option<String>,
     #[serde(default)]
-    network_required: bool,
+    pub network_required: bool,
     #[serde(default)]
-    required_tools: Vec<String>,
+    pub required_tools: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]

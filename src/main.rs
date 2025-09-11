@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    App::new(config, session_factory).run()?;
+    App::new(config).run()?;
 
     Ok(())
 }
