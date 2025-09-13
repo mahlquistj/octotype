@@ -200,11 +200,6 @@ fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {
             .split_ascii_whitespace()
             .map(str::to_string)
             .collect(),
-        OutputFormat::Array => output
-            .strip_prefix('[')
-            .and_then(|rem| rem.strip_suffix(']'))
-            .map(|words| words.split(',').map(str::to_string))?
-            .collect(),
     };
     Some(words)
 }

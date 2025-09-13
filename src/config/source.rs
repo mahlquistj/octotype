@@ -74,5 +74,4 @@ pub struct SourceMeta {
 pub enum OutputFormat {
     #[default]
     Default,
-    Array,
 }

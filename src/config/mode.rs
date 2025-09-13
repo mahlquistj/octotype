@@ -57,8 +57,7 @@ pub struct ModeConfig {
     #[serde(default)]
     pub conditions: ConditionConfig,
     #[serde(default)]
-    pub source_overrides: HashMap<String, HashMap<String, String>>,
-    pub sources: Option<Vec<String>>,
+    pub overrides: HashMap<String, HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +65,7 @@ pub struct ModeMeta {
     pub name: String,
     #[serde(default = "default_description")]
     pub description: String,
+    pub allowed_sources: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

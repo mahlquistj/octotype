@@ -80,7 +80,9 @@ impl Config {
         }
 
         let mut settings_toml = config_dir.clone();
-        settings_toml.push("settings.toml");
+        if !settings_toml.ends_with("config.toml") {
+            settings_toml.push("config.toml");
+        }
 
         if settings_toml.exists() {
             settings = settings.merge(Toml::file(settings_toml));

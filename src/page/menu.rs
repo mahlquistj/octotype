@@ -227,7 +227,8 @@ impl Menu {
 
                             if let Some(mode) = state.config.modes.get(mode_name) {
                                 let sources = mode
-                                    .sources
+                                    .meta
+                                    .allowed_sources
                                     .clone()
                                     .unwrap_or_else(|| state.config.list_sources());
 
@@ -256,7 +257,7 @@ impl Menu {
                         let selected_source = sources[*source_index].clone();
                         let mut source = state.config.sources.get(&selected_source)?.clone();
                         let mut mode = state.config.modes.get(selected_mode)?.clone();
-                        let mut source_overrides = mode.source_overrides.get_mut(&selected_source);
+                        let mut source_overrides = mode.overrides.get_mut(&selected_source);
 
                         let mut parameters = Vec::new();
 
