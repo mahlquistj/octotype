@@ -1,6 +1,6 @@
 # 🐙 OctoType - A typing trainer for your terminal
 
-OctoType is an TUI typing trainer made with [Ratatui] - Heavily inspired by
+OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 [Monkeytype], with a focus on customizability
 
 ## 💡 Features
