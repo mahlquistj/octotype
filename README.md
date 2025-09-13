@@ -3,16 +3,6 @@
 OctoType is an TUI typing trainer made with [Ratatui] - Heavily inspired by
 [Monkeytype], with a focus on customizability
 
-<!--toc:start-->
-
-- [💡 Features](#💡-features)
-- [🔖 Arguments](#🔖-arguments)
-- [⚙️ Configuration](#️-configuration)
-- [💻 Development](#💻-development)
-- [⭐ Contributing](#contributing)
-
-<!--toc:end-->
-
 ## 💡 Features
 
 - 🎭 Custom [Modes](https://github.com/mahlquistj/octotype/wiki/Modes)
@@ -42,7 +32,17 @@ A nix flake dev-shell is provided to run with `nix-develop`.
 
 ## ⭐ Contributing
 
-If you have an idea, bug-report or alike, feel free to open an issue!
+If you have an idea, bug-report or alike, feel free to open an issue or a PR -
+It's more than welcome!
+
+I'm only developing this in my spare time, so don't expect immidiate replies 😄
+
+## ❓ Why another typing-trainer?
+
+It all started as a fun side-project to learn typing on my new ZSA Moonlander
+keyboard. I was inspired by using [Monkeytype](monkeytype) a lot, but found that
+i was missing more customizability when it came to what modes and words i could
+get.
 
 <!-- LINKS -->
 
