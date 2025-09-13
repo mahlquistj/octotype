@@ -20,13 +20,11 @@ use crate::config::{
     source::OutputFormat,
 };
 
-#[derive(Debug, Error)]
-#[error("Failed to create mode: {error}\n{mode_config:?}\n{source_config:?}\n{parameters:?}")]
+#[derive(Debug, Error, From)]
+#[error("Mode field '{field}' failed to parse: {error}")]
 pub struct CreateModeError {
+    field: &'static str,
     error: ParseIntError,
-    mode_config: ModeConfig,
-    source_config: SourceConfig,
-    parameters: ParameterValues,
 }
 
 #[derive(Debug)]
@@ -42,17 +40,7 @@ impl Mode {
         source: SourceConfig,
         parameters: ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let resolved_conditions = match Conditions::from_config(&mode.conditions, &parameters) {
-            Ok(conditions) => conditions,
-            Err(error) => {
-                return Err(CreateModeError {
-                    error,
-                    mode_config: mode,
-                    source_config: source,
-                    parameters,
-                });
-            }
-        };
+        let resolved_conditions = Conditions::from_config(&mode.conditions, &parameters)?;
         let resolved_source = Source::from_config(sources_dir, source, &parameters);
         Ok(Self {
             conditions: resolved_conditions,
@@ -71,10 +59,12 @@ impl Conditions {
     pub fn from_config(
         config: &ConditionConfig,
         parameters: &ParameterValues,
-    ) -> Result<Self, ParseIntError> {
+    ) -> Result<Self, CreateModeError> {
         let time = if let Some(value) = &config.time {
             let secs = match value {
-                ConditionValue::String(string) => replace_parameters(string, parameters).parse()?,
+                ConditionValue::String(string) => replace_parameters(string, parameters)
+                    .parse()
+                    .map_err(|err| ("conditions.time", err))?,
                 ConditionValue::Number(num) => *num as u64,
                 ConditionValue::Bool(_) => unreachable!("TIME WAS BOOLEAN"),
             };
@@ -85,7 +75,9 @@ impl Conditions {
 
         let words_typed = if let Some(value) = &config.words_typed {
             let words = match value {
-                ConditionValue::String(string) => replace_parameters(string, parameters).parse()?,
+                ConditionValue::String(string) => replace_parameters(string, parameters)
+                    .parse()
+                    .map_err(|err| ("conditions.words_typed", err))?,
                 ConditionValue::Number(num) => *num,
                 ConditionValue::Bool(_) => unreachable!("WORDS WAS BOOLEAN"),
             };

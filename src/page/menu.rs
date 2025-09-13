@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, Error, From)]
 pub enum CreateSessionError {
     #[error("{0}")]
-    Mode(CreateModeError),
+    Mode(Box<CreateModeError>),
 
     #[error("Failed to create session: {0}")]
     Fetch(FetchError),
@@ -42,8 +42,8 @@ pub enum Menu {
         sources: Vec<String>,
     },
     ParameterConfig {
-        mode: ModeConfig,
-        source: SourceConfig,
+        mode: Box<ModeConfig>,
+        source: Box<SourceConfig>,
         parameters: Vec<(String, Parameter)>,
         param_index: usize,
     },
@@ -280,8 +280,8 @@ impl Menu {
                         }
 
                         *self = Self::ParameterConfig {
-                            mode,
-                            source,
+                            mode: Box::new(mode),
+                            source: Box::new(source),
                             parameters,
                             param_index: 0,
                         };
@@ -327,7 +327,8 @@ impl Menu {
                                 // TODO: Create a shared error type for creating sessions, so we
                                 // can get rid of the unwrap
                                 let mode =
-                                    Mode::from_config(sources_dir, mode, source, parameters)?;
+                                    Mode::from_config(sources_dir, *mode, *source, parameters)
+                                        .map_err(Box::new)?;
                                 TypingSession::new(mode)
                                     .map(|session| Message::Show(session.into()))
                                     .map_err(CreateSessionError::from)

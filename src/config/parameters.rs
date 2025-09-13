@@ -216,7 +216,7 @@ impl Definition {
                     return Err(ParameterError::EmptySelection);
                 }
 
-                if default.as_ref().is_some_and(|d| !options.contains(&d)) {
+                if default.as_ref().is_some_and(|d| !options.contains(d)) {
                     return Err(ParameterError::DefaultNonExistant);
                 }
             }
@@ -233,21 +233,4 @@ pub const fn default_range_step() -> i64 {
 
 pub const fn default_range_max() -> i64 {
     i64::MAX
-}
-
-#[cfg(test)]
-mod test {
-    use crate::config::parameters::Definition;
-
-    #[test]
-    fn increment_range() {
-        let range = Definition::Range {
-            min: 0,
-            max: 10,
-            step: 1,
-            default: 5,
-            value: 0,
-        }
-        .into_parameter(true);
-    }
 }

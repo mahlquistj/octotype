@@ -37,7 +37,7 @@ pub enum ConfigError {
     CreateDirectory(std::io::Error),
 
     #[error("Failed to parse config: {0}")]
-    Parse(figment::Error),
+    Parse(Box<figment::Error>),
 
     #[error("Failed to parse sources: {0}")]
     ParseSources(source::SourceError),
@@ -86,7 +86,7 @@ impl Config {
             settings = settings.merge(Toml::file(settings_toml));
         }
 
-        let mut settings: Settings = settings.extract()?;
+        let mut settings: Settings = settings.extract().map_err(Box::new)?;
 
         let sources_dir = settings.sources_dir.clone().unwrap_or_else(|| {
             let mut dir = config_dir.clone();
