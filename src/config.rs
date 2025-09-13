@@ -46,7 +46,7 @@ pub enum ConfigError {
     ParseModes(mode::ModeError),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Config {
     pub settings: Settings,
     pub modes: HashMap<String, ModeConfig>,

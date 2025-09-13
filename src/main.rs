@@ -35,18 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::get(override_path)?;
 
     if args.print_config {
-        println!("# SETTINGS\n{}", toml::to_string_pretty(&config.settings)?);
-
-        println!("# MODES");
-        for (name, mode) in &config.modes {
-            println!("## {name}\n{}", toml::to_string_pretty(&dbg!(mode))?);
-        }
-
-        println!("# SOURCES");
-        for (name, source) in &config.sources {
-            println!("## {name}\n{}", toml::to_string_pretty(&source)?)
-        }
-
+        println!("{}", toml::to_string_pretty(&config)?);
         return Ok(());
     }
 

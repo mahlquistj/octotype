@@ -1,0 +1,26 @@
+name: 🌟 Feature request
+description: I'd like to suggest a feature to OctoType
+title: "[Feature]: <title>"
+labels: ["enhancement"]
+assignees:
+  - mahlquistj
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking your time to suggesting a feature!
+
+        Please fill out the following fields as described
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if an issue already exists for the feature.
+      options:
+        - label: I have searched the existing issues
+          required: true
+  - type: textarea
+    attributes:
+      label: Feature
+      description: Please describe what you would want as a feature in as much detail as possible
+    validations:
+      required: true

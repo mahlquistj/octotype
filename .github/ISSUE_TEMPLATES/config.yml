@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ❓ I have a question
+    url: https://github.com/mahlquistj/octotype/wiki
+    about: Learn how to use/configure OctoType
+  - name: Join our discord!
+    url: https://discord.gg/zk4SXvdUxj
+    about: The official discord server for OctoType
