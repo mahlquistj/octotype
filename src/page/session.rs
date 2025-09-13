@@ -124,7 +124,7 @@ impl TypingSession {
     ///
     /// Returns the stats if the session is done. Returns `None` otherwise
     fn poll_stats(&mut self) -> Option<Stats> {
-        if self.text.iter().all(|seg| seg.is_done()) {
+        if self.should_end() {
             let time = self.elapsed_minutes();
             let input_length = self.input_length();
             let wpm = self.calculate_wpm(time, input_length);
@@ -269,6 +269,44 @@ impl TypingSession {
         let actual_errors = self.get_actual_errors() as f64;
         (1.0 - (actual_errors / characters)) * 100.0
     }
+
+    /// Get the first keypress timestamp for mode completion checking
+    pub const fn get_first_keypress(&self) -> Option<Instant> {
+        self.first_keypress
+    }
+
+    /// Helper methods for mode completion checking
+    pub fn get_typed_word_count(&self) -> usize {
+        self.text
+            .iter()
+            .map(|segment| segment.count_completed_words())
+            .sum()
+    }
+
+    pub fn is_all_text_completed(&self) -> bool {
+        self.text.iter().all(|segment| segment.is_done())
+    }
+
+    pub fn should_end(&self) -> bool {
+        // Time-based completion
+        if let Some(time_limit) = self.mode.conditions.time
+            && let Some(start_time) = self.get_first_keypress()
+            && start_time.elapsed() >= time_limit
+        {
+            return true;
+        }
+
+        // Word count completion
+        if let Some(target_words) = self.mode.conditions.words_typed {
+            let typed_words = self.get_typed_word_count();
+            if typed_words >= target_words as usize {
+                return true;
+            }
+        }
+
+        // Default: all segments completed
+        self.is_all_text_completed()
+    }
 }
 
 // Rendering logic
@@ -300,7 +338,7 @@ impl TypingSession {
         frame.render_widget(paragraph.block(block), center);
     }
 
-    pub fn render_top(&self, _config: &Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
         let time = self.elapsed();
         let seconds = time.as_secs().rem(60);
         let minutes = time.as_secs() / 60;
@@ -309,74 +347,6 @@ impl TypingSession {
                 .as_ref()
                 .map_or_else(|| "".to_string(), |cache| cache.to_string())
         })))
-    }
-
-    /// Get the first keypress timestamp for mode completion checking
-    pub const fn get_first_keypress(&self) -> Option<Instant> {
-        self.first_keypress
-    }
-
-    /// Helper methods for mode completion checking
-    pub fn get_typed_word_count(&self) -> usize {
-        self.text
-            .iter()
-            .map(|segment| segment.count_completed_words())
-            .sum()
-    }
-
-    pub fn get_typed_char_count(&self) -> usize {
-        self.text
-            .iter()
-            .map(|segment| segment.count_completed_chars())
-            .sum()
-    }
-
-    pub fn calculate_accuracy(&mut self) -> f64 {
-        let characters = self.input_length() as f64;
-        let actual_errors = self.get_actual_errors() as f64;
-        if characters == 0.0 {
-            return 100.0;
-        }
-        (1.0 - (actual_errors / characters)) * 100.0
-    }
-
-    pub fn is_all_text_completed(&self) -> bool {
-        self.text.iter().all(|segment| segment.is_done())
-    }
-
-    pub fn get_remaining_char_count(&self) -> usize {
-        // Calculate remaining characters across all segments
-        let mut remaining = 0;
-        for (i, segment) in self.text.iter().enumerate() {
-            if i >= self.current_segment_idx {
-                // For current and future segments, count characters not yet typed
-                let total_chars = segment.count_total_chars();
-                let typed_chars = segment.input_length();
-                remaining += total_chars.saturating_sub(typed_chars);
-            }
-        }
-        remaining
-    }
-
-    pub fn should_end(&mut self) -> bool {
-        // Time-based completion
-        if let Some(time_limit) = self.mode.conditions.time
-            && let Some(start_time) = self.get_first_keypress()
-            && start_time.elapsed() >= time_limit
-        {
-            return true;
-        }
-
-        // Word count completion
-        if let Some(target_words) = self.mode.conditions.words_typed {
-            let typed_words = self.get_typed_word_count();
-            if typed_words >= target_words as usize {
-                return true;
-            }
-        }
-
-        // Default: all segments completed
-        self.is_all_text_completed()
     }
 
     pub fn poll(&mut self, _config: &Config) -> Option<Message> {

@@ -54,7 +54,7 @@ impl Error {
         frame.render_widget(text, center);
     }
 
-    pub fn render_top(&self, _config: &crate::config::Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &crate::config::Config) -> Option<Line<'_>> {
         Some(Line::from("<Enter> to return to menu"))
     }
 

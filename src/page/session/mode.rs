@@ -31,7 +31,6 @@ pub struct CreateModeError {
 
 #[derive(Debug)]
 pub struct Mode {
-    pub name: String,
     pub conditions: Conditions,
     pub source: Source,
 }
@@ -56,7 +55,6 @@ impl Mode {
         };
         let resolved_source = Source::from_config(sources_dir, source, &parameters);
         Ok(Self {
-            name: mode.meta.name,
             conditions: resolved_conditions,
             source: resolved_source,
         })

@@ -4,7 +4,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::parameters::{self, Definition, ParameterDefinitions};
+use crate::config::parameters::ParameterDefinitions;
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {

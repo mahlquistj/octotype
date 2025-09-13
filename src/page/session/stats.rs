@@ -344,7 +344,7 @@ impl Stats {
         frame.render_widget(character_errors, characters);
     }
 
-    pub fn render_top(&self, _config: &Config) -> Option<Line> {
+    pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
         Some(Line::raw("<Enter> to go back to the menu"))
     }
 

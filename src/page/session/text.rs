@@ -153,20 +153,6 @@ impl Segment {
             .count()
     }
 
-    pub const fn count_completed_chars(&self) -> usize {
-        // Count characters that have been typed (correctly or incorrectly)
-        self.input.len()
-    }
-
-    pub const fn count_total_chars(&self) -> usize {
-        self.tokens.len()
-    }
-
-    pub fn count_errors(&self) -> usize {
-        // Count typing errors in this segment
-        self.wrong_inputs.len()
-    }
-
     /// Renders the segment as a `ratatui::Line`
     pub fn render_line(&self, show_cursor: bool, colors: &TextTheme) -> ratatui::prelude::Line<'_> {
         let mut current_word = None;
