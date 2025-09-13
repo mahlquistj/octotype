@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use derive_more::{Display, From};
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -10,25 +10,27 @@ pub type ParameterValues = HashMap<String, Parameter>;
 #[derive(Debug, Error)]
 pub enum ParameterError {
     #[error("Invalid range: {min} > {max}")]
-    InvalidRange { min: usize, max: usize },
+    InvalidRange { min: i64, max: i64 },
 
     #[error("Invalid step size: {step} > {min}")]
-    InvalidStepSize { step: usize, min: usize },
+    InvalidStepSize { step: i64, min: i64 },
 
     #[error("Default value is higher than max value: {default} > {max}")]
-    DefaultTooHigh { default: usize, max: usize },
+    DefaultTooHigh { default: i64, max: i64 },
 
     #[error("Default value is lower than min value: {default} > {min}")]
-    DefaultTooLow { default: usize, min: usize },
+    DefaultTooLow { default: i64, min: i64 },
 
     #[error("Selection is empty")]
     EmptySelection,
+
+    #[error("Default doesn't exist in selection")]
+    DefaultNonExistant,
 }
 
 #[derive(Debug, Clone)]
 pub struct Parameter {
-    pub value: ValueType,
-    pub definition: Definition,
+    definition: Definition,
     mutable: bool,
 }
 
@@ -40,16 +42,68 @@ impl Parameter {
             self.mutable
         }
     }
-}
 
-#[derive(Debug, Clone, From, Display)]
-pub enum ValueType {
-    #[display("{_0}")]
-    Number(usize),
-    #[display("{_0}")]
-    String(String),
-    #[display("{_0}")]
-    Bool(bool),
+    pub fn get_value(&self) -> String {
+        match &self.definition {
+            Definition::Range { value, .. } => value.to_string(),
+            Definition::Selection {
+                options, selected, ..
+            } => options[*selected].clone(),
+            Definition::Toggle(b) => b.to_string(),
+            Definition::FixedNumber(num) => num.to_string(),
+            Definition::FixedString(s) => s.to_string(),
+        }
+    }
+
+    pub fn increment(&mut self) {
+        if !self.is_mutable() {
+            return;
+        }
+        match &mut self.definition {
+            Definition::Range {
+                min,
+                max,
+                step,
+                value,
+                ..
+            } => {
+                *value = (*value + *step).clamp(*min, *max);
+            }
+            Definition::Selection {
+                options, selected, ..
+            } => {
+                *selected = if *selected == 0 {
+                    options.len() - 1
+                } else {
+                    *selected - 1
+                }
+            }
+            Definition::Toggle(b) => *b = !*b,
+            _ => unreachable!("Tried to modify a non-mutable definition"),
+        }
+    }
+
+    pub fn decrement(&mut self) {
+        if !self.is_mutable() {
+            return;
+        }
+        match &mut self.definition {
+            Definition::Range {
+                min,
+                max,
+                step,
+                value,
+                ..
+            } => {
+                *value = (*value - *step).clamp(*min, *max);
+            }
+            Definition::Selection {
+                options, selected, ..
+            } => *selected = (*selected + 1) % options.len(),
+            Definition::Toggle(b) => *b = !*b,
+            _ => unreachable!("Tried to modify a non-mutable definition"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,19 +111,23 @@ pub enum ValueType {
 pub enum Definition {
     Range {
         #[serde(default)]
-        min: usize,
+        min: i64,
         #[serde(default = "default_range_max")]
-        max: usize,
+        max: i64,
         #[serde(default = "default_range_step")]
-        step: usize,
-        default: Option<usize>,
+        step: i64,
+        default: Option<i64>,
+        #[serde(skip)]
+        value: i64,
     },
     Selection {
         options: Vec<String>,
         default: Option<String>,
+        #[serde(skip)]
+        selected: usize,
     },
     Toggle(bool),
-    FixedNumber(usize),
+    FixedNumber(i64),
     FixedString(String),
 }
 
@@ -78,30 +136,42 @@ impl Definition {
         !matches!(self, Self::FixedNumber(_) | Self::FixedString(_))
     }
 
-    pub fn into_parameter(self, mutable: bool) -> Result<Parameter, ParameterError> {
-        self.get_default_value().map(|value| Parameter {
+    pub fn into_parameter(mut self, mutable: bool) -> Result<Parameter, ParameterError> {
+        self.set_default_value()?;
+        Ok(Parameter {
             definition: self,
-            value,
             mutable,
         })
     }
 
-    fn get_default_value(&self) -> Result<ValueType, ParameterError> {
+    fn set_default_value(&mut self) -> Result<(), ParameterError> {
         self.evaluate().map(|_| match self {
-            Self::Range { min, default, .. } => ValueType::Number(default.unwrap_or(*min)),
-            Self::Selection { options, default } => ValueType::String(
-                // SAFETY: We should evaluate the definition before accessing default values, or else
-                // the below expect would fail in some cases
-                default.clone().unwrap_or_else(|| {
-                    options
-                        .first()
-                        .cloned()
-                        .expect("No default set for selection")
-                }),
-            ),
-            Self::Toggle(b) => (*b).into(),
-            Self::FixedNumber(num) => (*num).into(),
-            Self::FixedString(str) => str.clone().into(),
+            Self::Range {
+                min,
+                default,
+                value,
+                ..
+            } => {
+                if let Some(d) = default {
+                    *value = *d;
+                } else {
+                    *value = *min;
+                }
+            }
+            Self::Selection {
+                options,
+                default,
+                selected,
+            } => {
+                if let Some(d) = default
+                    && let Some(select) = options.iter().position(|opt| opt == d)
+                {
+                    *selected = select;
+                } else {
+                    *selected = 0;
+                }
+            }
+            _ => (),
         })
     }
 
@@ -112,6 +182,7 @@ impl Definition {
                 max,
                 step,
                 default,
+                ..
             } => {
                 if min > max {
                     return Err(ParameterError::InvalidRange {
@@ -139,9 +210,15 @@ impl Definition {
                     }
                 }
             }
-            Self::Selection { options, .. } => {
+            Self::Selection {
+                options, default, ..
+            } => {
                 if options.is_empty() {
                     return Err(ParameterError::EmptySelection);
+                }
+
+                if default.as_ref().is_some_and(|d| !options.contains(&d)) {
+                    return Err(ParameterError::DefaultNonExistant);
                 }
             }
             _ => (),
@@ -151,10 +228,27 @@ impl Definition {
     }
 }
 
-pub const fn default_range_step() -> usize {
+pub const fn default_range_step() -> i64 {
     1
 }
 
-pub const fn default_range_max() -> usize {
-    usize::MAX
+pub const fn default_range_max() -> i64 {
+    i64::MAX
+}
+
+#[cfg(test)]
+mod test {
+    use crate::config::parameters::Definition;
+
+    #[test]
+    fn increment_range() {
+        let range = Definition::Range {
+            min: 0,
+            max: 10,
+            step: 1,
+            default: 5,
+            value: 0,
+        }
+        .into_parameter(true);
+    }
 }

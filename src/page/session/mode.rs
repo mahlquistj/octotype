@@ -1,6 +1,6 @@
 use std::{
-    io::Read,
     num::ParseIntError,
+    path::PathBuf,
     process::{Child, Command, Stdio},
     string::FromUtf8Error,
     sync::LazyLock,
@@ -38,6 +38,7 @@ pub struct Mode {
 
 impl Mode {
     pub fn from_config(
+        sources_dir: PathBuf,
         mode: ModeConfig,
         source: SourceConfig,
         parameters: ParameterValues,
@@ -53,7 +54,7 @@ impl Mode {
                 });
             }
         };
-        let resolved_source = Source::from_config(source, &parameters);
+        let resolved_source = Source::from_config(sources_dir, source, &parameters);
         Ok(Self {
             name: mode.meta.name,
             conditions: resolved_conditions,
@@ -65,7 +66,7 @@ impl Mode {
 #[derive(Debug)]
 pub struct Conditions {
     pub time: Option<Duration>,
-    pub words_typed: Option<usize>,
+    pub words_typed: Option<i64>,
 }
 
 impl Conditions {
@@ -160,7 +161,11 @@ impl Source {
         Ok(parse_output(stdout, &self.format))
     }
 
-    pub fn from_config(config: SourceConfig, parameters: &ParameterValues) -> Self {
+    pub fn from_config(
+        sources_dir: PathBuf,
+        config: SourceConfig,
+        parameters: &ParameterValues,
+    ) -> Self {
         let mut program = config
             .meta
             .command
@@ -171,6 +176,7 @@ impl Source {
         let mut command = std::process::Command::new(program.remove(0));
         command
             .args(program)
+            .current_dir(sources_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
@@ -193,7 +199,7 @@ fn replace_parameters(string: &str, parameters: &ParameterValues) -> String {
                 return caps.get(0).unwrap().as_str().to_string();
             };
 
-            param.value.to_string()
+            param.get_value()
         })
         .to_string()
 }

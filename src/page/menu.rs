@@ -1,5 +1,3 @@
-use std::num::ParseIntError;
-
 use super::{Message, loadscreen::Loading, session::TypingSession};
 
 use crossterm::event::{Event, KeyCode};
@@ -16,7 +14,7 @@ use crate::{
     app::State,
     config::{
         Config, ModeConfig, SourceConfig,
-        parameters::{Definition, ParameterValues},
+        parameters::{Definition, Parameter},
     },
     page::session::{CreateModeError, FetchError, Mode},
     utils::center,
@@ -46,7 +44,7 @@ pub enum Menu {
     ParameterConfig {
         mode: ModeConfig,
         source: SourceConfig,
-        parameters: ParameterValues,
+        parameters: Vec<(String, Parameter)>,
         param_index: usize,
     },
 }
@@ -174,7 +172,7 @@ impl Menu {
         config: &Config,
         mode_name: &str,
         source_name: &str,
-        params: &ParameterValues,
+        params: &[(String, Parameter)],
         index: usize,
     ) {
         let mut lines = vec![
@@ -182,7 +180,7 @@ impl Menu {
             Line::from(""),
         ];
 
-        for (i, (name, parameter)) in params.iter().enumerate() {
+        for (i, (name, parameter)) in params.iter().filter(|(_, p)| p.is_mutable()).enumerate() {
             let style = if i == index {
                 Style::new()
                     .fg(config.settings.theme.text.highlight)
@@ -191,7 +189,7 @@ impl Menu {
                 Style::new()
             };
             lines.push(Line::from(Span::styled(
-                format!("{}: {}", name, parameter.value),
+                format!("{}: {}", name, parameter.get_value()),
                 style,
             )));
         }
@@ -260,23 +258,25 @@ impl Menu {
                         let mut mode = state.config.modes.get(selected_mode)?.clone();
                         let mut source_overrides = mode.source_overrides.get_mut(&selected_source);
 
-                        let mut parameters = ParameterValues::new();
+                        let mut parameters = Vec::new();
 
                         for (name, mut definition) in
                             source.parameters.drain().chain(mode.parameters.drain())
                         {
+                            let mut mutable = true;
                             if let Some(ref mut overrides) = source_overrides
                                 && let Some(override_param) = overrides.remove(&name)
                             {
+                                mutable = false;
                                 definition = Definition::FixedString(override_param);
                             }
 
-                            let parameter = match definition.into_parameter(false) {
+                            let parameter = match definition.into_parameter(mutable) {
                                 Ok(p) => p,
                                 Err(error) => return Some(Message::Error(Box::new(error))),
                             };
 
-                            parameters.insert(name, parameter);
+                            parameters.push((name, parameter));
                         }
 
                         *self = Self::ParameterConfig {
@@ -307,14 +307,27 @@ impl Menu {
                         KeyCode::Down | KeyCode::Char('j') => {
                             decrement_index(param_index, parameters.len())
                         }
+                        KeyCode::Right | KeyCode::Char('l') => {
+                            parameters[*param_index].1.increment()
+                        }
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            parameters[*param_index].1.decrement()
+                        }
                         KeyCode::Enter => {
                             let mode = mode.clone();
                             let source = source.clone();
-                            let parameters = parameters.clone();
+                            let parameters = parameters.clone().into_iter().collect();
+                            let sources_dir = state
+                                .config
+                                .settings
+                                .sources_dir
+                                .clone()
+                                .unwrap_or_default();
                             let session_loader = Loading::load("Loading words...", move || {
                                 // TODO: Create a shared error type for creating sessions, so we
                                 // can get rid of the unwrap
-                                let mode = Mode::from_config(mode, source, parameters)?;
+                                let mode =
+                                    Mode::from_config(sources_dir, mode, source, parameters)?;
                                 TypingSession::new(mode)
                                     .map(|session| Message::Show(session.into()))
                                     .map_err(CreateSessionError::from)

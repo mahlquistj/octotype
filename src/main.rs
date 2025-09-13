@@ -14,6 +14,10 @@ use crate::config::Config;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct AppArgs {
+    /// Prints the loaded config (Settings, Modes, Sources)
+    #[arg(long)]
+    print_config: bool,
+
     /// Prints the loaded settings
     #[arg(short, long)]
     print_settings: bool,
@@ -26,12 +30,25 @@ struct AppArgs {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = AppArgs::parse();
 
-    let override_path = args
-        .config
-        .and_then(|dir| Some(PathBuf::from_str(&dir)))
-        .transpose()?;
+    let override_path = args.config.map(|dir| PathBuf::from_str(&dir)).transpose()?;
 
     let config = Config::get(override_path)?;
+
+    if args.print_config {
+        println!("# SETTINGS\n{}", toml::to_string_pretty(&config.settings)?);
+
+        println!("# MODES");
+        for (name, mode) in &config.modes {
+            println!("## {name}\n{}", toml::to_string_pretty(&dbg!(mode))?);
+        }
+
+        println!("# SOURCES");
+        for (name, source) in &config.sources {
+            println!("## {name}\n{}", toml::to_string_pretty(&source)?)
+        }
+
+        return Ok(());
+    }
 
     if args.print_settings {
         println!("{}", toml::to_string_pretty(&config.settings)?);

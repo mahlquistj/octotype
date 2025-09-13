@@ -46,21 +46,11 @@ pub enum ConfigError {
     ParseModes(mode::ModeError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Config {
     pub settings: Settings,
     pub modes: HashMap<String, ModeConfig>,
     pub sources: HashMap<String, SourceConfig>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            settings: Settings::default(),
-            modes: mode::get_default_modes(),
-            sources: source::get_default_sources(),
-        }
-    }
 }
 
 impl Config {
@@ -96,24 +86,28 @@ impl Config {
             settings = settings.merge(Toml::file(settings_toml));
         }
 
-        let settings: Settings = settings.extract()?;
+        let mut settings: Settings = settings.extract()?;
 
         let sources_dir = settings.sources_dir.clone().unwrap_or_else(|| {
             let mut dir = config_dir.clone();
             dir.push("sources");
             dir
         });
+        let sources = source::get_sources(&sources_dir)?;
+        settings.sources_dir = Some(sources_dir);
 
         let modes_dir = settings.modes_dir.clone().unwrap_or_else(|| {
             let mut dir = config_dir.clone();
             dir.push("modes");
             dir
         });
+        let modes = mode::get_modes(&modes_dir)?;
+        settings.modes_dir = Some(modes_dir);
 
         Ok(Self {
             settings,
-            sources: source::get_sources(sources_dir)?,
-            modes: mode::get_modes(modes_dir)?,
+            sources,
+            modes,
         })
     }
 }
