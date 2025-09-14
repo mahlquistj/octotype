@@ -54,7 +54,6 @@ pub struct ModeConfig {
     pub meta: ModeMeta,
     #[serde(default)]
     pub parameters: ParameterDefinitions,
-    #[serde(default)]
     pub conditions: ConditionConfig,
     #[serde(default)]
     pub overrides: HashMap<String, HashMap<String, String>>,
@@ -75,18 +74,18 @@ pub enum ConditionValue {
     Bool(bool),
 }
 
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConditionConfig {
     pub time: Option<ConditionValue>,
     pub words_typed: Option<ConditionValue>,
     #[serde(default = "default_allow_deletions")]
-    pub allow_deletions: bool,
+    pub allow_deletions: ConditionValue,
 }
 
 pub fn default_description() -> String {
     "No description".to_string()
 }
 
-pub const fn default_allow_deletions() -> bool {
-    true
+pub const fn default_allow_deletions() -> ConditionValue {
+    ConditionValue::Bool(true)
 }

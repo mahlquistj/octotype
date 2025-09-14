@@ -2,6 +2,7 @@ use std::{
     num::ParseIntError,
     path::PathBuf,
     process::{Child, Command, Stdio},
+    str::ParseBoolError,
     string::FromUtf8Error,
     sync::LazyLock,
     time::Duration,
@@ -24,7 +25,7 @@ use crate::config::{
 #[error("Mode field '{field}' failed to parse: {error}")]
 pub struct CreateModeError {
     field: &'static str,
-    error: ParseIntError,
+    error: String,
 }
 
 #[derive(Debug)]
@@ -40,7 +41,7 @@ impl Mode {
         source: SourceConfig,
         parameters: ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let resolved_conditions = Conditions::from_config(&mode.conditions, &parameters)?;
+        let resolved_conditions = Conditions::from_config(mode.conditions, &parameters)?;
         let resolved_source = Source::from_config(sources_dir, source, &parameters);
         Ok(Self {
             conditions: resolved_conditions,
@@ -58,39 +59,62 @@ pub struct Conditions {
 
 impl Conditions {
     pub fn from_config(
-        config: &ConditionConfig,
+        config: ConditionConfig,
         parameters: &ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let time = if let Some(value) = &config.time {
-            let secs = match value {
-                ConditionValue::String(string) => replace_parameters(string, parameters)
-                    .parse()
-                    .map_err(|err| ("conditions.time", err))?,
-                ConditionValue::Number(num) => *num as u64,
-                ConditionValue::Bool(_) => unreachable!("TIME WAS BOOLEAN"),
-            };
+        let time = if let Some(value) = config.time {
+            let secs =
+                match value {
+                    ConditionValue::String(string) => replace_parameters(&string, parameters)
+                        .parse()
+                        .map_err(|err: ParseIntError| ("conditions.time", err.to_string()))?,
+                    ConditionValue::Number(num) => num as u64,
+                    ConditionValue::Bool(_) => {
+                        return Err(("conditions.time", "Cannot be a boolean".to_string()).into());
+                    }
+                };
             Some(Duration::from_secs(secs))
         } else {
             None
         };
 
-        let words_typed = if let Some(value) = &config.words_typed {
+        let words_typed = if let Some(value) = config.words_typed {
             let words = match value {
-                ConditionValue::String(string) => replace_parameters(string, parameters)
-                    .parse()
-                    .map_err(|err| ("conditions.words_typed", err))?,
-                ConditionValue::Number(num) => *num,
-                ConditionValue::Bool(_) => unreachable!("WORDS WAS BOOLEAN"),
+                ConditionValue::String(string) => {
+                    replace_parameters(&string, parameters)
+                        .parse()
+                        .map_err(|err: ParseIntError| ("conditions.words_typed", err.to_string()))?
+                }
+                ConditionValue::Number(num) => num,
+                ConditionValue::Bool(_) => {
+                    return Err(
+                        ("conditions.words_typed", "Cannot be a boolean".to_string()).into(),
+                    );
+                }
             };
             Some(words)
         } else {
             None
         };
 
+        let allow_deletions = match config.allow_deletions {
+            ConditionValue::String(string) => replace_parameters(&string, parameters)
+                .parse()
+                .map_err(|err: ParseBoolError| ("conditions.allow_deletions", err.to_string()))?,
+            ConditionValue::Number(_) => {
+                return Err((
+                    "conditions.allow_deletions",
+                    "Cannot be a number".to_string(),
+                )
+                    .into());
+            }
+            ConditionValue::Bool(bool) => bool,
+        };
+
         Ok(Self {
             time,
             words_typed,
-            allow_deletions: config.allow_deletions,
+            allow_deletions,
         })
     }
 }
