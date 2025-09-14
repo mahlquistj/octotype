@@ -1,18 +1,23 @@
 {
+  rust-toolchain,
   lib,
   makeRustPlatform,
   stdenv,
   pkg-config,
 }: let
   cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+  rustPlatform = makeRustPlatform {
+    cargo = rust-toolchain;
+    rustc = rust-toolchain;
+  };
 in
-  makeRustPlatform.buildRustPackage {
-    inherit (cargoToml.workspace.package) version;
+  rustPlatform.buildRustPackage {
+    inherit (cargoToml.package) version;
     name = "octotype";
     src = ./.;
-    cargoLock.lockfile = ./Cargo.lock;
+    cargoLock.lockFile = ./Cargo.lock;
 
-    nativeBuildInputs = lib.optionals stdenv.is_linux [
+    nativeBuildInputs = lib.optionals stdenv.isLinux [
       pkg-config
     ];
 

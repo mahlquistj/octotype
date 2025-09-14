@@ -15,6 +15,8 @@
     flake-parts.lib.mkFlake {inherit inputs;} {
       imports = [];
 
+      systems = import inputs.systems;
+
       perSystem = {
         self',
         pkgs,
