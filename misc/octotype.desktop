@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+TryExec=octotype
+Exec=octotype
+Icon=octotype
+Terminal=true
+Categories=Game;
+
+Name=OctoType
+Comment=A hardware-accelerated GPU terminal emulator powered by WebGPU
+StartupWMClass=OctoType
+Actions=New;
+
+[Desktop Action New]
+Name=Launch OctoType
+Exec=octotype
