@@ -24,6 +24,33 @@ OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 
 Installation can currently be done by using `cargo install octotype`
 
+### Nix
+
+You can add OctoType as a Flake:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    octotype.url = "github:mahlquistj/octotype/main";
+  };
+  
+  outputs = { self, nixpkgs, rio }: {
+    nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            octotype.packages.${pkgs.system}.octotype
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
+No package exists in nixpkgs _yet_.
+
 ## 🔖 Arguments
 
 | Short       | Long               | Description                                    |
