@@ -26,7 +26,7 @@
         ...
       }: let
         mkOctoType = import ./pkgOctotype.nix;
-        rustToolchain = pkgs.rust-bin.stable.latest;
+        rustToolchain = pkgs.rust-bin.stable.latest.default;
       in {
         _module.args.pkgs = import inputs.nixpkgs {
           inherit system;
