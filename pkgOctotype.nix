@@ -30,7 +30,7 @@ in
     #   mkdir $out/Applications/
     #   mv misc/osx/OctoType.app/ $out/Applications/
     #   mkdir $out/Applications/OctoType.app/Contents/MacOS/
-    #   ln -s $out/bin/octotype $out/Applications/Rio.app/Contents/MacOS/
+    #   ln -s $out/bin/octotype $out/Applications/OctoType.app/Contents/MacOS/
     # '';
 
     meta = {
