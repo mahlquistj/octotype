@@ -1,6 +1,8 @@
 # Thanks to: https://fasterthanli.me/series/building-a-rust-service-with-nix/part-10#a-flake-with-a-dev-shell
 # And: https://github.com/raphamorim/rio/blob/main/flake.nix
 {
+  description = "Octotype - A typing trainer for your terminal";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
