@@ -1,44 +1,51 @@
 # Thanks to: https://fasterthanli.me/series/building-a-rust-service-with-nix/part-10#a-flake-with-a-dev-shell
+# And: https://github.com/raphamorim/rio/blob/main/flake.nix
 {
+  description = "Octotype - A typing trainer for your terminal";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    systems = {
+      url = "github:nix-systems/default";
+      flake = false;
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-    rust-overlay,
-  }:
-    flake-utils.lib.eachDefaultSystem
-    (
-      system: let
-        overlays = [(import rust-overlay)];
-        pkgs = import nixpkgs {
-          inherit system overlays;
+  outputs = inputs @ {flake-parts, ...}:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      imports = [];
+
+      systems = import inputs.systems;
+
+      perSystem = {
+        self',
+        pkgs,
+        system,
+        ...
+      }: let
+        mkOctoType = import ./pkgOctotype.nix;
+        rustToolchain = pkgs.rust-bin.stable.latest.minimal;
+      in {
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = [(import inputs.rust-overlay)];
         };
-        libPath = with pkgs;
-          lib.makeLibraryPath [
-            openssl
-          ];
-        rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      in
-        with pkgs; {
-          devShells.default = mkShell {
-            buildInputs = [rustToolchain];
-            RUST_LOG = "debug";
-            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-            LD_LIBRARY_PATH = libPath;
-            packages = with pkgs; [pkg-config openssl bacon cargo-nextest cargo-expand];
-          };
-        }
-    );
+
+        devShells.default = pkgs.mkShell {
+          buildInputs = [rustToolchain];
+          packages = self'.packages.octotype.nativeBuildInputs ++ self'.packages.octotype.buildInputs ++ [rustToolchain];
+        };
+
+        packages.default = self'.packages.octotype;
+
+        apps.default = {
+          type = "app";
+          program = self'.packages.default;
+        };
+
+        packages.octotype = pkgs.callPackage mkOctoType {rust-toolchain = pkgs.rust-bin.stable.latest.minimal;};
+      };
+    };
 }

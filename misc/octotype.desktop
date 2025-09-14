@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+TryExec=octotype
+Exec=octotype
+Icon=octotype
+Terminal=true
+Categories=Game;
+
+Name=OctoType
+Comment=A typing trainer for your terminal
+StartupWMClass=OctoType
+Actions=New;
+
+[Desktop Action New]
+Name=Launch OctoType
+Exec=octotype
