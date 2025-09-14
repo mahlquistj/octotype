@@ -27,6 +27,7 @@
       }: let
         mkOctoType = import ./pkgOctotype.nix;
         rustToolchain = pkgs.rust-bin.stable.latest.default;
+        tools = with pkgs; [bacon cargo-nextest cargo-expand];
       in {
         _module.args.pkgs = import inputs.nixpkgs {
           inherit system;
@@ -35,7 +36,10 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = [rustToolchain];
-          packages = self'.packages.octotype.nativeBuildInputs ++ self'.packages.octotype.buildInputs ++ [rustToolchain];
+          packages =
+            self'.packages.octotype.nativeBuildInputs
+            ++ self'.packages.octotype.buildInputs
+            ++ [rustToolchain tools];
         };
 
         packages.default = self'.packages.octotype;
@@ -45,7 +49,9 @@
           program = self'.packages.default;
         };
 
-        packages.octotype = pkgs.callPackage mkOctoType {rust-toolchain = pkgs.rust-bin.stable.latest.minimal;};
+        packages.octotype = pkgs.callPackage mkOctoType {
+          rust-toolchain = pkgs.rust-bin.stable.latest.minimal;
+        };
       };
     };
 }
