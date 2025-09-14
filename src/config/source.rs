@@ -52,6 +52,7 @@ pub fn get_sources(from_dir: &PathBuf) -> Result<HashMap<String, SourceConfig>, 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceConfig {
     pub meta: SourceMeta,
+    #[serde(default)]
     pub parameters: ParameterDefinitions,
 }
 
@@ -60,6 +61,7 @@ pub struct SourceMeta {
     pub name: String,
     pub description: String,
     pub command: Vec<String>,
+    #[serde(default)]
     pub output: OutputFormat,
     #[serde(default)]
     pub offline_alternative: Option<String>,

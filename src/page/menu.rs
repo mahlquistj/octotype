@@ -280,6 +280,10 @@ impl Menu {
                             parameters.push((name, parameter));
                         }
 
+                        if parameters.is_empty() {
+                            return create_session(state, mode, source, parameters);
+                        }
+
                         *self = Self::ParameterConfig {
                             mode: Box::new(mode),
                             source: Box::new(source),
@@ -315,27 +319,12 @@ impl Menu {
                             parameters[*param_index].1.decrement()
                         }
                         KeyCode::Enter => {
-                            let mode = mode.clone();
-                            let source = source.clone();
-                            let parameters = parameters.clone().into_iter().collect();
-                            let sources_dir = state
-                                .config
-                                .settings
-                                .sources_dir
-                                .clone()
-                                .unwrap_or_default();
-                            let session_loader = Loading::load("Loading words...", move || {
-                                // TODO: Create a shared error type for creating sessions, so we
-                                // can get rid of the unwrap
-                                let mode =
-                                    Mode::from_config(sources_dir, *mode, *source, parameters)
-                                        .map_err(Box::new)?;
-                                TypingSession::new(mode)
-                                    .map(|session| Message::Show(session.into()))
-                                    .map_err(CreateSessionError::from)
-                            });
-
-                            return Some(Message::Show(session_loader.into()));
+                            return create_session(
+                                state,
+                                *mode.clone(),
+                                *source.clone(),
+                                parameters.clone(),
+                            );
                         }
                         KeyCode::Backspace => {
                             // Go back to source selection
@@ -345,13 +334,36 @@ impl Menu {
                                 sources: state.config.list_sources(),
                             }
                         }
-                        _ => {}
+                        _ => (),
                     }
                 }
             }
         }
         None
     }
+}
+
+fn create_session(
+    state: &State,
+    mode: ModeConfig,
+    source: SourceConfig,
+    parameters: Vec<(String, Parameter)>,
+) -> Option<Message> {
+    let parameters = parameters.into_iter().collect();
+    let sources_dir = state
+        .config
+        .settings
+        .sources_dir
+        .clone()
+        .unwrap_or_default();
+    let session_loader = Loading::load("Loading words...", move || {
+        let mode = Mode::from_config(sources_dir, mode, source, parameters).map_err(Box::new)?;
+        TypingSession::new(mode)
+            .map(|session| Message::Show(session.into()))
+            .map_err(CreateSessionError::from)
+    });
+
+    Some(Message::Show(session_loader.into()))
 }
 
 const fn increment_index(index: &mut usize, len: usize) {
