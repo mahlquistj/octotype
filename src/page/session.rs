@@ -363,7 +363,7 @@ impl TypingSession {
         {
             match key.code {
                 KeyCode::Char(character) => self.add(character),
-                KeyCode::Backspace => self.delete_input(),
+                KeyCode::Backspace if self.mode.conditions.allow_deletions => self.delete_input(),
                 _ => (),
             }
         }

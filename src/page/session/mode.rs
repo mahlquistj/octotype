@@ -53,6 +53,7 @@ impl Mode {
 pub struct Conditions {
     pub time: Option<Duration>,
     pub words_typed: Option<i64>,
+    pub allow_deletions: bool,
 }
 
 impl Conditions {
@@ -86,7 +87,11 @@ impl Conditions {
             None
         };
 
-        Ok(Self { time, words_typed })
+        Ok(Self {
+            time,
+            words_typed,
+            allow_deletions: config.allow_deletions,
+        })
     }
 }
 
