@@ -23,7 +23,6 @@
         self',
         pkgs,
         system,
-        lib,
         ...
       }: let
         mkOctoType = import ./pkgOctotype.nix;
@@ -37,15 +36,16 @@
         devShells.default = pkgs.mkShell {
           buildInputs = [rustToolchain];
           packages = self'.packages.octotype.nativeBuildInputs ++ self'.packages.octotype.buildInputs ++ [rustToolchain];
-          LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath self'.packages.octotype.runtimeDependencies}";
         };
 
-        packages.default = pkgs.callPackage mkOctoType {rust-toolchain = pkgs.rust-bin.stable.latest.minimal;};
+        packages.default = self'.packages.octotype;
 
         apps.default = {
           type = "app";
           program = self'.packages.default;
         };
+
+        packages.octotype = pkgs.callPackage mkOctoType {rust-toolchain = pkgs.rust-bin.stable.latest.minimal;};
       };
     };
 }
