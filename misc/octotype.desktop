@@ -7,7 +7,7 @@ Terminal=true
 Categories=Game;
 
 Name=OctoType
-Comment=A hardware-accelerated GPU terminal emulator powered by WebGPU
+Comment=A typing trainer for your terminal
 StartupWMClass=OctoType
 Actions=New;
 
