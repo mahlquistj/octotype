@@ -6,6 +6,8 @@
 OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 [Monkeytype], with a focus on customizability
 
+![Demo](./assets/demo.gif)
+
 > [!WARNING]
 >
 > This is still a **work in progress**. Breaking changes to Modes, Sources and
