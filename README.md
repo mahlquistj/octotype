@@ -11,7 +11,7 @@ OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 > This is still a **work in progress**. Breaking changes to Modes, Sources and
 > the configuration might occur.
 
-# 💡 Features
+## 💡 Features
 
 - 🎭 Custom [Modes](https://github.com/mahlquistj/octotype/wiki/Modes)
 - 🖊️ Custom [Sources](https://github.com/mahlquistj/octotype/wiki/Sources)
@@ -20,7 +20,7 @@ OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 - 🔥 Blazingly fast (Sorry, i had to.. 🦀)
 - .. And more to come!
 
-# 🔖 Arguments
+## 🔖 Arguments
 
 | Short       | Long               | Description                                    |
 | ----------- | ------------------ | ---------------------------------------------- |
@@ -29,22 +29,22 @@ OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 | `-c <path>` | `--config <path>`  | Overrides the default config location          |
 | `-h`        | `--help`           | Shows a help page with the list of arguments   |
 
-# ⚙️ Configuration
+## ⚙️ Configuration
 
 Check out the [Wiki] for configuration options.
 
-# 💻 Development
+## 💻 Development
 
 A nix flake dev-shell is provided to run with `nix-develop`.
 
-# ⭐ Contributing
+## ⭐ Contributing
 
 If you have an idea, bug-report or alike, feel free to open an issue or a PR -
 It's more than welcome!
 
 I'm only developing this in my spare time, so don't expect immidiate replies 😄
 
-# ❓ Why another typing-trainer?
+## ❓ Why another typing-trainer?
 
 It all started as a fun side-project to learn typing on my new [ZSA Moonlander]
 keyboard. I was inspired by using [Monkeytype] a lot, but found that i was
