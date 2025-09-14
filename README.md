@@ -20,6 +20,10 @@ OctoType is a TUI typing trainer made with [Ratatui] - Heavily inspired by
 - 🔥 Blazingly fast (Sorry, i had to.. 🦀)
 - .. And more to come!
 
+## 🔽 Installation
+
+Installation can currently be done by using `cargo install octotype`
+
 ## 🔖 Arguments
 
 | Short       | Long               | Description                                    |
