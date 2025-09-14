@@ -18,6 +18,12 @@ use super::Message;
 ///
 pub struct Error(String);
 
+impl Error {
+    pub const fn new(error: String) -> Self {
+        Self(error)
+    }
+}
+
 impl<E: Display> From<E> for Error {
     fn from(value: E) -> Self {
         Self(value.to_string())

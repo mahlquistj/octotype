@@ -7,6 +7,8 @@ use crate::config::Config;
 use crate::page;
 use crate::utils::ROUNDED_BLOCK;
 
+const NO_CONFIG_ERROR: &str = "No modes and/or sources found. Consult the wiki at https://github.com/mahlquistj/octotype/wiki for info on how to configure OctoType.";
+
 /// An app message
 pub enum Message {
     /// An error occurred
@@ -32,8 +34,13 @@ pub struct App {
 impl App {
     /// Creates a new `App`
     pub fn new(config: Config) -> Self {
+        let page = if config.sources.is_empty() || config.modes.is_empty() {
+            page::Error::new(NO_CONFIG_ERROR.to_string()).into()
+        } else {
+            page::Menu::new(&config).into()
+        };
         Self {
-            page: page::Menu::new(&config).into(),
+            page,
             state: State { config },
         }
     }
