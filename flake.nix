@@ -40,6 +40,7 @@
             self'.packages.octotype.nativeBuildInputs
             ++ self'.packages.octotype.buildInputs
             ++ [rustToolchain tools];
+          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
         };
 
         packages.default = self'.packages.octotype;
