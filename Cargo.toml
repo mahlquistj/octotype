@@ -9,7 +9,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["typing-trainer", "tui", "ratatui"]
 categories = ["command-line-utilities"]
-exclude = ["assets/*", "octotype.wiki/*"]
+exclude = ["assets/*", "octotype.wiki/*", ".github/*", "flake.nix", "flake.lock"]
 
 [profile.release]
 strip = true
