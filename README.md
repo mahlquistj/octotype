@@ -54,6 +54,5 @@ missing more customizability when it came to what modes and words i could get.
 
 [Monkeytype]: https://monkeytype.com/
 [Ratatui]: https://ratatui.rs/
-
-[Wiki](https://github.com/mahlquistj/octotype/wiki/Configuration)
-[ZSA Moonlander](https://www.zsa.io/moonlander)
+[Wiki]: https://github.com/mahlquistj/octotype/wiki/Configuration
+[ZSA Moonlander]: https://www.zsa.io/moonlander
