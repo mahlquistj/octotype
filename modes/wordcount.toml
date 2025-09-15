@@ -1,0 +1,11 @@
+[meta]
+name = "WordCount"
+description = "Type an amount of correct words"
+
+[parameters."words to type"]
+min = 10
+step = 10
+default = 60
+
+[conditions]
+words_typed = "{words to type}"

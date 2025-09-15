@@ -1,0 +1,6 @@
+[meta]
+name = "Perfectionism"
+description = "Don't make any mistakes!"
+
+[conditions]
+allow_errors = false # Finish on error

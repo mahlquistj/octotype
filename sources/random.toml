@@ -1,0 +1,26 @@
+[meta]
+name = "Random"
+description = "Supplies random characters"
+command = [
+    "sh",
+    "./gibberish.sh",
+    "{total words}",
+    "{word length}",
+]
+output = "default"
+network_required = false
+required_tools = [
+    "tr",
+    "head",
+    "fold",
+]
+
+[parameters."total words"]
+min = 1
+step = 1
+default = 10
+
+[parameters."word length"]
+min = 2
+step = 1
+default = 5
