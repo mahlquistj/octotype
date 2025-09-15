@@ -131,7 +131,7 @@ impl Config {
         let modes = mode::get_modes(&modes_dir)?;
         settings.modes_dir = Some(modes_dir);
 
-        if settings.ghost_opacity.is_empty() {
+        if settings.ghost_opacity.len() != settings.show_ghost_lines {
             settings.ghost_opacity = get_evenly_spread_values(settings.show_ghost_lines);
         }
 
