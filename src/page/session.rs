@@ -140,7 +140,7 @@ impl TypingSession {
             .unwrap_or_default();
 
         let with_wpm = self.should_calc_wpm();
-        let new = StatsCache {
+        let new_cache = StatsCache {
             acc: self.calculate_acc(),
             wpm: with_wpm.then(|| {
                 let input_len = self.input_length().abs_diff(self.last_input_len);
@@ -150,11 +150,12 @@ impl TypingSession {
 
         let error = error.then_some(character);
 
-        self.stats.update(time, new.acc, new.wpm, error, delete);
+        self.stats
+            .update(time, new_cache.acc, new_cache.wpm, error, delete);
 
-        match (&new.wpm, &mut self.stat_cache) {
-            (None, Some(cached)) => cached.acc = new.acc,
-            (_, _) => self.stat_cache = Some(new),
+        match (&new_cache.wpm, &mut self.stat_cache) {
+            (None, Some(cached)) => cached.acc = new_cache.acc,
+            (_, _) => self.stat_cache = Some(new_cache),
         };
     }
 
