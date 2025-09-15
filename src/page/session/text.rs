@@ -5,7 +5,7 @@ use ratatui::{
     text::ToSpan,
 };
 
-use crate::config::theme::TextTheme;
+use crate::config::Config;
 
 /// A result from an input
 #[derive(Debug)]
@@ -154,7 +154,15 @@ impl Segment {
     }
 
     /// Renders the segment as a `ratatui::Line`
-    pub fn render_line(&self, show_cursor: bool, colors: &TextTheme) -> ratatui::prelude::Line<'_> {
+    pub fn render_line(
+        &self,
+        show_cursor: bool,
+        config: &Config,
+        success: Color,
+        warning: Color,
+        error: Color,
+        foreground: Color,
+    ) -> ratatui::prelude::Line<'_> {
         let mut current_word = None;
         let mut is_misspelled = false;
         let mut last_errors = 0;
@@ -181,17 +189,17 @@ impl Segment {
                     .map(|&word| self.is_word_misspelled(word))
                     .unwrap_or_default();
 
-                let mut style = Style::new();
+                let mut style = Style::new().fg(foreground);
 
                 if let Some(c) = self.input.get(idx) {
                     style = match c {
-                        CharacterResult::Right => style.fg(colors.success),
-                        CharacterResult::Corrected => style.fg(colors.warning),
+                        CharacterResult::Right => style.fg(success),
+                        CharacterResult::Corrected => style.fg(warning),
                         CharacterResult::Wrong => {
                             if is_space {
-                                style.bg(colors.error)
+                                style.bg(error)
                             } else {
-                                style.fg(colors.error)
+                                style.fg(error)
                             }
                         }
                     }
@@ -199,11 +207,13 @@ impl Segment {
                 };
 
                 if is_misspelled {
-                    style = style.underlined().underline_color(colors.error);
+                    style = style.underlined().underline_color(error);
                 }
 
                 if show_cursor && idx == self.input.len() {
-                    style = style.bg(Color::White).fg(Color::Black);
+                    let text = config.settings.theme.cursor.text;
+                    let cursor = config.settings.theme.cursor.color;
+                    style = style.bg(cursor).fg(text);
                 }
 
                 character.to_span().style(style)

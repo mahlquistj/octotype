@@ -21,14 +21,10 @@ pub enum Message {
     Quit,
 }
 
-pub struct State {
-    pub config: Config,
-}
-
 /// The app itself
 pub struct App {
     page: page::Page,
-    state: State,
+    config: Config,
 }
 
 impl App {
@@ -39,10 +35,7 @@ impl App {
         } else {
             page::Menu::new(&config).into()
         };
-        Self {
-            page,
-            state: State { config },
-        }
+        Self { page, config }
     }
 
     /// Runs the app
@@ -72,7 +65,7 @@ impl App {
             .title_top("OCTOTYPE".to_line().bold().centered())
             .title_top("<CTRL-Q> to exit".to_line().right_aligned());
 
-        if let Some(top_msg) = self.page.render_top(&self.state) {
+        if let Some(top_msg) = self.page.render_top(&self.config) {
             block = block.title_top(top_msg);
         }
 
@@ -81,13 +74,13 @@ impl App {
 
         frame.render_widget(block, area);
 
-        self.page.render(frame, content, &self.state);
+        self.page.render(frame, content, &self.config);
     }
 
     /// Global event handler
     fn handle_events(&mut self, event_opt: Option<Event>) -> Option<Message> {
         let event_message = event_opt.and_then(|event| {
-            self.page.handle_events(&event, &self.state).or_else(|| {
+            self.page.handle_events(&event, &self.config).or_else(|| {
                 match event {
                     Event::Key(key) => self.handle_key_event(key),
                     _ => None, // Reserved for future event handling
@@ -95,7 +88,7 @@ impl App {
             })
         });
 
-        event_message.or_else(|| self.page.poll(&self.state))
+        event_message.or_else(|| self.page.poll(&self.config))
     }
 
     /// Global key events
@@ -114,7 +107,7 @@ impl App {
         match msg {
             Message::Error(error) => self.page = page::Error::from(error).into(),
             Message::Show(page) => self.page = page,
-            Message::Reset => self.page = page::Menu::new(&self.state.config).into(),
+            Message::Reset => self.page = page::Menu::new(&self.config).into(),
             Message::Quit => return true,
         }
 

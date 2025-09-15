@@ -11,7 +11,7 @@ pub use loadscreen::Loading;
 pub use menu::Menu;
 pub use session::{Stats, TypingSession};
 
-use crate::app::{Message, State};
+use crate::{app::Message, config::Config};
 
 macro_rules! make_page_enum {
     ($($t:tt),*) => {
@@ -34,41 +34,41 @@ macro_rules! make_page_enum {
 make_page_enum!(Menu, Loading, Error, Stats, TypingSession);
 
 impl Page {
-    pub fn render(&mut self, frame: &mut Frame, area: Rect, state: &State) {
+    pub fn render(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
         match self {
-            Self::Menu(page) => page.render(frame, area, state),
-            Self::Loading(page) => page.render(frame, area, &state.config),
-            Self::TypingSession(page) => page.render(frame, area, &state.config),
-            Self::Stats(page) => page.render(frame, area, &state.config),
-            Self::Error(page) => page.render(frame, area, &state.config),
+            Self::Menu(page) => page.render(frame, area, config),
+            Self::Loading(page) => page.render(frame, area, config),
+            Self::TypingSession(page) => page.render(frame, area, config),
+            Self::Stats(page) => page.render(frame, area, config),
+            Self::Error(page) => page.render(frame, area, config),
         }
     }
 
-    pub fn render_top(&mut self, state: &State) -> Option<Line<'_>> {
+    pub fn render_top(&mut self, config: &Config) -> Option<Line<'_>> {
         match self {
             Self::Menu(_) => None,
             Self::Loading(_) => None,
-            Self::TypingSession(page) => page.render_top(&state.config),
-            Self::Stats(page) => page.render_top(&state.config),
-            Self::Error(page) => page.render_top(&state.config),
+            Self::TypingSession(page) => page.render_top(config),
+            Self::Stats(page) => page.render_top(config),
+            Self::Error(page) => page.render_top(config),
         }
     }
 
-    pub fn handle_events(&mut self, event: &Event, state: &State) -> Option<Message> {
+    pub fn handle_events(&mut self, event: &Event, config: &Config) -> Option<Message> {
         match self {
-            Self::Menu(page) => page.handle_events(event, state),
+            Self::Menu(page) => page.handle_events(event, config),
             Self::Loading(_) => None,
-            Self::TypingSession(page) => page.handle_events(event, &state.config),
-            Self::Stats(page) => page.handle_events(event, &state.config),
-            Self::Error(page) => page.handle_events(event, &state.config),
+            Self::TypingSession(page) => page.handle_events(event, config),
+            Self::Stats(page) => page.handle_events(event, config),
+            Self::Error(page) => page.handle_events(event, config),
         }
     }
 
-    pub fn poll(&mut self, state: &State) -> Option<Message> {
+    pub fn poll(&mut self, config: &Config) -> Option<Message> {
         match self {
             Self::Menu(_) => None,
-            Self::Loading(page) => page.poll(&state.config),
-            Self::TypingSession(page) => page.poll(&state.config),
+            Self::Loading(page) => page.poll(config),
+            Self::TypingSession(page) => page.poll(config),
             Self::Stats(_) => None,
             Self::Error(_) => None,
         }
