@@ -281,7 +281,12 @@ impl TypingSession {
         self.current_segment_idx >= self.text.len() / 2
     }
 
-    pub fn should_end(&self) -> bool {
+    pub fn should_end(&mut self) -> bool {
+        // End on error, if errors aren't allowed
+        if !self.mode.conditions.allow_errors && self.get_actual_errors() > 1 {
+            return true;
+        }
+
         // Time-based completion
         if let Some(time_limit) = self.mode.conditions.time
             && let Some(start_time) = self.get_first_keypress()

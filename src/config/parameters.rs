@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type ParameterDefinitions = HashMap<String, Definition>;
 pub type ParameterValues = HashMap<String, Parameter>;
+
+pub static RE_HANDLEBARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{(.+?)\}").unwrap());
 
 #[derive(Debug, Error)]
 pub enum ParameterError {
@@ -233,4 +236,20 @@ pub const fn default_range_step() -> i64 {
 
 pub const fn default_range_max() -> i64 {
     i64::MAX
+}
+
+pub fn replace_parameters(string: &str, parameters: &ParameterValues) -> String {
+    RE_HANDLEBARS
+        .replace_all(string, |caps: &regex::Captures| {
+            let Some(key) = caps.get(1).map(|m| m.as_str()) else {
+                return caps.get(0).unwrap().as_str().to_string();
+            };
+
+            let Some(param) = parameters.get(key) else {
+                return caps.get(0).unwrap().as_str().to_string();
+            };
+
+            param.get_value()
+        })
+        .to_string()
 }

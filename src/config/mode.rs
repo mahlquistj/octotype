@@ -1,10 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, num::ParseIntError, path::PathBuf, str::ParseBoolError};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::parameters::ParameterDefinitions;
+use crate::config::parameters::{ParameterDefinitions, ParameterValues, replace_parameters};
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {
@@ -76,11 +76,57 @@ pub enum ConditionValue {
     Bool(bool),
 }
 
+#[derive(Debug, Error)]
+pub enum ParseConditionError {
+    #[error("Condition '{0}' failed to parse as boolean: {0}")]
+    Bool(&'static str, String),
+
+    #[error("Condition '{0}' failed to parse as number: {0}")]
+    Number(&'static str, String),
+}
+
+impl ConditionValue {
+    pub fn parse_bool(
+        self,
+        key: &'static str,
+        parameters: &ParameterValues,
+    ) -> Result<bool, ParseConditionError> {
+        match self {
+            Self::Bool(b) => Ok(b),
+            Self::String(string) => replace_parameters(&string, parameters)
+                .parse::<bool>()
+                .map_err(|err: ParseBoolError| ParseConditionError::Bool(key, err.to_string())),
+            Self::Number(num) => Err(ParseConditionError::Bool(
+                key,
+                format!("Found number '{num}'"),
+            )),
+        }
+    }
+
+    pub fn parse_number(
+        self,
+        key: &'static str,
+        parameters: &ParameterValues,
+    ) -> Result<i64, ParseConditionError> {
+        match self {
+            Self::Number(num) => Ok(num),
+            Self::String(string) => replace_parameters(&string, parameters)
+                .parse::<i64>()
+                .map_err(|err: ParseIntError| ParseConditionError::Number(key, err.to_string())),
+            Self::Bool(b) => Err(ParseConditionError::Number(
+                key,
+                format!("Found boolean '{b}'"),
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConditionConfig {
     pub time: Option<ConditionValue>,
     pub words_typed: Option<ConditionValue>,
     pub allow_deletions: ConditionValue,
+    pub allow_errors: ConditionValue,
 }
 
 impl Default for ConditionConfig {
@@ -89,6 +135,7 @@ impl Default for ConditionConfig {
             time: None,
             words_typed: None,
             allow_deletions: ConditionValue::Bool(true),
+            allow_errors: ConditionValue::Bool(true),
         }
     }
 }
