@@ -61,8 +61,8 @@ impl Default for Settings {
             sources_dir: None,
             modes_dir: None,
             words_per_line: 5,
-            show_ghost_lines: 2,
-            ghost_opacity: get_evenly_spread_values(2),
+            show_ghost_lines: 3,
+            ghost_opacity: get_evenly_spread_values(3),
             disable_ghost_fade: false,
         }
     }
@@ -146,6 +146,10 @@ impl Config {
 fn get_evenly_spread_values(num_items: usize) -> Vec<f32> {
     if num_items == 0 {
         return Vec::new();
+    }
+
+    if num_items == 1 {
+        return vec![0.5];
     }
 
     let mut values = Vec::with_capacity(num_items);

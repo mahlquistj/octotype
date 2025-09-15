@@ -61,7 +61,7 @@ fn color_to_rgb(color: Color, is_foreground: bool) -> (u8, u8, u8) {
         Color::LightMagenta => rgb_from_ansi256(if is_foreground { 95 } else { 105 }),
         Color::LightCyan => rgb_from_ansi256(if is_foreground { 96 } else { 106 }),
         Color::White => rgb_from_ansi256(if is_foreground { 97 } else { 107 }),
-        Color::Reset => unimplemented!(),
+        Color::Reset => (0, 0, 0), // Default to black for Reset
     }
 }
 
