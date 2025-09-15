@@ -155,8 +155,8 @@ impl RunningStats {
             final_acc,
             y_bounds,
             x_bounds: [
-                wpm.first().expect("No data").0,
-                wpm.last().expect("No data").0,
+                wpm.first().map(|(bound, _)| *bound).unwrap_or_default(),
+                wpm.last().map(|(bound, _)| *bound).unwrap_or_default(),
             ],
             consistency,
             time,

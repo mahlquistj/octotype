@@ -11,7 +11,7 @@ use thiserror::Error;
 use crate::config::{
     ModeConfig, SourceConfig,
     mode::{ConditionConfig, ParseConditionError},
-    parameters::{ParameterValues, replace_parameters},
+    parameters::ParameterValues,
     source::OutputFormat,
 };
 
@@ -153,7 +153,7 @@ impl Source {
             .meta
             .command
             .iter()
-            .map(|string| replace_parameters(string, parameters))
+            .map(|string| parameters.replace_values(string))
             .collect::<Vec<String>>();
 
         let mut command = std::process::Command::new(program.remove(0));
