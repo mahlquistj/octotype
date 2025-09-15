@@ -1,6 +1,6 @@
 [package]
 name = "octotype"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2024"
 authors = ["Mads Ahlquist Jensen <madsaj10@outlook.com>"]
 description = "A typing trainer for your terminal"
