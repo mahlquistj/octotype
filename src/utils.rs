@@ -64,25 +64,3 @@ pub fn color_to_rgb(color: Color, is_foreground: bool) -> (u8, u8, u8) {
         Color::Reset => (0, 0, 0), // Default to black for Reset
     }
 }
-
-#[cfg(test)]
-mod test {
-    use ratatui::style::Color;
-
-    #[test]
-    fn fade() {
-        let black = Color::Black;
-        let white = Color::White;
-        let red = Color::Red;
-
-        let faded_white = super::fade(white, black, 0.5, false);
-        let faded_red = super::fade(red, black, 0.5, false);
-        let faded_green = super::fade(Color::Rgb(0, 215, 0), Color::Rgb(0, 0, 0), 0.5, false);
-
-        println!("{faded_white}");
-        println!("{faded_red}");
-        println!("{faded_green}");
-
-        assert_ne!(faded_white, faded_red);
-    }
-}

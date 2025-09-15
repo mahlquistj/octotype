@@ -180,11 +180,3 @@ fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {
     };
     Some(words)
 }
-
-#[cfg(test)]
-mod test {
-    // #[test]
-    // fn regex_replacement() {
-    //     let mut parameters = ParameterValues::new();
-    // }
-}
