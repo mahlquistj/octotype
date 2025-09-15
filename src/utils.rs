@@ -41,7 +41,7 @@ pub fn fade(color1: Color, color2: Color, percentage: f32, is_foreground: bool) 
     Color::Rgb(new_r, new_g, new_b)
 }
 
-fn color_to_rgb(color: Color, is_foreground: bool) -> (u8, u8, u8) {
+pub fn color_to_rgb(color: Color, is_foreground: bool) -> (u8, u8, u8) {
     match color {
         Color::Rgb(r, g, b) => (r, g, b),
         Color::Indexed(idx) => rgb_from_ansi256(idx),

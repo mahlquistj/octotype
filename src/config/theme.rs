@@ -24,7 +24,7 @@ impl Default for Theme {
             let bg = palette.background.scale_to_8bit();
             (Color::Rgb(fg.0, fg.1, fg.2), Color::Rgb(bg.0, bg.1, bg.2))
         } else {
-            (Color::Rgb(255, 255, 255), Color::Rgb(0, 0, 0))
+            (Color::White, Color::Black)
         };
 
         Self {
