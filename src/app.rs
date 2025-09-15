@@ -44,13 +44,12 @@ impl App {
 
         loop {
             let event = event::poll(Duration::ZERO)?.then(event::read).transpose()?;
-            terminal.draw(|frame| self.draw(frame))?;
-
             if let Some(message) = self.handle_events(event)
                 && self.handle_message(message)
             {
                 break; // Quit
             }
+            terminal.draw(|frame| self.draw(frame))?;
         }
 
         ratatui::restore();
@@ -79,16 +78,16 @@ impl App {
 
     /// Global event handler
     fn handle_events(&mut self, event_opt: Option<Event>) -> Option<Message> {
-        let event_message = event_opt.and_then(|event| {
-            self.page.handle_events(&event, &self.config).or_else(|| {
-                match event {
-                    Event::Key(key) => self.handle_key_event(key),
-                    _ => None, // Reserved for future event handling
-                }
+        event_opt
+            .and_then(|event| {
+                self.page.handle_events(&event, &self.config).or_else(|| {
+                    match event {
+                        Event::Key(key) => self.handle_key_event(key),
+                        _ => None, // Reserved for future event handling
+                    }
+                })
             })
-        });
-
-        event_message.or_else(|| self.page.poll(&self.config))
+            .or_else(|| self.page.poll(&self.config))
     }
 
     /// Global key events

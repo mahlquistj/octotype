@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type ParameterDefinitions = HashMap<String, Definition>;
-pub type ParameterValues = HashMap<String, Parameter>;
+
+pub static RE_HANDLEBARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{(.+?)\}").unwrap());
 
 #[derive(Debug, Error)]
 pub enum ParameterError {
@@ -25,6 +27,36 @@ pub enum ParameterError {
 
     #[error("Default doesn't exist in selection")]
     DefaultNonExistant,
+}
+
+pub struct ParameterValues(HashMap<String, Parameter>);
+
+impl ParameterValues {
+    pub fn get(&self, key: &str) -> Option<&Parameter> {
+        self.0.get(key)
+    }
+
+    pub fn replace_values(&self, string: &str) -> String {
+        RE_HANDLEBARS
+            .replace_all(string, |caps: &regex::Captures| {
+                let Some(key) = caps.get(1).map(|m| m.as_str()) else {
+                    return caps.get(0).unwrap().as_str().to_string();
+                };
+
+                let Some(param) = self.get(key) else {
+                    return caps.get(0).unwrap().as_str().to_string();
+                };
+
+                param.get_value()
+            })
+            .to_string()
+    }
+}
+
+impl FromIterator<(String, Parameter)> for ParameterValues {
+    fn from_iter<T: IntoIterator<Item = (String, Parameter)>>(iter: T) -> Self {
+        Self(HashMap::from_iter(iter))
+    }
 }
 
 #[derive(Debug, Clone)]

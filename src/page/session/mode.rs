@@ -1,32 +1,23 @@
 use std::{
-    num::ParseIntError,
     path::PathBuf,
     process::{Child, Command, Stdio},
-    str::ParseBoolError,
     string::FromUtf8Error,
-    sync::LazyLock,
     time::Duration,
 };
 
 use derive_more::From;
-use regex::Regex;
 use thiserror::Error;
-
-pub static RE_HANDLEBARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{(.+?)\}").unwrap());
 
 use crate::config::{
     ModeConfig, SourceConfig,
-    mode::{ConditionConfig, ConditionValue},
+    mode::{ConditionConfig, ParseConditionError},
     parameters::ParameterValues,
     source::OutputFormat,
 };
 
 #[derive(Debug, Error, From)]
-#[error("Mode field '{field}' failed to parse: {error}")]
-pub struct CreateModeError {
-    field: &'static str,
-    error: String,
-}
+#[error("Failed to create mode: {0}")]
+pub struct CreateModeError(ParseConditionError);
 
 #[derive(Debug)]
 pub struct Mode {
@@ -55,6 +46,7 @@ pub struct Conditions {
     pub time: Option<Duration>,
     pub words_typed: Option<i64>,
     pub allow_deletions: bool,
+    pub allow_errors: bool,
 }
 
 impl Conditions {
@@ -62,59 +54,31 @@ impl Conditions {
         config: ConditionConfig,
         parameters: &ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let time = if let Some(value) = config.time {
-            let secs =
-                match value {
-                    ConditionValue::String(string) => replace_parameters(&string, parameters)
-                        .parse()
-                        .map_err(|err: ParseIntError| ("conditions.time", err.to_string()))?,
-                    ConditionValue::Number(num) => num as u64,
-                    ConditionValue::Bool(_) => {
-                        return Err(("conditions.time", "Cannot be a boolean".to_string()).into());
-                    }
-                };
-            Some(Duration::from_secs(secs))
-        } else {
-            None
-        };
+        let time = config
+            .time
+            .map(|value| {
+                value
+                    .parse_number("time", parameters)
+                    .map(|secs| Duration::from_secs(secs as u64))
+            })
+            .transpose()?;
 
-        let words_typed = if let Some(value) = config.words_typed {
-            let words = match value {
-                ConditionValue::String(string) => {
-                    replace_parameters(&string, parameters)
-                        .parse()
-                        .map_err(|err: ParseIntError| ("conditions.words_typed", err.to_string()))?
-                }
-                ConditionValue::Number(num) => num,
-                ConditionValue::Bool(_) => {
-                    return Err(
-                        ("conditions.words_typed", "Cannot be a boolean".to_string()).into(),
-                    );
-                }
-            };
-            Some(words)
-        } else {
-            None
-        };
+        let words_typed = config
+            .words_typed
+            .map(|value| value.parse_number("words_typed", parameters))
+            .transpose()?;
 
-        let allow_deletions = match config.allow_deletions {
-            ConditionValue::String(string) => replace_parameters(&string, parameters)
-                .parse()
-                .map_err(|err: ParseBoolError| ("conditions.allow_deletions", err.to_string()))?,
-            ConditionValue::Number(_) => {
-                return Err((
-                    "conditions.allow_deletions",
-                    "Cannot be a number".to_string(),
-                )
-                    .into());
-            }
-            ConditionValue::Bool(bool) => bool,
-        };
+        let allow_deletions = config
+            .allow_deletions
+            .parse_bool("allow_deletions", parameters)?;
+
+        let allow_errors = config.allow_errors.parse_bool("allow_errors", parameters)?;
 
         Ok(Self {
             time,
             words_typed,
             allow_deletions,
+            allow_errors,
         })
     }
 }
@@ -189,7 +153,7 @@ impl Source {
             .meta
             .command
             .iter()
-            .map(|string| replace_parameters(string, parameters))
+            .map(|string| parameters.replace_values(string))
             .collect::<Vec<String>>();
 
         let mut command = std::process::Command::new(program.remove(0));
@@ -205,22 +169,6 @@ impl Source {
             format: config.meta.output,
         }
     }
-}
-
-fn replace_parameters(string: &str, parameters: &ParameterValues) -> String {
-    RE_HANDLEBARS
-        .replace_all(string, |caps: &regex::Captures| {
-            let Some(key) = caps.get(1).map(|m| m.as_str()) else {
-                return caps.get(0).unwrap().as_str().to_string();
-            };
-
-            let Some(param) = parameters.get(key) else {
-                return caps.get(0).unwrap().as_str().to_string();
-            };
-
-            param.get_value()
-        })
-        .to_string()
 }
 
 fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {

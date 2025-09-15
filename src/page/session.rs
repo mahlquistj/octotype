@@ -112,17 +112,13 @@ impl TypingSession {
     /// Polls the session.
     ///
     /// Returns the stats if the session is done. Returns `None` otherwise
-    fn poll_stats(&mut self) -> Option<Stats> {
-        if self.should_end() {
-            let time = self.elapsed_minutes();
-            let input_length = self.input_length();
-            let wpm = self.calculate_wpm(time, input_length);
-            let acc = self.calculate_acc();
-            let stats = std::mem::take(&mut self.stats);
-            return Some(stats.build_stats(&self.text, wpm, acc, time));
-        }
-
-        None
+    fn build_stats(&mut self) -> Stats {
+        let time = self.elapsed_minutes();
+        let input_length = self.input_length();
+        let wpm = self.calculate_wpm(time, input_length);
+        let acc = self.calculate_acc();
+        let stats = std::mem::take(&mut self.stats);
+        stats.build_stats(&self.text, wpm, acc, time)
     }
 
     /// Get the current active segment in the session
@@ -281,7 +277,12 @@ impl TypingSession {
         self.current_segment_idx >= self.text.len() / 2
     }
 
-    pub fn should_end(&self) -> bool {
+    pub fn should_end(&mut self) -> bool {
+        // End on error, if errors aren't allowed
+        if !self.mode.conditions.allow_errors && self.get_current_errors() > 0 {
+            return true;
+        }
+
         // Time-based completion
         if let Some(time_limit) = self.mode.conditions.time
             && let Some(start_time) = self.get_first_keypress()
@@ -418,8 +419,8 @@ impl TypingSession {
     }
 
     pub fn poll(&mut self, config: &Config) -> Option<Message> {
-        if let Some(msg) = self.poll_stats().map(|stats| Message::Show(stats.into())) {
-            return Some(msg);
+        if self.should_end() {
+            return Some(Message::Show(self.build_stats().into()));
         }
 
         if self.mode.conditions.words_typed.is_some()
