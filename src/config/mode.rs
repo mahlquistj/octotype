@@ -84,10 +84,10 @@ pub enum ConditionValue {
 
 #[derive(Debug, Error)]
 pub enum ParseConditionError {
-    #[error("Condition '{0}' failed to parse as boolean: {0}")]
+    #[error("Condition '{0}' failed to parse as boolean: {1}")]
     Bool(&'static str, String),
 
-    #[error("Condition '{0}' failed to parse as number: {0}")]
+    #[error("Condition '{0}' failed to parse as number: {1}")]
     Number(&'static str, String),
 }
 
