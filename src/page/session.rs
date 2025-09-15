@@ -13,7 +13,10 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
-use crate::{config::Config, utils::Timestamp};
+use crate::{
+    config::Config,
+    utils::{Timestamp, fade},
+};
 
 mod mode;
 mod stats;
@@ -47,6 +50,7 @@ impl Display for StatsCache {
 #[derive(Debug)]
 pub struct TypingSession {
     text: Vec<Segment>,
+    next_words: Option<Vec<Segment>>,
     stats: RunningStats,
     mode: Mode,
 
@@ -64,29 +68,14 @@ pub struct TypingSession {
 
 impl TypingSession {
     /// Creates a new `TypingSession`
-    pub fn new(mut mode: Mode) -> Result<Self, FetchError> {
+    pub fn new(config: &Config, mut mode: Mode) -> Result<Self, FetchError> {
         // TODO: Calculate segment size according to terminal size
-        let text: Vec<Segment> = mode
-            .source
-            .fetch()?
-            .chunks(5)
-            .map(|words| {
-                let string = words
-                    .iter()
-                    .cloned()
-                    .map(|mut word| {
-                        word.push(' ');
-                        word
-                    })
-                    .collect::<String>();
-
-                Segment::from_iter(string.chars())
-            })
-            .collect();
+        let text: Vec<Segment> = Self::text_to_segments(config, mode.source.fetch()?);
         let total_chars = text.iter().map(|seg| seg.len()).sum();
 
         Ok(Self {
             text,
+            next_words: None,
             mode,
             stats: RunningStats::default(),
             first_keypress: None,
@@ -209,17 +198,17 @@ impl TypingSession {
 
     /// Get the elapsed `Duration` of the session
     fn elapsed(&self) -> Duration {
-        if let Some(timestamp) = self.first_keypress {
-            return timestamp.elapsed();
-        }
+        let Some(timestamp) = self.first_keypress else {
+            return Duration::ZERO;
+        };
 
-        Duration::ZERO
+        timestamp.elapsed()
     }
 
     /// Get the elapsed time of the session in minutes
     fn elapsed_minutes(&mut self) -> f64 {
-        if let Some(timestamp) = self.first_keypress {
-            return timestamp.elapsed().as_secs_f64() / 60.0;
+        if self.first_keypress.is_some() {
+            return self.elapsed().as_secs_f64() / 60.0;
         }
 
         if self.input_length() > 0 {
@@ -287,25 +276,63 @@ impl TypingSession {
         self.text.iter().all(|segment| segment.is_done())
     }
 
+    pub const fn is_text_almost_completed(&self) -> bool {
+        self.current_segment_idx >= self.text.len() / 2
+    }
+
     pub fn should_end(&self) -> bool {
         // Time-based completion
         if let Some(time_limit) = self.mode.conditions.time
             && let Some(start_time) = self.get_first_keypress()
-            && start_time.elapsed() >= time_limit
         {
-            return true;
+            return start_time.elapsed() >= time_limit;
         }
 
         // Word count completion
-        if let Some(target_words) = self.mode.conditions.words_typed {
-            let typed_words = self.get_typed_word_count();
-            if typed_words >= target_words as usize {
-                return true;
+        self.mode.conditions.words_typed.map_or_else(
+            || self.is_all_text_completed(),
+            |target_words| {
+                let typed_words = self.get_typed_word_count();
+                typed_words >= target_words as usize
+            },
+        )
+    }
+
+    fn text_to_segments(config: &Config, text: Vec<String>) -> Vec<Segment> {
+        text.chunks(config.settings.words_per_line)
+            .map(|words| {
+                let string = words
+                    .iter()
+                    .cloned()
+                    .map(|mut word| {
+                        word.push(' ');
+                        word
+                    })
+                    .collect::<String>();
+
+                Segment::from_iter(string.chars())
+            })
+            .collect()
+    }
+
+    fn fetch_new_text(&mut self, config: &Config) -> Result<(), FetchError> {
+        if self.next_words.is_none() {
+            if let Some(new_text) = self.mode.source.try_fetch()? {
+                let new_segments = Self::text_to_segments(config, new_text);
+                self.next_words = Some(new_segments);
+            } else if self.is_all_text_completed() {
+                return Err(FetchError::SourceError(
+                    "Source fetched too slowly".to_string(),
+                ));
             }
+        } else if self.is_text_almost_completed() {
+            let Some(mut segments) = self.next_words.take() else {
+                unreachable!("Segments are always Some");
+            };
+            self.text.append(&mut segments);
         }
 
-        // Default: all segments completed
-        self.is_all_text_completed()
+        Ok(())
     }
 }
 
@@ -317,16 +344,52 @@ impl TypingSession {
             return;
         }
 
-        let text = self
-            .text
+        let ghost_lines = config.settings.show_ghost_lines;
+        let show_lines = (self.current_segment_idx.saturating_sub(ghost_lines))
+            ..((self.current_segment_idx + ghost_lines).clamp(0, self.text.len()));
+        let text_theme = &config.settings.theme.text;
+        let term_bg = config.settings.theme.term_bg;
+        let term_fg = config.settings.theme.term_fg;
+        let ghost_fade_disabled = config.settings.disable_ghost_fade;
+
+        let mut lines = Vec::with_capacity(show_lines.len());
+
+        self.text
             .iter()
             .enumerate()
-            .map(|(idx, seg)| {
-                seg.render_line(idx == self.current_segment_idx, &config.settings.theme.text)
-            })
-            .collect::<Vec<Line>>();
+            .filter(|(idx, _)| show_lines.contains(idx))
+            .for_each(|(idx, seg)| {
+                let relative_idx = self.current_segment_idx.abs_diff(idx);
+                let (success, warning, error, foreground) =
+                    if ghost_fade_disabled || relative_idx == 0 {
+                        (
+                            text_theme.success,
+                            text_theme.warning,
+                            text_theme.error,
+                            term_fg,
+                        )
+                    } else {
+                        let fade_percent = config.settings.ghost_opacity[relative_idx - 1];
+                        (
+                            fade(text_theme.success, term_bg, fade_percent, false),
+                            fade(text_theme.warning, term_bg, fade_percent, false),
+                            fade(text_theme.error, term_bg, fade_percent, false),
+                            fade(term_fg, term_bg, fade_percent, false),
+                        )
+                    };
+                let line = seg.render_line(
+                    idx == self.current_segment_idx,
+                    config,
+                    success,
+                    warning,
+                    error,
+                    foreground,
+                );
 
-        let paragraph = Paragraph::new(text)
+                lines.push(line)
+            });
+
+        let paragraph = Paragraph::new(lines)
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: false });
 
@@ -335,7 +398,7 @@ impl TypingSession {
 
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
 
-        frame.render_widget(paragraph.block(block), center);
+        frame.render_widget(paragraph.block(block).alignment(Alignment::Center), center);
     }
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
@@ -349,8 +412,18 @@ impl TypingSession {
         })))
     }
 
-    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
-        self.poll_stats().map(|stats| Message::Show(stats.into()))
+    pub fn poll(&mut self, config: &Config) -> Option<Message> {
+        if let Some(msg) = self.poll_stats().map(|stats| Message::Show(stats.into())) {
+            return Some(msg);
+        }
+
+        if self.mode.conditions.words_typed.is_some()
+            && let Err(error) = self.fetch_new_text(config)
+        {
+            return Some(Message::Error(Box::new(error)));
+        }
+
+        None
     }
 
     pub fn handle_events(

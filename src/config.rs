@@ -1,6 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use derive_more::From;
+use derive_more::{Deref, From};
 use directories::ProjectDirs;
 use figment::{
     Figment,
@@ -12,19 +12,13 @@ use thiserror::Error;
 pub use mode::ModeConfig;
 pub use source::SourceConfig;
 
+use crate::config::{stats::StatisticsConfig, theme::Theme};
+
 pub mod mode;
 pub mod parameters;
 pub mod source;
 pub mod stats;
 pub mod theme;
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct Settings {
-    pub theme: theme::Theme,
-    pub statistic: stats::StatisticsConfig,
-    pub sources_dir: Option<PathBuf>,
-    pub modes_dir: Option<PathBuf>,
-}
 
 #[derive(Debug, From, Error)]
 pub enum ConfigError {
@@ -46,8 +40,39 @@ pub enum ConfigError {
     ParseModes(mode::ModeError),
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Settings {
+    pub theme: theme::Theme,
+    pub statistic: stats::StatisticsConfig,
+    pub sources_dir: Option<PathBuf>,
+    pub modes_dir: Option<PathBuf>,
+    pub words_per_line: usize,
+    pub show_ghost_lines: usize,
+    #[serde(default)]
+    pub ghost_opacity: Vec<f32>,
+    pub disable_ghost_fade: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            theme: Theme::default(),
+            statistic: StatisticsConfig::default(),
+            sources_dir: None,
+            modes_dir: None,
+            words_per_line: 5,
+            show_ghost_lines: 2,
+            ghost_opacity: get_evenly_spread_values(2),
+            disable_ghost_fade: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deref, Default, Serialize)]
+pub struct Config(Arc<InnerConfig>);
+
 #[derive(Debug, Default, Serialize)]
-pub struct Config {
+pub struct InnerConfig {
     pub settings: Settings,
     pub modes: HashMap<String, ModeConfig>,
     pub sources: HashMap<String, SourceConfig>,
@@ -106,10 +131,33 @@ impl Config {
         let modes = mode::get_modes(&modes_dir)?;
         settings.modes_dir = Some(modes_dir);
 
-        Ok(Self {
+        if settings.ghost_opacity.is_empty() {
+            settings.ghost_opacity = get_evenly_spread_values(settings.show_ghost_lines);
+        }
+
+        Ok(Self(Arc::new(InnerConfig {
             settings,
             sources,
             modes,
-        })
+        })))
     }
+}
+
+fn get_evenly_spread_values(num_items: usize) -> Vec<f32> {
+    if num_items == 0 {
+        return Vec::new();
+    }
+
+    let mut values = Vec::with_capacity(num_items);
+    let min_val = 0.2;
+    let max_val = 0.8;
+    let range: f32 = max_val - min_val;
+
+    for i in 0..num_items {
+        let normalized_index = i as f32 / (num_items - 1) as f32;
+        let value = range.mul_add(normalized_index, min_val);
+        values.push(value);
+    }
+
+    values
 }

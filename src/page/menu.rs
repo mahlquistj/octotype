@@ -11,7 +11,6 @@ use ratatui::{
 use thiserror::Error;
 
 use crate::{
-    app::State,
     config::{
         Config, ModeConfig, SourceConfig,
         parameters::{Definition, Parameter},
@@ -61,11 +60,16 @@ impl Menu {
 
 // Rendering logic
 impl Menu {
-    pub fn render(&self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect, state: &State) {
+    pub fn render(
+        &self,
+        frame: &mut ratatui::Frame,
+        area: ratatui::prelude::Rect,
+        config: &Config,
+    ) {
         let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
         let inner = block.inner(center);
-        let config = &state.config;
+        let config = &config;
 
         match &self {
             Self::ModeSelect { mode_index, modes } => {
@@ -207,7 +211,7 @@ impl Menu {
     pub fn handle_events(
         &mut self,
         event: &crossterm::event::Event,
-        state: &State,
+        config: &Config,
     ) -> Option<Message> {
         if let Event::Key(key) = event
             && key.is_press()
@@ -225,12 +229,12 @@ impl Menu {
                             // SAFETY: The index is always within range of the `modes` Vec
                             let mode_name = modes.get(*mode_index).unwrap();
 
-                            if let Some(mode) = state.config.modes.get(mode_name) {
+                            if let Some(mode) = config.modes.get(mode_name) {
                                 let sources = mode
                                     .meta
                                     .allowed_sources
                                     .clone()
-                                    .unwrap_or_else(|| state.config.list_sources());
+                                    .unwrap_or_else(|| config.list_sources());
 
                                 *self = Self::SourceSelect {
                                     selected_mode: mode_name.clone(),
@@ -255,8 +259,8 @@ impl Menu {
                     }
                     KeyCode::Enter => {
                         let selected_source = sources[*source_index].clone();
-                        let mut source = state.config.sources.get(&selected_source)?.clone();
-                        let mut mode = state.config.modes.get(selected_mode)?.clone();
+                        let mut source = config.sources.get(&selected_source)?.clone();
+                        let mut mode = config.modes.get(selected_mode)?.clone();
                         let mut source_overrides = mode.overrides.get_mut(&selected_source);
 
                         let mut parameters = Vec::new();
@@ -281,7 +285,7 @@ impl Menu {
                         }
 
                         if parameters.is_empty() {
-                            return create_session(state, mode, source, parameters);
+                            return create_session(config, mode, source, parameters);
                         }
 
                         *self = Self::ParameterConfig {
@@ -294,7 +298,7 @@ impl Menu {
                     KeyCode::Backspace => {
                         *self = Self::ModeSelect {
                             mode_index: 0,
-                            modes: state.config.list_modes(),
+                            modes: config.list_modes(),
                         };
                     }
                     _ => {}
@@ -320,7 +324,7 @@ impl Menu {
                         }
                         KeyCode::Enter => {
                             return create_session(
-                                state,
+                                config,
                                 *mode.clone(),
                                 *source.clone(),
                                 parameters.clone(),
@@ -331,7 +335,7 @@ impl Menu {
                             *self = Self::SourceSelect {
                                 selected_mode: mode.meta.name.clone(),
                                 source_index: 0,
-                                sources: state.config.list_sources(),
+                                sources: config.list_sources(),
                             }
                         }
                         _ => (),
@@ -344,21 +348,17 @@ impl Menu {
 }
 
 fn create_session(
-    state: &State,
+    config: &Config,
     mode: ModeConfig,
     source: SourceConfig,
     parameters: Vec<(String, Parameter)>,
 ) -> Option<Message> {
     let parameters = parameters.into_iter().collect();
-    let sources_dir = state
-        .config
-        .settings
-        .sources_dir
-        .clone()
-        .unwrap_or_default();
+    let sources_dir = config.settings.sources_dir.clone().unwrap_or_default();
+    let config = config.clone();
     let session_loader = Loading::load("Loading words...", move || {
         let mode = Mode::from_config(sources_dir, mode, source, parameters).map_err(Box::new)?;
-        TypingSession::new(mode)
+        TypingSession::new(&config, mode)
             .map(|session| Message::Show(session.into()))
             .map_err(CreateSessionError::from)
     });

@@ -1,5 +1,6 @@
 use ratatui::{style::Color, symbols::Marker};
 use serde::{Deserialize, Serialize};
+use terminal_colorsaurus::QueryOptions;
 use throbber_widgets_tui::Set;
 
 /// General theme
@@ -9,15 +10,47 @@ pub struct Theme {
     pub spinner_symbol: SpinnerSymbol,
     pub text: TextTheme,
     pub plot: PlotTheme,
+    pub cursor: CursorTheme,
+    pub term_fg: Color,
+    pub term_bg: Color,
 }
 
 impl Default for Theme {
     fn default() -> Self {
+        let terminal_palette = terminal_colorsaurus::color_palette(QueryOptions::default()).ok();
+
+        let (term_fg, term_bg) = if let Some(palette) = terminal_palette {
+            let fg = palette.foreground.scale_to_8bit();
+            let bg = palette.background.scale_to_8bit();
+            (Color::Rgb(fg.0, fg.1, fg.2), Color::Rgb(bg.0, bg.1, bg.2))
+        } else {
+            (Color::Rgb(0, 0, 0), Color::Rgb(255, 255, 255))
+        };
+
         Self {
             spinner_color: Color::Yellow,
             spinner_symbol: SpinnerSymbol::BrailleSix,
             text: TextTheme::default(),
             plot: PlotTheme::default(),
+            cursor: CursorTheme::default(),
+            term_fg,
+            term_bg,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct CursorTheme {
+    pub color: Color,
+    pub text: Color,
+}
+
+impl Default for CursorTheme {
+    fn default() -> Self {
+        Self {
+            color: Color::White,
+            text: Color::Black,
         }
     }
 }
