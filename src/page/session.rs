@@ -345,8 +345,12 @@ impl TypingSession {
         }
 
         let ghost_lines = config.settings.show_ghost_lines;
-        let show_lines = (self.current_segment_idx.saturating_sub(ghost_lines))
-            ..((self.current_segment_idx + ghost_lines).clamp(0, self.text.len()));
+        let show_lines = if ghost_lines > 0 {
+            (self.current_segment_idx.saturating_sub(ghost_lines))
+                ..((self.current_segment_idx + ghost_lines).clamp(0, self.text.len()))
+        } else {
+            0..self.text.len()
+        };
         let text_theme = &config.settings.theme.text;
         let term_bg = config.settings.theme.term_bg;
         let term_fg = config.settings.theme.term_fg;
