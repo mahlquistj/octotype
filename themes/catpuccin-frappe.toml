@@ -1,0 +1,17 @@
+[theme]
+spinner_color = "#e5c890"
+spinner_symbol = "BrailleSix"
+
+[theme.text]
+success = "#a6d189"
+warning = "#e5c890"
+error = "#e78284"
+highlight = "#8caaee"
+
+[theme.plot]
+raw_wpm = "#c6d0f5"
+actual_wpm = "#e5c890"
+accuracy = "#c6d0f5"
+errors = "#e78284"
+scatter_symbol = "Dot"
+line_symbol = "Braille"
