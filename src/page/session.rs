@@ -8,14 +8,14 @@ use std::{
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Rect},
+    layout::{Constraint, Rect},
     text::Line,
-    widgets::{Block, Padding, Paragraph, Wrap},
+    widgets::{Block, Paragraph, Wrap},
 };
 
 use crate::{
     config::Config,
-    utils::{Timestamp, fade},
+    utils::{Timestamp, center, centered_padding, fade, height_of_lines},
 };
 
 mod mode;
@@ -395,16 +395,15 @@ impl TypingSession {
                 lines.push(line)
             });
 
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+        let height = height_of_lines(&lines, area);
+
         let paragraph = Paragraph::new(lines)
-            .alignment(Alignment::Center)
-            .wrap(Wrap { trim: false });
+            .wrap(Wrap { trim: false })
+            .block(Block::new().padding(centered_padding(area, Some(height), None)))
+            .centered();
 
-        let center =
-            crate::utils::center(area, Constraint::Percentage(80), Constraint::Percentage(80));
-
-        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
-
-        frame.render_widget(paragraph.block(block).alignment(Alignment::Center), center);
+        frame.render_widget(paragraph, area);
     }
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {

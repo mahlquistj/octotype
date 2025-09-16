@@ -7,7 +7,8 @@ use crate::config::Config;
 use crate::page;
 use crate::utils::ROUNDED_BLOCK;
 
-const NO_CONFIG_ERROR: &str = "No modes and/or sources found. Consult the wiki at https://github.com/mahlquistj/octotype/wiki for info on how to configure OctoType.";
+const NO_CONFIG_ERROR: &str = r#"No modes and/or sources found. 
+Consult the wiki at https://github.com/mahlquistj/octotype/wiki for info on how to configure OctoType."#;
 
 /// An app message
 pub enum Message {
@@ -44,10 +45,13 @@ impl App {
 
         loop {
             let event = event::poll(Duration::ZERO)?.then(event::read).transpose()?;
-            if let Some(message) = self.handle_events(event)
-                && self.handle_message(message)
-            {
-                break; // Quit
+            if let Some(message) = self.handle_events(event) {
+                match message {
+                    Message::Error(error) => self.page = page::Error::from(error).into(),
+                    Message::Show(page) => self.page = page,
+                    Message::Reset => self.page = page::Menu::new(&self.config).into(),
+                    Message::Quit => break,
+                }
             }
             terminal.draw(|frame| self.draw(frame))?;
         }
@@ -97,19 +101,5 @@ impl App {
             (KeyCode::Esc, KeyModifiers::NONE) => Some(Message::Reset),
             _ => None,
         }
-    }
-
-    /// Global message handler
-    ///
-    /// Returns `true` if the application should quit
-    fn handle_message(&mut self, msg: Message) -> bool {
-        match msg {
-            Message::Error(error) => self.page = page::Error::from(error).into(),
-            Message::Show(page) => self.page = page,
-            Message::Reset => self.page = page::Menu::new(&self.config).into(),
-            Message::Quit => return true,
-        }
-
-        false
     }
 }

@@ -5,10 +5,13 @@ use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
     text::{Line, ToLine},
-    widgets::{Block, Padding, Paragraph, Wrap},
+    widgets::{Block, Paragraph, Wrap},
 };
 
-use crate::{config::Config, utils::center};
+use crate::{
+    config::Config,
+    utils::{center, centered_padding, height_of_lines},
+};
 
 use super::Message;
 
@@ -33,7 +36,7 @@ impl<E: Display> From<E> for Error {
 /// Rendering logic
 impl Error {
     pub fn render(&self, frame: &mut ratatui::Frame, area: Rect, config: &Config) {
-        let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let mut lines = vec![
             Line::styled(
@@ -53,11 +56,13 @@ impl Error {
             lines.push(line.to_line().centered());
         }
 
+        let height: u16 = height_of_lines(&lines, area);
+
         let text = Paragraph::new(lines)
             .wrap(Wrap { trim: false })
-            .block(Block::new().padding(Padding::new(0, 0, center.height / 2, 0)));
+            .block(Block::new().padding(centered_padding(area, Some(height), None)));
 
-        frame.render_widget(text, center);
+        frame.render_widget(text, area);
     }
 
     pub fn render_top(&self, _config: &crate::config::Config) -> Option<Line<'_>> {
@@ -69,7 +74,7 @@ impl Error {
             && key.is_press()
         {
             return match key.code {
-                KeyCode::Enter => None, // TODO: Return to menu - need to pass mode configs
+                KeyCode::Enter => Some(Message::Reset),
                 _ => None,
             };
         };

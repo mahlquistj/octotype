@@ -2,7 +2,8 @@ use ansi_colours::rgb_from_ansi256;
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
     style::Color,
-    widgets::{Block, BorderType},
+    text::Line,
+    widgets::{Block, BorderType, Padding},
 };
 
 /// Timestamp type for more clarity
@@ -23,6 +24,27 @@ pub fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect 
     area
 }
 
+/// Returns a padding that centers a widget totally, based on it's width and height
+pub fn centered_padding(
+    area: Rect,
+    widget_height: Option<u16>,
+    widget_width: Option<u16>,
+) -> Padding {
+    let (top, bottom) = widget_height
+        .map(|height| {
+            let top = (area.height.saturating_sub(height)) / 2;
+            (top, 0)
+        })
+        .unwrap_or((0, 0));
+    let (left, right) = widget_width
+        .map(|width| {
+            let left = (area.width.saturating_sub(width)) / 2;
+            (left, 0)
+        })
+        .unwrap_or((0, 0));
+    Padding::new(left, right, top, bottom)
+}
+
 /// Fades `color1` towards `color2` by the given percentage
 pub fn fade(color1: Color, color2: Color, percentage: f32, is_foreground: bool) -> Color {
     let (r1, g1, b1) = color_to_rgb(color1, is_foreground);
@@ -41,6 +63,22 @@ pub fn fade(color1: Color, color2: Color, percentage: f32, is_foreground: bool) 
     Color::Rgb(new_r, new_g, new_b)
 }
 
+/// Returns the exact height of lines, accounting for wrapping
+pub fn height_of_lines(lines: &[Line<'_>], area: Rect) -> u16 {
+    lines
+        .iter()
+        .map(|line| {
+            let line_width = line.width() as u16;
+            if line_width == 0 {
+                1 // Empty lines still take up one row
+            } else {
+                line_width.div_ceil(area.width) // Ceiling division for wrapping
+            }
+        })
+        .sum()
+}
+
+/// Converts a Ratatui Color to RGB (ANSI does not work as expected - Might deprecate later..)
 pub fn color_to_rgb(color: Color, is_foreground: bool) -> (u8, u8, u8) {
     match color {
         Color::Rgb(r, g, b) => (r, g, b),
