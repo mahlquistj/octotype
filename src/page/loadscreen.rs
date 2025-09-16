@@ -7,11 +7,14 @@ use std::{
 use ratatui::{
     layout::{Alignment, Constraint},
     style::{Style, Stylize},
-    widgets::{Block, Padding, Paragraph},
+    widgets::{Block, Paragraph},
 };
 use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
-use crate::{config::Config, utils::center};
+use crate::{
+    config::Config,
+    utils::{center, centered_padding},
+};
 
 use super::Message;
 
@@ -92,7 +95,7 @@ impl Loading {
         area: ratatui::prelude::Rect,
         config: &Config,
     ) {
-        let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let throbber = Throbber::default()
             .label(&self.message)
@@ -104,13 +107,14 @@ impl Loading {
             .throbber_set(config.settings.theme.spinner_symbol.as_set())
             .use_type(WhichUse::Spin);
 
-        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
+        let text = throbber.to_line(&self.state);
+        let height = (text.width() as u16).div_ceil(area.width);
 
-        let text = Paragraph::new(throbber.to_line(&self.state))
+        let text = Paragraph::new(text)
             .alignment(Alignment::Center)
-            .block(block);
+            .block(Block::new().padding(centered_padding(area, Some(height), None)));
 
-        frame.render_widget(text, center);
+        frame.render_widget(text, area);
     }
 
     pub fn poll(&mut self, _config: &Config) -> Option<Message> {
