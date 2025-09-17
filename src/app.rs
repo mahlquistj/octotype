@@ -7,8 +7,8 @@ use crate::config::Config;
 use crate::page;
 use crate::utils::ROUNDED_BLOCK;
 
-const NO_CONFIG_ERROR: &str = r#"No modes and/or sources found. 
-Consult the wiki at https://github.com/mahlquistj/octotype/wiki for info on how to configure OctoType."#;
+const NO_CONFIG_ERROR: &str = r"No modes and/or sources found. 
+Consult the wiki at https://github.com/mahlquistj/octotype/wiki for info on how to configure OctoType.";
 
 /// An app message
 pub enum Message {

@@ -355,10 +355,10 @@ fn create_session(
 ) -> Option<Message> {
     let parameters = parameters.into_iter().collect();
     let sources_dir = config.settings.sources_dir.clone().unwrap_or_default();
-    let config = config.clone();
-    let session_loader = Loading::load("Loading words...", move || {
+    let config_clone = config.clone();
+    let session_loader = Loading::load(config, "Loading words...", move || {
         let mode = Mode::from_config(sources_dir, mode, source, parameters).map_err(Box::new)?;
-        TypingSession::new(&config, mode)
+        TypingSession::new(&config_clone, mode)
             .map(|session| Message::Show(session.into()))
             .map_err(CreateSessionError::from)
     });

@@ -1,13 +1,19 @@
-use ratatui::{style::Color, symbols::Marker};
+use std::time::{Duration, Instant};
+
+use ratatui::{
+    style::{Color, Style},
+    symbols::Marker,
+    text::Span,
+};
 use serde::{Deserialize, Serialize};
 use terminal_colorsaurus::QueryOptions;
-use throbber_widgets_tui::Set;
+
+const DEFAULT_SPINNER: [char; 8] = ['⣷', '⣯', '⣟', '⡿', '⢿', '⣻', '⣽', '⣾'];
 
 /// General theme
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Theme {
-    pub spinner_color: Color,
-    pub spinner_symbol: SpinnerSymbol,
+    pub spinner: Spinner,
     pub text: TextTheme,
     pub plot: PlotTheme,
     pub cursor: CursorTheme,
@@ -28,14 +34,64 @@ impl Default for Theme {
         };
 
         Self {
-            spinner_color: Color::Yellow,
-            spinner_symbol: SpinnerSymbol::BrailleSix,
+            spinner: Spinner::default(),
             text: TextTheme::default(),
             plot: PlotTheme::default(),
             cursor: CursorTheme::default(),
             term_fg,
             term_bg,
         }
+    }
+}
+
+/// Spinner logic inspired from: https://crates.io/crates/throbber-widgets-tui
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Spinner {
+    pub color: Color,
+    pub animation: Vec<char>,
+    pub timing_millis: u64,
+}
+
+#[derive(Debug)]
+pub struct SpinnerState {
+    last_tick: Instant,
+    index: u8,
+    timing: Duration,
+}
+
+impl Default for Spinner {
+    fn default() -> Self {
+        Self {
+            color: Color::Yellow,
+            animation: Vec::from(DEFAULT_SPINNER),
+            timing_millis: 250,
+        }
+    }
+}
+
+impl SpinnerState {
+    pub fn tick(&mut self) {
+        if self.last_tick.elapsed() > self.timing {
+            self.index = self.index.checked_add(1).unwrap_or_default();
+            self.last_tick = Instant::now();
+        }
+    }
+}
+
+impl Spinner {
+    pub fn make_state(&self) -> SpinnerState {
+        SpinnerState {
+            last_tick: Instant::now(),
+            index: 0,
+            timing: Duration::from_millis(self.timing_millis),
+        }
+    }
+
+    pub fn render(&self, state: &mut SpinnerState) -> Span<'_> {
+        let len = self.animation.len() as u8;
+        state.index %= len;
+        let symbol = self.animation[state.index as usize];
+        Span::styled(format!(" {symbol} "), Style::new().fg(self.color))
     }
 }
 
@@ -122,81 +178,6 @@ impl Default for PlotTheme {
             errors: Color::Red,
             scatter_symbol: PlotSymbol::Dot,
             line_symbol: PlotSymbol::HalfBlock,
-        }
-    }
-}
-
-/// The different kinds of symbols available for the loading-screen spinner
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum SpinnerSymbol {
-    Ascii,
-
-    Arrow,
-    DoubleArrow,
-
-    BlackCircle,
-
-    BoxDrawing,
-
-    BrailleOne,
-    BrailleDouble,
-    BrailleSix,
-    BrailleSixDouble,
-    BrailleEight,
-    BrailleEightDouble,
-
-    Canadian,
-
-    Clock,
-
-    HorizontalBlock,
-
-    OghamA,
-    OghamB,
-    OghamC,
-
-    Paranthesis,
-
-    QuadrantBlock,
-    QuadrantBlockCrack,
-
-    VerticalBlock,
-
-    WhiteSquare,
-    WhiteCircle,
-}
-
-impl SpinnerSymbol {
-    /// Returns the set that the symbol corresponds to.
-    ///
-    /// This doesn't use the `From` trait, as we can't make that a const fn
-    pub const fn as_set(&self) -> Set {
-        use throbber_widgets_tui::*;
-        match self {
-            Self::Ascii => ASCII,
-            Self::Arrow => ARROW,
-            Self::DoubleArrow => DOUBLE_ARROW,
-            Self::BlackCircle => BLACK_CIRCLE,
-            Self::BoxDrawing => BOX_DRAWING,
-            Self::BrailleOne => BRAILLE_ONE,
-            Self::BrailleDouble => BRAILLE_DOUBLE,
-            Self::BrailleSix => BRAILLE_SIX,
-            Self::BrailleSixDouble => BRAILLE_SIX_DOUBLE,
-            Self::BrailleEight => BRAILLE_EIGHT,
-            Self::BrailleEightDouble => BRAILLE_EIGHT_DOUBLE,
-            Self::Canadian => CANADIAN,
-            Self::Clock => CLOCK,
-            Self::HorizontalBlock => HORIZONTAL_BLOCK,
-            Self::OghamA => OGHAM_A,
-            Self::OghamB => OGHAM_B,
-            Self::OghamC => OGHAM_C,
-            Self::Paranthesis => PARENTHESIS,
-            Self::QuadrantBlock => QUADRANT_BLOCK,
-            Self::QuadrantBlockCrack => QUADRANT_BLOCK_CRACK,
-            Self::VerticalBlock => VERTICAL_BLOCK,
-            Self::WhiteSquare => WHITE_SQUARE,
-            Self::WhiteCircle => WHITE_CIRCLE,
         }
     }
 }

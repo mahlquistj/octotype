@@ -1,12 +1,9 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::collections::HashMap;
 
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type ParameterDefinitions = HashMap<String, Definition>;
-
-pub static RE_HANDLEBARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{(.+?)\}").unwrap());
 
 #[derive(Debug, Error)]
 pub enum ParameterError {
@@ -37,19 +34,35 @@ impl ParameterValues {
     }
 
     pub fn replace_values(&self, string: &str) -> String {
-        RE_HANDLEBARS
-            .replace_all(string, |caps: &regex::Captures| {
-                let Some(key) = caps.get(1).map(|m| m.as_str()) else {
-                    return caps.get(0).unwrap().as_str().to_string();
-                };
-
-                let Some(param) = self.get(key) else {
-                    return caps.get(0).unwrap().as_str().to_string();
-                };
-
-                param.get_value()
-            })
-            .to_string()
+        let mut result = String::new();
+        let mut remaining = string;
+        
+        while let Some(start) = remaining.find('{') {
+            result.push_str(&remaining[..start]);
+            remaining = &remaining[start + 1..];
+            
+            if let Some(end) = remaining.find('}') {
+                let key = &remaining[..end];
+                if !key.is_empty() {
+                    if let Some(param) = self.get(key) {
+                        result.push_str(&param.get_value());
+                    } else {
+                        result.push('{');
+                        result.push_str(key);
+                        result.push('}');
+                    }
+                } else {
+                    result.push_str("{}");
+                }
+                remaining = &remaining[end + 1..];
+            } else {
+                result.push('{');
+                break;
+            }
+        }
+        
+        result.push_str(remaining);
+        result
     }
 }
 
