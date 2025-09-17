@@ -33,13 +33,11 @@ jobs:
       - name: Build website
         run: npm run build
 
-      - name: Debug
-        run: ls -la
-
       - name: Upload Build Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build
+          # Action does not adhere to working-directory settings, apparently
+          path: docs/build
 
   deploy-docs:
     name: Deploy to GitHub Pages
