@@ -7,12 +7,12 @@ use std::{
 use ratatui::{
     layout::{Alignment, Constraint},
     style::{Style, Stylize},
+    text::{Line, ToSpan},
     widgets::{Block, Paragraph},
 };
-use throbber_widgets_tui::{Throbber, ThrobberState, WhichUse};
 
 use crate::{
-    config::Config,
+    config::{Config, theme::SpinnerState},
     utils::{center, centered_padding},
 };
 
@@ -34,9 +34,8 @@ impl Display for LoadError {
 pub struct Loading {
     /// The handle of the underlying thread
     handle: Option<JoinHandle<Result<Message, LoadError>>>,
-    state: ThrobberState,
-    last_tick: Instant,
     message: String,
+    spinner_state: SpinnerState,
 }
 
 impl Loading {
@@ -44,7 +43,7 @@ impl Loading {
     ///
     /// * `F`: The closure to run in the background
     /// * `E`: The error type returned by the closure (`F`)
-    pub fn load<F, E>(message: &str, func: F) -> Self
+    pub fn load<F, E>(config: &Config, message: &str, func: F) -> Self
     where
         F: FnOnce() -> Result<Message, E> + Send + 'static,
         E: std::error::Error + Send + 'static,
@@ -52,8 +51,7 @@ impl Loading {
         let wrapper = move || func().map_err(|e| LoadError(e.to_string()));
         Self {
             handle: Some(std::thread::spawn(wrapper)),
-            state: ThrobberState::default(),
-            last_tick: Instant::now(),
+            spinner_state: config.settings.theme.spinner.make_state(),
             message: message.to_string(),
         }
     }
@@ -65,14 +63,6 @@ impl Loading {
         }
 
         false
-    }
-
-    /// Ticks the spinner
-    fn tick(&mut self) {
-        if self.last_tick.elapsed() > Duration::from_millis(200) {
-            self.state.calc_next();
-            self.last_tick = Instant::now();
-        }
     }
 
     fn join(&mut self) -> Result<Option<Message>, LoadError> {
@@ -90,24 +80,19 @@ impl Loading {
 // Rendering logic
 impl Loading {
     pub fn render(
-        &self,
+        &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         config: &Config,
     ) {
         let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
-        let throbber = Throbber::default()
-            .label(&self.message)
-            .throbber_style(
-                Style::default()
-                    .fg(config.settings.theme.spinner_color)
-                    .bold(),
-            )
-            .throbber_set(config.settings.theme.spinner_symbol.as_set())
-            .use_type(WhichUse::Spin);
-
-        let text = throbber.to_line(&self.state);
+        let spinner = config
+            .settings
+            .theme
+            .spinner
+            .render(&mut self.spinner_state);
+        let text = Line::from(vec![spinner, self.message.to_span()]);
         let height = (text.width() as u16).div_ceil(area.width);
 
         let text = Paragraph::new(text)
@@ -118,7 +103,7 @@ impl Loading {
     }
 
     pub fn poll(&mut self, _config: &Config) -> Option<Message> {
-        self.tick();
+        self.spinner_state.tick();
 
         if !self.is_finished() {
             return None;
