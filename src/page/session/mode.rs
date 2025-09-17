@@ -16,8 +16,13 @@ use crate::config::{
 };
 
 #[derive(Debug, Error, From)]
-#[error("Failed to create mode: {0}")]
-pub struct CreateModeError(ParseConditionError);
+pub enum CreateModeError {
+    #[error("Condition{0}")]
+    Condition(ParseConditionError),
+
+    #[error("Unable to find '{tool}' in path: {error}")]
+    ToolMissing { tool: String, error: which::Error },
+}
 
 #[derive(Debug)]
 pub struct Mode {
@@ -33,7 +38,7 @@ impl Mode {
         parameters: ParameterValues,
     ) -> Result<Self, CreateModeError> {
         let resolved_conditions = Conditions::from_config(mode.conditions, &parameters)?;
-        let resolved_source = Source::from_config(sources_dir, source, &parameters);
+        let resolved_source = Source::from_config(sources_dir, source, &parameters)?;
         Ok(Self {
             conditions: resolved_conditions,
             source: resolved_source,
@@ -148,7 +153,18 @@ impl Source {
         sources_dir: PathBuf,
         config: SourceConfig,
         parameters: &ParameterValues,
-    ) -> Self {
+    ) -> Result<Self, CreateModeError> {
+        // Ensure required tools exist in path
+        config
+            .meta
+            .required_tools
+            .into_iter()
+            .try_for_each(|tool| {
+                which::which(&tool)
+                    .map(|_| ())
+                    .map_err(|error| (tool, error))
+            })?;
+
         let mut program = config
             .meta
             .command
@@ -163,11 +179,11 @@ impl Source {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        Self {
+        Ok(Self {
             command,
             child: None,
             format: config.meta.output,
-        }
+        })
     }
 }
 
