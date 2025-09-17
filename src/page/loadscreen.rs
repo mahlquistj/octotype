@@ -1,12 +1,7 @@
-use std::{
-    fmt::Display,
-    thread::JoinHandle,
-    time::{Duration, Instant},
-};
+use std::{fmt::Display, thread::JoinHandle};
 
 use ratatui::{
     layout::{Alignment, Constraint},
-    style::{Style, Stylize},
     text::{Line, ToSpan},
     widgets::{Block, Paragraph},
 };
