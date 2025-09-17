@@ -1,8 +1,3 @@
-//! Spinner logic inspired from: https://crates.io/crates/throbber-widgets-tui
-//!
-//! Chose to go with my own spinner logic, as throbber-widgets-tui simply had too much for
-//! OctoTypes needs.
-
 use std::time::{Duration, Instant};
 
 use ratatui::{
@@ -49,6 +44,7 @@ impl Default for Theme {
     }
 }
 
+/// Spinner logic inspired from: https://crates.io/crates/throbber-widgets-tui
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Spinner {
     pub color: Color,
