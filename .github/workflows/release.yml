@@ -1,4 +1,4 @@
-name: Release
+name: Release Docs
 
 on:
   workflow_dispatch:
@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: ./docs/package-lock.json
 
       - name: Install dependencies
         run: npm ci
