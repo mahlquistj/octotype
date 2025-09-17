@@ -39,7 +39,7 @@ jobs:
 
   deploy-docs:
     name: Deploy to GitHub Pages
-    needs: build
+    needs: build-docs
 
     permissions:
       pages: write
