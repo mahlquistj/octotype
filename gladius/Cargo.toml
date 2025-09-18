@@ -1,12 +1,12 @@
 [package]
 name = "gladius"
 description = "A library for writing typing-trainers"
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
-readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
 exclude.workspace = true
