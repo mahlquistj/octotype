@@ -1,51 +1,51 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import { themes as prismThemes } from "prism-react-renderer";
+import type { Config } from "@docusaurus/types";
+import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'OctoType',
-  tagline: 'A typing trainer for your terminal',
-  favicon: 'img/favicon.ico',
+  title: "OctoType",
+  tagline: "A typing trainer for your terminal",
+  favicon: "img/favicon.ico",
 
   future: {
-    v4: true, 
+    v4: true,
   },
 
-  url: 'https://mahlquistj.github.io',
-  baseUrl: '/octotype/',
-  organizationName: 'mahlquistj', 
-  projectName: 'octotype', 
+  url: "https://mahlquistj.github.io",
+  baseUrl: "/octotype/",
+  organizationName: "mahlquistj",
+  projectName: "octotype",
 
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  onBrokenLinks: "throw",
+  onBrokenMarkdownLinks: "warn",
 
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
+    defaultLocale: "en",
+    locales: ["en"],
   },
 
   presets: [
     [
-      'classic',
+      "classic",
       {
         docs: {
-          sidebarPath: './sidebars.ts',
+          sidebarPath: "./sidebars.ts",
         },
         blog: {
           showReadingTime: true,
           feedOptions: {
-            type: ['rss', 'atom'],
+            type: ["rss", "atom"],
             xslt: true,
           },
           // Useful options to enforce blogging best practices
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
+          onInlineTags: "warn",
+          onInlineAuthors: "warn",
+          onUntruncatedBlogPosts: "warn",
         },
         theme: {
-          customCss: './src/css/custom.css',
+          customCss: "./src/css/custom.css",
         },
       } satisfies Preset.Options,
     ],
@@ -53,50 +53,62 @@ const config: Config = {
 
   themeConfig: {
     // TODO: Replace with social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: "img/docusaurus-social-card.jpg",
     navbar: {
-      title: 'OctoType',
+      title: "OctoType",
       logo: {
-        alt: 'My Site Logo',
-        src: '/img/logo.svg',
+        alt: "My Site Logo",
+        src: "/img/logo.svg",
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'docs',
-          position: 'left',
-          label: 'Docs',
+          type: "docSidebar",
+          sidebarId: "configuration",
+          position: "left",
+          label: "Configuration",
         },
         {
-          href: 'https://github.com/mahlquistj/octotype',
-          label: 'GitHub',
-          position: 'right',
+          type: "docSidebar",
+          sidebarId: "cli",
+          position: "left",
+          label: "Commandline Interface",
         },
         {
-            href: 'https://discord.gg/zk4SXvdUxj',
-            label: 'Discord',
-            position: 'right',
-        }
+          type: "docSidebar",
+          sidebarId: "contributing",
+          position: "left",
+          label: "Contributing",
+        },
+        {
+          href: "https://github.com/mahlquistj/octotype",
+          label: "GitHub",
+          position: "right",
+        },
+        {
+          href: "https://discord.gg/zk4SXvdUxj",
+          label: "Discord",
+          position: "right",
+        },
       ],
     },
     footer: {
-      style: 'dark',
+      style: "dark",
       links: [
         {
-          title: 'Docs',
+          title: "Docs",
           items: [
             {
-              label: 'Getting started',
-              to: '/docs/intro',
+              label: "Getting started",
+              to: "/docs/intro",
             },
           ],
         },
         {
-          title: 'Links',
+          title: "Links",
           items: [
             {
-              label: 'Join the Discord',
-              href: 'https://discord.gg/zk4SXvdUxj'
+              label: "Join the Discord",
+              href: "https://discord.gg/zk4SXvdUxj",
             },
           ],
         },
@@ -105,7 +117,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      additionalLanguages: ['toml', 'nix', 'bash']
+      additionalLanguages: ["toml", "nix", "bash"],
     },
   } satisfies Preset.ThemeConfig,
 };
