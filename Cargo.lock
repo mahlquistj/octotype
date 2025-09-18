@@ -384,6 +384,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "gladius"
+version = "0.3.2"
+
+[[package]]
 name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

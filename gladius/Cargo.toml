@@ -1,0 +1,14 @@
+[package]
+name = "gladius"
+description = "A library for writing typing-trainers"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+exclude.workspace = true
+
+[dependencies]
