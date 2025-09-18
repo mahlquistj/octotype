@@ -17,7 +17,8 @@ exclude = [
 "flake.lock",
 "modes/*",
 "sources/*",
-"themes/*"
+"themes/*",
+"docs/*"
 ]
 
 [profile.release]

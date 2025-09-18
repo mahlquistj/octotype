@@ -85,13 +85,15 @@ text = "Black"
 
 ### Colors
 
-> [!WARNING]
->
-> While ANSI colors are supported, OctoType is made for mordern terminals with
-> 24bit color support - We recommend using hex colors for the best experience
-> possible.
->
-> Some known issues regarding ghost-lines can happen, if not using hex colors.
+:::warning
+
+While ANSI colors are supported, OctoType is made for mordern terminals with
+24bit color support - We recommend using hex colors for the best experience
+possible.
+
+Some known issues regarding ghost-lines can happen, if not using hex colors.
+
+:::
 
 Two different types of colors can be supplied: ANSI or Custom which sets a
 specific color.

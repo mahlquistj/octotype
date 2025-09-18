@@ -9,28 +9,18 @@ const config: Config = {
   tagline: 'A typing trainer for your terminal',
   favicon: 'img/favicon.ico',
 
-  // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
-    v4: true, // Improve compatibility with the upcoming Docusaurus v4
+    v4: true, 
   },
 
-  // Set the production url of your site here
   url: 'https://mahlquistj.github.io',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/octotype/',
-
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'mahlquistj', // Usually your GitHub org/user name.
-  projectName: 'octotype', // Usually your repo name.
+  organizationName: 'mahlquistj', 
+  projectName: 'octotype', 
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -42,10 +32,6 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/mahlquistj/octotype',
         },
         blog: {
           showReadingTime: true,
@@ -66,7 +52,7 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
+    // TODO: Replace with social card
     image: 'img/docusaurus-social-card.jpg',
     navbar: {
       title: 'OctoType',
@@ -77,15 +63,20 @@ const config: Config = {
       items: [
         {
           type: 'docSidebar',
-          sidebarId: 'configuration',
+          sidebarId: 'docs',
           position: 'left',
-          label: 'Configuration',
+          label: 'Docs',
         },
         {
           href: 'https://github.com/mahlquistj/octotype',
           label: 'GitHub',
           position: 'right',
         },
+        {
+            href: 'https://discord.gg/zk4SXvdUxj',
+            label: 'Discord',
+            position: 'right',
+        }
       ],
     },
     footer: {
@@ -95,17 +86,17 @@ const config: Config = {
           title: 'Docs',
           items: [
             {
-              label: 'Tutorial',
+              label: 'Getting started',
               to: '/docs/intro',
             },
           ],
         },
         {
-          title: 'Community',
+          title: 'Links',
           items: [
             {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              label: 'Join the Discord',
+              href: 'https://discord.gg/zk4SXvdUxj'
             },
           ],
         },
@@ -114,7 +105,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      additionalLanguages: ['toml']
+      additionalLanguages: ['toml', 'nix', 'bash']
     },
   } satisfies Preset.ThemeConfig,
 };
