@@ -12,10 +12,11 @@
   };
 in
   rustPlatform.buildRustPackage {
-    inherit (cargoToml.package) version;
+    inherit (cargoToml.workspace.package) version;
     name = "octotype";
     src = ./.;
     cargoLock.lockFile = ./Cargo.lock;
+    buildAndTestSubdir = "octotype";
 
     nativeBuildInputs = lib.optionals stdenv.isLinux [
       pkg-config
