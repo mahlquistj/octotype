@@ -130,12 +130,11 @@ impl ConditionValue {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ConditionConfig {
     pub time: Option<ConditionValue>,
     pub words_typed: Option<ConditionValue>,
-    #[serde(default = "ConditionConfig::default_allow_deletions")]
     pub allow_deletions: ConditionValue,
-    #[serde(default = "ConditionConfig::default_allow_errors")]
     pub allow_errors: ConditionValue,
 }
 
@@ -147,15 +146,5 @@ impl Default for ConditionConfig {
             allow_deletions: ConditionValue::Bool(true),
             allow_errors: ConditionValue::Bool(true),
         }
-    }
-}
-
-impl ConditionConfig {
-    const fn default_allow_deletions() -> ConditionValue {
-        ConditionValue::Bool(true)
-    }
-
-    const fn default_allow_errors() -> ConditionValue {
-        ConditionValue::Bool(true)
     }
 }

@@ -80,11 +80,17 @@ pub struct InnerConfig {
 
 impl Config {
     pub fn list_modes(&self) -> Vec<String> {
-        self.modes.keys().map(|key| key.to_string()).collect()
+        let mut modes: Vec<_> = self.modes.keys().map(|key| key.to_string()).collect();
+
+        modes.sort();
+        modes
     }
 
     pub fn list_sources(&self) -> Vec<String> {
-        self.sources.keys().map(|key| key.to_string()).collect()
+        let mut sources: Vec<_> = self.sources.keys().map(|key| key.to_string()).collect();
+
+        sources.sort();
+        sources
     }
 
     pub fn get(override_path: Option<PathBuf>) -> Result<Self, ConfigError> {
