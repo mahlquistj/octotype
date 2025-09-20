@@ -2,28 +2,30 @@ use web_time::Instant;
 
 use crate::{Configuration, TempStatistics};
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum State {
     // == Pre delete or add ==
     /// The text has never been touched
     #[default]
     None,
 
-    // == Post delete ==
-    /// The text was wrong, but has since been deleted or corrected
-    WasWrong,
-    /// The text was corrected, but has since been deleted
-    WasCorrected,
-    /// The text was correct, but has since been deleted
-    WasCorrect,
+    // The below are in the specific order to support the `update_word` method properly
 
     // == Post add ==
-    /// The text is wrong
-    Wrong,
-    /// The text was corrected
-    Corrected,
     /// The text is correct
     Correct,
+    /// The text was corrected
+    Corrected,
+    /// The text is wrong
+    Wrong,
+
+    // == Post delete ==
+    /// The text was correct, but has since been deleted
+    WasCorrect,
+    /// The text was corrected, but has since been deleted
+    WasCorrected,
+    /// The text was wrong, but has since been deleted or corrected
+    WasWrong,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -34,12 +36,22 @@ pub enum CharacterResult {
     Correct,
 }
 
+pub struct RenderingContext<'a> {
+    pub character: &'a Character,
+    pub word: &'a Word,
+}
+
 pub struct Word {
     pub start: usize,
     pub end: usize,
-    /// TODO: MISSING IMPLEMENTATION
-    pub state: State,
     pub string: String,
+    pub state: State,
+}
+
+impl Word {
+    pub fn contains_index(&self, index: &usize) -> bool {
+        (self.start..self.end).contains(index)
+    }
 }
 
 pub struct Character {
@@ -49,7 +61,7 @@ pub struct Character {
 
 pub struct Text {
     characters: Vec<Character>,
-    pub(crate) words: Vec<Word>,
+    words: Vec<Word>,
     input: Vec<char>,
     stats: TempStatistics,
     config: Configuration,
@@ -71,7 +83,7 @@ impl Text {
             started_at: None,
         };
 
-        text.push(string);
+        text.push_string(string);
 
         Some(text)
     }
@@ -121,7 +133,7 @@ impl Text {
     /// Push more characters to the [Text].
     ///
     /// This allows for dynamically adding text during typing.
-    pub fn push(&mut self, string: &str) {
+    pub fn push_string(&mut self, string: &str) {
         let mut current_word_start: Option<usize> = None;
 
         let chars: Vec<char> = string.chars().collect();
@@ -144,7 +156,7 @@ impl Text {
                     // Add new word, as we've hit whitespace
                     text.words.push(Word {
                         start: word_start + current_len,
-                        end: index + current_len,
+                        end: index + current_len - 1,
                         state: State::default(),
                         string: chars[word_start..index].iter().collect(),
                     });
@@ -164,7 +176,7 @@ impl Text {
         if let Some(word_start) = current_word_start {
             self.words.push(Word {
                 start: word_start + current_len,
-                end: char_count + current_len,
+                end: char_count + current_len - 1,
                 state: State::default(),
                 // We know this is the last word, so we can just go unbounded
                 string: chars[word_start..].iter().collect(),
@@ -198,7 +210,8 @@ impl Text {
             self.started_at = Some(Instant::now());
         }
 
-        let character = self.characters.get_mut(self.input.len())?;
+        let index = self.input.len();
+        let character = self.characters.get_mut(index)?;
 
         let result;
         let new_state;
@@ -247,6 +260,8 @@ impl Text {
         // Update the character itself
         character.state = new_state;
 
+        self.update_word(index);
+
         Some(result)
     }
 
@@ -257,11 +272,13 @@ impl Text {
         // Delete the char from the input
         let deleted = self.input.pop()?;
 
+        let index = self.input.len();
+
         // Safety: No matter when the current function is called, because of the pop above
         // the input length should always be under or equal to the length of characters.
         let character = self
             .characters
-            .get_mut(self.input.len())
+            .get_mut(index)
             .expect("Failed to get current character");
 
         let prev_state = character.state;
@@ -290,7 +307,33 @@ impl Text {
             &self.config,
         );
 
+        self.update_word(index);
+
         Some((deleted, result))
+    }
+
+    /// Update the word state to reflect it if it is correctly typed
+    fn update_word(&mut self, at_index: usize) {
+        // TODO: Optimize to faster search?
+        let Some(word) = self
+            .words
+            .iter_mut()
+            .find(|word| word.contains_index(&at_index))
+        else {
+            return;
+        };
+
+        let word_characters = &self.characters[word.start..word.end];
+
+        // TODO: This could maybe be done more effeciently - Maybe pattern matching?
+        let mut state = State::None;
+        for character in word_characters {
+            if character.state > state {
+                state = character.state;
+            }
+        }
+
+        word.state = state;
     }
 }
 
@@ -327,15 +370,15 @@ mod tests {
         assert_eq!(text.text_len(), 5);
 
         // Push additional text
-        text.push(" world");
+        text.push_string(" world");
         assert_eq!(text.text_len(), 11);
 
         // Push empty string (should not change anything)
-        text.push("");
+        text.push_string("");
         assert_eq!(text.text_len(), 11);
 
         // Push more text with special characters
-        text.push("! 123");
+        text.push_string("! 123");
         assert_eq!(text.text_len(), 16);
 
         // Test that we can still access current character
@@ -355,7 +398,7 @@ mod tests {
             );
         }
 
-        text.push(" second word");
+        text.push_string(" second word");
 
         // Verify text length
         assert_eq!(text.text_len(), 22);
@@ -375,22 +418,22 @@ mod tests {
         // Verify first word
         assert_eq!(text.words[0].string, "first");
         assert_eq!(text.words[0].start, 0);
-        assert_eq!(text.words[0].end, 5);
+        assert_eq!(text.words[0].end, 4);
 
         // Verify second word
         assert_eq!(text.words[1].string, "word");
         assert_eq!(text.words[1].start, 6);
-        assert_eq!(text.words[1].end, 10);
+        assert_eq!(text.words[1].end, 9);
 
         // Verify third word (from push)
         assert_eq!(text.words[2].string, "second");
         assert_eq!(text.words[2].start, 11);
-        assert_eq!(text.words[2].end, 17);
+        assert_eq!(text.words[2].end, 16);
 
         // Verify fourth word (from push)
         assert_eq!(text.words[3].string, "word");
         assert_eq!(text.words[3].start, 18);
-        assert_eq!(text.words[3].end, 22);
+        assert_eq!(text.words[3].end, 21);
     }
 
     #[test]
@@ -504,5 +547,81 @@ mod tests {
         let stats = text.statistics();
         assert_eq!(stats.adds, 2);
         assert_eq!(stats.errors, 1);
+    }
+
+    #[test]
+    fn test_update_word() {
+        let mut text = Text::new("hello world").unwrap();
+
+        // Initially all words should have State::None
+        assert_eq!(text.words[0].state, State::None); // "hello"
+        assert_eq!(text.words[1].state, State::None); // "world"
+
+        // Type first character correctly - word should become Correct
+        text.input(Some('h')).unwrap();
+        assert_eq!(text.words[0].state, State::Correct);
+        assert_eq!(text.words[1].state, State::None);
+
+        // Type second character correctly - word should remain Correct
+        text.input(Some('e')).unwrap();
+        assert_eq!(text.words[0].state, State::Correct);
+
+        // Type third character wrong - word should become Wrong
+        text.input(Some('x')).unwrap();
+        assert_eq!(text.words[0].state, State::Wrong);
+
+        // Delete the wrong character - word should become WasWrong
+        text.input(None).unwrap();
+        assert_eq!(text.words[0].state, State::WasWrong);
+
+        // Type correct character - word should become Corrected
+        text.input(Some('l')).unwrap();
+        assert_eq!(text.words[0].state, State::Corrected);
+
+        // Continue typing correctly - word should remain Corrected
+        text.input(Some('l')).unwrap();
+        text.input(Some('o')).unwrap();
+        assert_eq!(text.words[0].state, State::Corrected);
+
+        // Move to next word - type space correctly
+        text.input(Some(' ')).unwrap();
+        assert_eq!(text.words[0].state, State::Corrected);
+        assert_eq!(text.words[1].state, State::None);
+
+        // Type first character of second word correctly
+        text.input(Some('w')).unwrap();
+        assert_eq!(text.words[0].state, State::Corrected);
+        assert_eq!(text.words[1].state, State::Correct);
+
+        // Type wrong character in second word
+        text.input(Some('x')).unwrap();
+        assert_eq!(text.words[1].state, State::Wrong);
+
+        // Delete and correct
+        text.input(None).unwrap();
+        assert_eq!(text.words[1].state, State::WasWrong);
+
+        text.input(Some('o')).unwrap();
+        assert_eq!(text.words[1].state, State::Corrected);
+
+        // Type rest of second word correctly
+        text.input(Some('r')).unwrap();
+        text.input(Some('l')).unwrap();
+        text.input(Some('d')).unwrap();
+        assert_eq!(text.words[1].state, State::Corrected);
+
+        // Test that a Corrected word becomes Wrong when typing a wrong character
+        let mut text2 = Text::new("test").unwrap();
+
+        // Create a corrected word by typing wrong, deleting, then correct
+        text2.input(Some('x')).unwrap(); // Wrong
+        text2.input(None).unwrap(); // Delete
+        text2.input(Some('t')).unwrap(); // Correct (now Corrected)
+        text2.input(Some('e')).unwrap(); // Correct
+        assert_eq!(text2.words[0].state, State::Corrected);
+
+        // Type wrong character - word should become Wrong (higher priority than Corrected)
+        text2.input(Some('x')).unwrap();
+        assert_eq!(text2.words[0].state, State::Wrong);
     }
 }

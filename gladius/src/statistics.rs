@@ -74,10 +74,10 @@ impl TempStatistics {
         // Only poll for measurements each second
         if let Some(last_timestamp) = self.last_measurement {
             let time = timestamp - last_timestamp;
-            if time >= config.measurement_interval.as_secs_f64() {
+            if time >= config.measurement_interval_seconds {
                 self.measure(time, input_len);
             }
-        } else if timestamp >= config.measurement_interval.as_secs_f64() {
+        } else if timestamp >= config.measurement_interval_seconds {
             self.last_measurement = Some(timestamp);
             self.measure(timestamp, input_len);
         }
