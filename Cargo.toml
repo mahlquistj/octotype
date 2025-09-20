@@ -3,7 +3,6 @@ members = [ "gladius","octotype"]
 resolver = "3"
 
 [workspace.package]
-name = "octotype"
 version = "0.3.2"
 edition = "2024"
 authors = ["Mads Ahlquist Jensen <madsaj10@outlook.com>"]

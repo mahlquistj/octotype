@@ -1,6 +1,10 @@
+mod config;
+mod math;
 mod statistics;
 mod text;
 
+pub use config::*;
+pub use math::*;
 pub use statistics::*;
 pub use text::*;
 
@@ -15,8 +19,3 @@ type Float = f64;
 
 #[cfg(not(feature = "f64"))]
 type Float = f32;
-
-// Get the minutes elapsed from a timestamp
-pub(crate) fn minutes(timestamp: Timestamp) -> Minutes {
-    timestamp / 60.0
-}

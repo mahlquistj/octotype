@@ -4,11 +4,11 @@ use crate::{AVERAGE_WORD_LENGTH, Float, Minutes};
 pub struct Wpm {
     /// The raw WPM describes how many words were typed, without accounting for errors or
     /// corrections. Just raw speed.
-    raw: Float,
+    pub raw: Float,
     /// The corrected WPM describes how many words were typed, taking only errors into account.
-    corrected: Float,
+    pub corrected: Float,
     /// The actual WPM describes how many words were typed, taking errors and corrections into account.
-    actual: Float,
+    pub actual: Float,
 }
 
 impl Wpm {
@@ -19,21 +19,21 @@ impl Wpm {
     /// * `corrections` - How many corrections were made during `time`
     /// * `time` - How many minutes have gone by
     ///
-    pub fn new(characters: usize, errors: usize, corrections: usize, time: Minutes) -> Self {
+    pub fn new(characters: usize, errors: usize, corrections: usize, minutes: Minutes) -> Self {
         let characters = characters as Float;
         let errors = errors as Float;
         let corrections = corrections as Float;
 
         #[cfg(not(feature = "f64"))]
-        let time = time as Float;
+        let minutes = minutes as Float;
 
         // Errors Per Minute
-        let epm = errors / time;
+        let epm = errors / minutes;
         // Corrections and Errors Per Minute
-        let cepm = (corrections + errors) / time;
+        let cepm = (corrections + errors) / minutes;
 
         // Raw WPM
-        let raw = (characters / AVERAGE_WORD_LENGTH as Float) / time;
+        let raw = (characters / AVERAGE_WORD_LENGTH as Float) / minutes;
 
         // Corrected WPM
         let corrected = raw - epm;
@@ -53,10 +53,10 @@ impl Wpm {
 pub struct Ipm {
     /// The raw ipm describes how many keypresses were made, including deletions and re-typing
     /// characters. Just raw input-speed.
-    raw: Float,
+    pub raw: Float,
     /// The actual ipm describes how many characters were added to the input, excluding deletions
     /// and re-typing characters.
-    actual: Float,
+    pub actual: Float,
 }
 
 impl Ipm {
@@ -64,19 +64,19 @@ impl Ipm {
     ///
     /// * `actual_inputs` - How many characters where added to the input
     /// * `raw_inputs` - How many inputs happened during `time`, including deletions and re-typed
-    /// characters.
+    ///   characters.
     /// * `time` - How many minutes have gone by
     ///
-    pub fn new(actual_inputs: usize, raw_inputs: usize, time: Minutes) -> Self {
+    pub fn new(actual_inputs: usize, raw_inputs: usize, minutes: Minutes) -> Self {
         let raw_inputs = raw_inputs as Float;
         let actual_inputs = actual_inputs as Float;
 
         #[cfg(not(feature = "f64"))]
-        let time = time as Float;
+        let minutes = minutes as Float;
 
         Self {
-            raw: raw_inputs / time,
-            actual: actual_inputs / time,
+            raw: raw_inputs / minutes,
+            actual: actual_inputs / minutes,
         }
     }
 }
@@ -88,9 +88,9 @@ impl Ipm {
 /// The values in this struct are described as a percentage between 0.0 - 100.0.
 pub struct Accuracy {
     /// Raw accuracy counts corrections as correct characters.
-    raw: Float,
+    pub raw: Float,
     /// Actual accuracy does not count corrections as correct characters
-    actual: Float,
+    pub actual: Float,
 }
 
 impl Accuracy {
@@ -100,7 +100,6 @@ impl Accuracy {
     /// * `total_errors` - The total amount of errors made
     /// * `total_corrections` - The total amount of corrections made
     ///
-    /// Panics if `input_len` is `0`.
     pub fn new(input_len: usize, total_errors: usize, total_corrections: usize) -> Self {
         let input_len = input_len as Float;
         let total_errors = total_errors as Float;
