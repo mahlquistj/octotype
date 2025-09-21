@@ -6,9 +6,6 @@ use ratatui::{
     widgets::{Block, BorderType, Padding},
 };
 
-/// Timestamp type for more clarity
-pub type Timestamp = f64;
-
 /// A block with a rounded border
 pub const ROUNDED_BLOCK: Block = Block::bordered().border_type(BorderType::Rounded);
 

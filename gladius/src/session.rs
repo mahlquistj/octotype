@@ -73,6 +73,18 @@ impl TypingSession {
             .is_fully_typed(self.text_buffer.text_len())
     }
 
+    /// Returns the completion percentage of the current [Buffer] as a f64
+    pub fn completion_percentage(&self) -> f64 {
+        let input_len = self.input_handler.input_len();
+        let text_len = self.text_buffer.text_len();
+
+        if text_len == 0 {
+            return 0.0;
+        }
+
+        (input_len as f64 / text_len as f64) * 100.0
+    }
+
     /// Returns the current time elapsed in seconds
     pub fn time_elapsed(&self) -> f64 {
         self.statistics
@@ -642,5 +654,34 @@ mod tests {
         // Should treat \n as regular character and not break
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0], "hello world\nthis is");
+    }
+
+    #[test]
+    fn test_completion_percentage() {
+        let mut text = TypingSession::new("hello").unwrap();
+
+        // Initially 0% completed
+        assert_eq!(text.completion_percentage(), 0.0);
+
+        // Type first character - 20% completed
+        text.input(Some('h')).unwrap();
+        assert_eq!(text.completion_percentage(), 20.0);
+
+        // Type second character - 40% completed
+        text.input(Some('e')).unwrap();
+        assert_eq!(text.completion_percentage(), 40.0);
+
+        // Type remaining characters
+        text.input(Some('l')).unwrap();
+        text.input(Some('l')).unwrap();
+        text.input(Some('o')).unwrap();
+
+        // Should be 100% completed
+        assert_eq!(text.completion_percentage(), 100.0);
+
+        // Test with empty text (should return None, so we handle this case)
+        if let Some(empty_text) = TypingSession::new("") {
+            assert_eq!(empty_text.completion_percentage(), 0.0);
+        }
     }
 }

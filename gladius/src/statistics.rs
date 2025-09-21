@@ -72,6 +72,7 @@ pub struct CounterData {
     pub wrong_deletes: usize,
 }
 
+#[derive(Debug, Clone)]
 pub struct Statistics {
     // Final stats
     pub wpm: Wpm,

@@ -1,26 +1,19 @@
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    ops::{Div, Rem},
-    time::{Duration, Instant},
-};
+use std::ops::Rem;
 
 use crossterm::event::{Event, KeyCode};
-use gladius::{
-    CharacterResult, State, TypingSession,
-    render::{LineRenderConfig, RenderingContext},
-};
+use gladius::{State, TypingSession, render::LineRenderConfig};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
     style::{Modifier, Style, Stylize},
-    text::{Line, Span, ToSpan},
+    text::{Line, Span},
     widgets::{Block, Paragraph, Wrap},
 };
 
 use crate::{
     config::Config,
-    utils::{Timestamp, center, centered_padding, fade, height_of_lines},
+    page::{self, Loading},
+    utils::{center, centered_padding, fade, height_of_lines},
 };
 
 mod mode;
@@ -33,7 +26,7 @@ use super::Message;
 #[derive(Debug)]
 pub struct Session {
     gladius_session: TypingSession,
-    next_words: Option<String>,
+    fetch_buffer: Option<String>,
     mode: Mode,
 }
 
@@ -45,9 +38,30 @@ impl Session {
 
         Ok(Self {
             gladius_session,
-            next_words: None,
+            fetch_buffer: None,
             mode,
         })
+    }
+}
+
+impl Session {
+    fn fetch_new_text(&mut self, config: &Config) -> Result<(), FetchError> {
+        if self.fetch_buffer.is_none() {
+            if let Some(new_text) = self.mode.source.try_fetch()? {
+                self.fetch_buffer = Some(new_text);
+            } else if self.gladius_session.is_fully_typed() {
+                return Err(FetchError::SourceError(
+                    "Source fetched too slowly".to_string(),
+                ));
+            }
+        } else if self.gladius_session.completion_percentage() > 50.0 {
+            let Some(text) = self.fetch_buffer.take() else {
+                unreachable!("Text in buffer was None after checking!");
+            };
+            self.gladius_session.push_string(&text);
+        }
+
+        Ok(())
     }
 }
 
@@ -61,7 +75,7 @@ impl Session {
 
         let lines = self.gladius_session.render_lines(
             |line| {
-                let relative_idx = line.active_line_offset.abs() as usize;
+                let relative_idx = line.active_line_offset.unsigned_abs();
                 if relative_idx > config.settings.show_ghost_lines {
                     return None;
                 }
@@ -117,7 +131,7 @@ impl Session {
                             style = style.bg(cursor).fg(text);
                         }
 
-                        ctx.character.char.to_span().style(style)
+                        Span::from(ctx.character.char.to_string()).style(style)
                     })
                     .collect::<Line>();
 
@@ -141,25 +155,39 @@ impl Session {
         let time = self.gladius_session.time_elapsed();
         let seconds = time.rem(60.0);
         let minutes = time / 60.0;
-        // TODO: SHOW STATS
-        // Some(Line::raw(format!("{minutes:.0}:{seconds:0>2} {}", {
-        //     self.stat_cache
-        //         .as_ref()
-        //         .map_or_else(|| "".to_string(), |cache| cache.to_string())
-        // })))
-        None
+
+        let stats = self
+            .gladius_session
+            .statistics()
+            .measurements
+            .last()
+            .map(|measure| {
+                format!(
+                    "C: %{:.2} | W: {:.2} | A: {:2} | I: {:.2}",
+                    measure.consistency.actual_percent,
+                    measure.wpm.actual,
+                    measure.accuracy.actual,
+                    measure.ipm.actual
+                )
+            })
+            .unwrap_or("".to_string());
+
+        Some(Line::raw(format!("{minutes:.0}:{seconds:0>2} {stats}")))
     }
 
     pub fn poll(&mut self, config: &Config) -> Option<Message> {
-        // if self.should_end() {
-        //     return Some(Message::Show(self.build_stats().into()));
-        // }
-        //
-        // if self.mode.conditions.words_typed.is_some()
-        //     && let Err(error) = self.fetch_new_text(config)
-        // {
-        //     return Some(Message::Error(Box::new(error)));
-        // }
+        if self.gladius_session.is_fully_typed() {
+            return Some(Message::Show(
+                // TODO: Clone for now, but maybe we need a better solution for finalizing
+                page::Stats::from(self.gladius_session.clone().finalize().unwrap()).into(),
+            ));
+        }
+
+        if self.mode.conditions.words_typed.is_some()
+            && let Err(error) = self.fetch_new_text(config)
+        {
+            return Some(Message::Error(Box::new(error)));
+        }
 
         None
     }

@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::{CharacterResult, State};
+use crate::{Character, CharacterResult, State};
 
 /// Handles input processing and position tracking
 #[derive(Debug, Clone)]
@@ -72,6 +72,10 @@ impl InputHandler {
                     // This is not a mistake - The result of the input was that it was correctly
                     // typed because it was corrected before. But the state of the character should
                     // only be Corrected, as it once was Wrong.
+                    CharacterResult::Correct
+                }
+                State::WasCorrect => {
+                    new_state = State::Correct;
                     CharacterResult::Correct
                 }
                 // The input was already typed - That shouldn't happen
