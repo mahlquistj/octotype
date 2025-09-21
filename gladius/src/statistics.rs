@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 pub use web_time::{Duration, Instant};
 
-use crate::{Accuracy, CharacterResult, Configuration, Consistency, Float, Ipm, State, Timestamp, Word, Wpm};
+use crate::{
+    Accuracy, CharacterResult, Configuration, Consistency, Ipm, State, Timestamp, Word, Wpm,
+};
 
 pub struct Input {
     pub timestamp: Timestamp,
@@ -91,14 +93,14 @@ impl TempStatistics {
     /// Grab a measurement for the statistics
     fn measure(&mut self, timestamp: Timestamp, input_len: usize) {
         let minutes = timestamp / 60.0;
-        let wpm = Wpm::new(
+        let wpm = Wpm::calculate(
             self.input_history.len(),
             self.errors,
             self.corrections,
             minutes,
         );
-        let ipm = Ipm::new(self.adds, self.input_history.len(), minutes);
-        let accuracy = Accuracy::new(input_len, self.errors, self.corrections);
+        let ipm = Ipm::calculate(self.adds, self.input_history.len(), minutes);
+        let accuracy = Accuracy::calculate(input_len, self.errors, self.corrections);
 
         self.measurements.push(Measurement {
             timestamp,
@@ -159,16 +161,13 @@ impl TempStatistics {
         let minutes = total_time.as_secs_f64() / 60.0;
 
         // Calculate final WPM, IPM, and Accuracy
-        let wpm = Wpm::new(input_history.len(), errors, corrections, minutes);
-        let ipm = Ipm::new(adds, input_history.len(), minutes);
-        let accuracy = Accuracy::new(input_len, errors, corrections);
+        let wpm = Wpm::calculate(input_history.len(), errors, corrections, minutes);
+        let ipm = Ipm::calculate(adds, input_history.len(), minutes);
+        let accuracy = Accuracy::calculate(input_len, errors, corrections);
 
         // Calculate consistency (standard deviation of WPM measurements)
-        let raw_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.raw).collect();
-        let corrected_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.corrected).collect();
-        let actual_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.actual).collect();
-        
-        let consistency = Consistency::new(&raw_wpm_values, &corrected_wpm_values, &actual_wpm_values);
+        let wpm_measurements: Vec<Wpm> = measurements.iter().map(|m| m.wpm).collect();
+        let consistency = Consistency::calculate(&wpm_measurements);
 
         Statistics {
             wpm,
