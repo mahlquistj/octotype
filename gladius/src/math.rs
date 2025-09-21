@@ -181,16 +181,19 @@ impl Consistency {
             return 0.0;
         }
 
-        let mean = values.iter().sum::<Float>() / values.len() as Float;
-        let variance = values
-            .iter()
-            .map(|&value| {
-                let diff = value - mean;
-                diff * diff
-            })
-            .sum::<Float>()
-            / values.len() as Float;
-
+        // Welford's online algorithm for numerically stable variance calculation
+        let mut mean = 0.0;
+        let mut m2 = 0.0; // Sum of squares of deviations from mean
+        
+        for (i, &value) in values.iter().enumerate() {
+            let delta = value - mean;
+            mean += delta / (i + 1) as Float;
+            let delta2 = value - mean;
+            m2 += delta * delta2;
+        }
+        
+        // Population standard deviation
+        let variance = m2 / values.len() as Float;
         variance.sqrt()
     }
 
