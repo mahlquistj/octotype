@@ -1,4 +1,3 @@
-use super::Segment;
 use std::collections::{BTreeMap, HashMap};
 
 use crossterm::event::{Event, KeyCode};

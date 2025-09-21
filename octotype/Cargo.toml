@@ -12,6 +12,7 @@ categories.workspace = true
 exclude.workspace = true
 
 [dependencies]
+gladius.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 figment.workspace = true

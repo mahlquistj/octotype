@@ -1,12 +1,14 @@
 use crate::buffer::Buffer;
 use crate::config::Configuration;
 use crate::input_handler::InputHandler;
-use crate::render::{RenderingContext, RenderingIterator};
+use crate::render::{LineContext, LineRenderConfig, RenderingContext, RenderingIterator};
 use crate::statistics::{Statistics, TempStatistics};
 use crate::statistics_tracker::StatisticsTracker;
 use crate::{Character, CharacterResult, Word};
+use web_time::Duration;
 
 /// A typing session
+#[derive(Debug, Clone)]
 pub struct TypingSession {
     text_buffer: Buffer,
     input_handler: InputHandler,
@@ -71,6 +73,15 @@ impl TypingSession {
             .is_fully_typed(self.text_buffer.text_len())
     }
 
+    /// Returns the current time elapsed in seconds
+    pub fn time_elapsed(&self) -> f64 {
+        self.statistics
+            .total_duration()
+            .as_ref()
+            .map(Duration::as_secs_f64)
+            .unwrap_or(0.0)
+    }
+
     /// Get the current statistics recorded for the text
     pub fn statistics(&self) -> &TempStatistics {
         self.statistics.statistics()
@@ -92,7 +103,7 @@ impl TypingSession {
     }
 
     /// Render the text using a generic renderer function
-    pub fn render<T, F: FnMut(RenderingContext) -> T>(&self, mut renderer: F) -> Vec<T> {
+    pub fn render<Char, F: FnMut(RenderingContext) -> Char>(&self, mut renderer: F) -> Vec<Char> {
         let mut results = Vec::with_capacity(self.text_len());
         let cursor_position = self.input_len();
 
@@ -112,6 +123,107 @@ impl TypingSession {
         }
 
         results
+    }
+
+    pub fn render_lines<Line, F: FnMut(LineContext) -> Option<Line>>(
+        &self,
+        mut line_renderer: F,
+        config: LineRenderConfig,
+    ) -> Vec<Line> {
+        let mut lines = Vec::new();
+        let mut current_line_contexts = Vec::new();
+        let mut current_line_length = 0;
+        let mut cursor_line_index = None;
+
+        for context in self.render_iter() {
+            let char_is_space = context.character.char.is_ascii_whitespace();
+            let char_is_newline = context.character.char == '\n';
+            let context_index = context.index;
+            let has_cursor = context.has_cursor;
+
+            // Track which line the cursor is on
+            if has_cursor {
+                cursor_line_index = Some(lines.len()); // Current line being built
+            }
+
+            // Handle newline breaking if enabled
+            if config.break_at_newlines && char_is_newline {
+                // Add the newline context to the current line, then break
+                current_line_contexts.push(context);
+                lines.push((current_line_contexts, lines.len()));
+                current_line_contexts = Vec::new();
+                current_line_length = 0;
+                continue;
+            }
+
+            // If we're at a space and not wrapping words, consider breaking here
+            // if we're approaching the line limit
+            if !config.wrap_words && char_is_space && current_line_length > 0 {
+                // Look ahead to see if the next word would fit
+                let mut look_ahead_length = 0;
+                let mut look_ahead_index = context_index + 1;
+
+                // Count characters until next space or end
+                while look_ahead_index < self.text_len() {
+                    if let Some(look_ahead_char) = self.get_character(look_ahead_index) {
+                        if look_ahead_char.char.is_ascii_whitespace() {
+                            break;
+                        }
+                        look_ahead_length += 1;
+                        look_ahead_index += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                // If adding the next word would exceed the line length, break now
+                if current_line_length + 1 + look_ahead_length > config.line_length {
+                    lines.push((current_line_contexts, lines.len())); // Store line with its index
+                    current_line_contexts = Vec::new();
+                    current_line_length = 0;
+                    continue; // Skip the space
+                }
+            }
+
+            // Check if adding this character would exceed line length
+            if current_line_length >= config.line_length {
+                // We need to wrap
+                lines.push((current_line_contexts, lines.len())); // Store line with its index
+                current_line_contexts = Vec::new();
+                current_line_length = 0;
+
+                // Skip whitespace at the beginning of new lines
+                if char_is_space {
+                    continue;
+                }
+            }
+
+            current_line_contexts.push(context);
+            current_line_length += 1;
+        }
+
+        // Add the final line if it has content
+        if !current_line_contexts.is_empty() {
+            lines.push((current_line_contexts, lines.len()));
+        }
+
+        // If cursor is at the end of text, it's on the last line
+        if cursor_line_index.is_none() {
+            cursor_line_index = Some(lines.len().saturating_sub(1));
+        }
+
+        // Convert to final result with proper line offsets
+        let cursor_line = cursor_line_index.unwrap_or(0);
+        lines
+            .into_iter()
+            .filter_map(|(line_contexts, line_index)| {
+                let line_context = LineContext {
+                    active_line_offset: line_index as isize - cursor_line as isize,
+                    contents: line_contexts,
+                };
+                line_renderer(line_context)
+            })
+            .collect()
     }
 
     /// Create an iterator over rendering contexts
@@ -381,5 +493,154 @@ mod tests {
         if let Err(msg) = result {
             assert_eq!(msg, "Cannot finalize: typing session is not complete");
         }
+    }
+
+    #[test]
+    fn test_render_lines() {
+        let text = TypingSession::new("hello world this is a test").unwrap();
+
+        // Test with word wrapping disabled
+        let lines: Vec<String> = text.render_lines(
+            |line_ctx| {
+                Some(
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                )
+            },
+            LineRenderConfig::new(10).with_word_wrapping(false), // config
+        );
+
+        // Should break at word boundaries
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "hello");
+        assert_eq!(lines[1], "world this");
+        assert_eq!(lines[2], "is a test");
+
+        // Test with word wrapping enabled
+        let lines_wrapped: Vec<String> = text.render_lines(
+            |line_ctx| {
+                Some(
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                )
+            },
+            LineRenderConfig::new(10).with_word_wrapping(true), // config
+        );
+
+        // Should break at exactly 10 characters
+        assert_eq!(lines_wrapped.len(), 3);
+        assert_eq!(lines_wrapped[0], "hello worl");
+        assert_eq!(lines_wrapped[1], "d this is ");
+        assert_eq!(lines_wrapped[2], "a test");
+    }
+
+    #[test]
+    fn test_render_lines_with_line_context() {
+        let text = TypingSession::new("one two three").unwrap();
+
+        let lines: Vec<(isize, String)> = text.render_lines(
+            |line_ctx| {
+                Some((
+                    line_ctx.active_line_offset,
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                ))
+            },
+            LineRenderConfig::new(5).with_word_wrapping(false), // config
+        );
+
+        assert_eq!(lines.len(), 3);
+        // Cursor is at position 0, which is in the first line (line 0)
+        // So line 0 has offset 0, line 1 has offset 1, line 2 has offset 2
+        assert_eq!(lines[0], (0, "one".to_string())); // cursor line - offset 0
+        assert_eq!(lines[1], (1, "two".to_string())); // 1 line after cursor
+        assert_eq!(lines[2], (2, "three".to_string())); // 2 lines after cursor
+    }
+
+    #[test]
+    fn test_render_lines_cursor_in_middle() {
+        let mut text = TypingSession::new("one two three four").unwrap();
+
+        // Type some characters to move cursor to the second line
+        text.input(Some('o')).unwrap(); // o
+        text.input(Some('n')).unwrap(); // on
+        text.input(Some('e')).unwrap(); // one
+        text.input(Some(' ')).unwrap(); // one 
+        text.input(Some('t')).unwrap(); // one t (cursor now in second line)
+
+        let lines: Vec<(isize, String)> = text.render_lines(
+            |line_ctx| {
+                Some((
+                    line_ctx.active_line_offset,
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                ))
+            },
+            LineRenderConfig::new(5).with_word_wrapping(false), // config
+        );
+
+        assert_eq!(lines.len(), 4);
+        // Cursor is at position 5 (after "one t"), which is in line 1
+        assert_eq!(lines[0], (-1, "one".to_string())); // 1 line before cursor
+        assert_eq!(lines[1], (0, "two".to_string())); // cursor line - offset 0
+        assert_eq!(lines[2], (1, "three".to_string())); // 1 line after cursor
+        assert_eq!(lines[3], (2, "four".to_string())); // 2 lines after cursor
+    }
+
+    #[test]
+    fn test_render_lines_with_newlines() {
+        let text = TypingSession::new("hello world\nthis is\na test").unwrap();
+
+        let lines: Vec<String> = text.render_lines(
+            |line_ctx| {
+                Some(
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                )
+            },
+            LineRenderConfig::new(20).with_newline_breaking(true), // config with newline breaking
+        );
+
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "hello world\n"); // newline is last character of line
+        assert_eq!(lines[1], "this is\n"); // newline is last character of line  
+        assert_eq!(lines[2], "a test"); // no trailing newline
+    }
+
+    #[test]
+    fn test_render_lines_without_newline_breaking() {
+        let text = TypingSession::new("hello world\nthis is").unwrap();
+
+        let lines: Vec<String> = text.render_lines(
+            |line_ctx| {
+                Some(
+                    line_ctx
+                        .contents
+                        .iter()
+                        .map(|ctx| ctx.character.char)
+                        .collect::<String>(),
+                )
+            },
+            LineRenderConfig::new(20).with_newline_breaking(false), // config without newline breaking
+        );
+
+        // Should treat \n as regular character and not break
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0], "hello world\nthis is");
     }
 }

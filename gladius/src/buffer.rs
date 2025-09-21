@@ -1,6 +1,7 @@
 use crate::{Character, State, Word};
 
 /// Handles text storage, parsing, and word/character management
+#[derive(Debug, Clone)]
 pub struct Buffer {
     characters: Vec<Character>,
     words: Vec<Word>,

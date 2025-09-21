@@ -5,6 +5,7 @@ use crate::config::Configuration;
 use crate::statistics::{Statistics, TempStatistics};
 
 /// Handles statistics tracking and timing
+#[derive(Debug, Clone)]
 pub struct StatisticsTracker {
     stats: TempStatistics,
     started_at: Option<Instant>,
@@ -71,6 +72,7 @@ impl StatisticsTracker {
     pub fn total_duration(&self) -> Option<Duration> {
         match (self.started_at, self.completed_at) {
             (Some(start), Some(end)) => Some(end.duration_since(start)),
+            (Some(start), None) => Some(start.elapsed()),
             _ => None,
         }
     }

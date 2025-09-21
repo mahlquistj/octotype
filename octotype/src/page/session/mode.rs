@@ -12,7 +12,7 @@ use crate::config::{
     ModeConfig, SourceConfig,
     mode::{ConditionConfig, ParseConditionError},
     parameters::ParameterValues,
-    source::OutputFormat,
+    source::Formatting,
 };
 
 #[derive(Debug, Error, From)]
@@ -92,7 +92,7 @@ impl Conditions {
 pub struct Source {
     command: Command,
     child: Option<Child>,
-    format: OutputFormat,
+    format: Formatting,
 }
 
 #[derive(Debug, Error, From)]
@@ -108,7 +108,7 @@ pub enum FetchError {
 }
 
 impl Source {
-    pub fn fetch(&mut self) -> Result<Vec<String>, FetchError> {
+    pub fn fetch(&mut self) -> Result<String, FetchError> {
         loop {
             if let Some(words) = self.try_fetch()? {
                 return Ok(words);
@@ -116,7 +116,7 @@ impl Source {
         }
     }
 
-    pub fn try_fetch(&mut self) -> Result<Option<Vec<String>>, FetchError> {
+    pub fn try_fetch(&mut self) -> Result<Option<String>, FetchError> {
         // Take child process out
         let Some(mut child) = self.child.take() else {
             self.child = Some(self.command.spawn()?);
@@ -182,17 +182,18 @@ impl Source {
         Ok(Self {
             command,
             child: None,
-            format: config.meta.output,
+            format: config.meta.formatting,
         })
     }
 }
 
-fn parse_output(output: String, format: &OutputFormat) -> Option<Vec<String>> {
-    let words: Vec<String> = match format {
-        OutputFormat::Default => output
+fn parse_output(output: String, format: &Formatting) -> Option<String> {
+    let words: String = match format {
+        Formatting::Raw => output,
+        Formatting::Spaced => output
             .split_ascii_whitespace()
-            .map(str::to_string)
-            .collect(),
+            .collect::<Vec<_>>()
+            .join(" "),
     };
     Some(words)
 }

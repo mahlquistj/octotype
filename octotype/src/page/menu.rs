@@ -1,4 +1,4 @@
-use super::{Message, loadscreen::Loading, session::TypingSession};
+use super::{Message, loadscreen::Loading, session::Session};
 
 use crossterm::event::{Event, KeyCode};
 use derive_more::From;
@@ -358,7 +358,7 @@ fn create_session(
     let config_clone = config.clone();
     let session_loader = Loading::load(config, "Loading words...", move || {
         let mode = Mode::from_config(sources_dir, mode, source, parameters).map_err(Box::new)?;
-        TypingSession::new(&config_clone, mode)
+        Session::new(&config_clone, mode)
             .map(|session| Message::Show(session.into()))
             .map_err(CreateSessionError::from)
     });

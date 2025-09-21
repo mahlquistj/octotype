@@ -62,7 +62,7 @@ pub struct SourceMeta {
     pub description: String,
     pub command: Vec<String>,
     #[serde(default)]
-    pub output: OutputFormat,
+    pub formatting: Formatting,
     #[serde(default)]
     pub offline_alternative: Option<String>,
     #[serde(default)]
@@ -73,7 +73,8 @@ pub struct SourceMeta {
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum OutputFormat {
+pub enum Formatting {
     #[default]
-    Default,
+    Raw,
+    Spaced,
 }

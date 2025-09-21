@@ -9,6 +9,7 @@ pub mod statistics_tracker;
 
 pub use session::TypingSession;
 
+/// The average word length in the english dictionary
 const AVERAGE_WORD_LENGTH: usize = 5;
 
 // Shared types for readability
@@ -23,7 +24,7 @@ pub enum State {
     #[default]
     None,
 
-    // The below are in the specific order to support the `update_word` method properly
+    // The below are in a specific order to updating words properly
 
     // == Post add ==
     /// The text is correct
@@ -42,7 +43,7 @@ pub enum State {
     WasWrong,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CharacterResult {
     Deleted(State),
     Wrong,
@@ -50,6 +51,7 @@ pub enum CharacterResult {
     Correct,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Word {
     pub start: usize,
     pub end: usize,
@@ -62,6 +64,7 @@ impl Word {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Character {
     pub char: char,
     pub state: State,

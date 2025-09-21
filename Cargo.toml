@@ -1,5 +1,5 @@
 [workspace]
-members = [ "gladius","octotype"]
+members = ["gladius", "octotype"]
 resolver = "3"
 
 [workspace.package]
@@ -39,6 +39,7 @@ style = { level = "deny", priority = -1 }
 nursery = { level = "deny", priority = -1 }
 
 [workspace.dependencies]
+gladius = { path = "gladius" }
 ratatui = { version = "0.29", features = ["serde"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 figment = { version = "0.10", features = ["toml", "env"] }

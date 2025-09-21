@@ -2,6 +2,7 @@ use crate::buffer::Buffer;
 use crate::{CharacterResult, State};
 
 /// Handles input processing and position tracking
+#[derive(Debug, Clone)]
 pub struct InputHandler {
     input: Vec<char>,
 }

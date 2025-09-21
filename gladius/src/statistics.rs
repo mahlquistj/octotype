@@ -8,12 +8,14 @@ use crate::{
     math::{Accuracy, Consistency, Ipm, Wpm},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Input {
     pub timestamp: Timestamp,
     pub char: char,
     pub result: CharacterResult,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Measurement {
     pub timestamp: Timestamp,
     pub wpm: Wpm,
@@ -58,7 +60,7 @@ impl Measurement {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct CounterData {
     pub char_errors: HashMap<char, usize>,
     pub word_errors: HashMap<Word, usize>,
@@ -86,7 +88,7 @@ pub struct Statistics {
     pub counters: CounterData,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct TempStatistics {
     // Historical data
     pub measurements: Vec<Measurement>,
