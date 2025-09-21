@@ -141,14 +141,18 @@ mod tests {
         let mut input_handler = InputHandler::new();
 
         // Type correct character
-        let result = input_handler.process_input(Some('a'), &mut text_buffer).unwrap();
+        let result = input_handler
+            .process_input(Some('a'), &mut text_buffer)
+            .unwrap();
         assert_eq!(result.0, 'a');
         assert!(matches!(result.1, CharacterResult::Correct));
         assert_eq!(input_handler.input_len(), 1);
         assert!(!input_handler.is_input_empty());
 
         // Type wrong character
-        let result = input_handler.process_input(Some('x'), &mut text_buffer).unwrap();
+        let result = input_handler
+            .process_input(Some('x'), &mut text_buffer)
+            .unwrap();
         assert_eq!(result.0, 'x');
         assert!(matches!(result.1, CharacterResult::Wrong));
         assert_eq!(input_handler.input_len(), 2);
@@ -160,13 +164,17 @@ mod tests {
         assert_eq!(input_handler.input_len(), 1);
 
         // Type correct 'b'
-        let result = input_handler.process_input(Some('b'), &mut text_buffer).unwrap();
+        let result = input_handler
+            .process_input(Some('b'), &mut text_buffer)
+            .unwrap();
         assert_eq!(result.0, 'b');
         assert!(matches!(result.1, CharacterResult::Corrected));
         assert_eq!(input_handler.input_len(), 2);
 
         // Type correct 'c'
-        let result = input_handler.process_input(Some('c'), &mut text_buffer).unwrap();
+        let result = input_handler
+            .process_input(Some('c'), &mut text_buffer)
+            .unwrap();
         assert_eq!(result.0, 'c');
         assert!(matches!(result.1, CharacterResult::Correct));
         assert_eq!(input_handler.input_len(), 3);
@@ -175,7 +183,11 @@ mod tests {
         assert!(input_handler.is_fully_typed(text_buffer.text_len()));
 
         // Should return None when trying to input more
-        assert!(input_handler.process_input(Some('d'), &mut text_buffer).is_none());
+        assert!(
+            input_handler
+                .process_input(Some('d'), &mut text_buffer)
+                .is_none()
+        );
     }
 
     #[test]
@@ -184,10 +196,16 @@ mod tests {
         let mut input_handler = InputHandler::new();
 
         // Can't delete from empty input
-        assert!(input_handler.process_input(None, &mut text_buffer).is_none());
+        assert!(
+            input_handler
+                .process_input(None, &mut text_buffer)
+                .is_none()
+        );
 
         // Type a character then delete it
-        input_handler.process_input(Some('a'), &mut text_buffer).unwrap();
+        input_handler
+            .process_input(Some('a'), &mut text_buffer)
+            .unwrap();
         assert_eq!(input_handler.input_len(), 1);
 
         let result = input_handler.process_input(None, &mut text_buffer).unwrap();
@@ -202,9 +220,13 @@ mod tests {
         let mut input_handler = InputHandler::new();
 
         // Type wrong, delete, type correct
-        input_handler.process_input(Some('x'), &mut text_buffer).unwrap(); // Wrong
+        input_handler
+            .process_input(Some('x'), &mut text_buffer)
+            .unwrap(); // Wrong
         input_handler.process_input(None, &mut text_buffer).unwrap(); // Delete
-        let result = input_handler.process_input(Some('a'), &mut text_buffer).unwrap(); // Correct
+        let result = input_handler
+            .process_input(Some('a'), &mut text_buffer)
+            .unwrap(); // Correct
 
         assert_eq!(result.0, 'a');
         assert!(matches!(result.1, CharacterResult::Corrected));

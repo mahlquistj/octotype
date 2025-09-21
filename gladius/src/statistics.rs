@@ -140,7 +140,6 @@ impl TempStatistics {
         self.last_measurement = Some(timestamp);
     }
 
-
     /// Update counters and input history
     fn update_from_result(&mut self, char: char, result: CharacterResult, timestamp: Timestamp) {
         match result {
@@ -174,7 +173,7 @@ impl TempStatistics {
     /// Finalize the temporary statistics and return the final Statistics
     pub fn finalize(self, duration: Duration, input_len: usize) -> Statistics {
         let total_time = duration.as_secs_f64();
-        
+
         let Self {
             measurements,
             input_history,

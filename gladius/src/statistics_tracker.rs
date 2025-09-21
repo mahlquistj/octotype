@@ -1,7 +1,7 @@
 use web_time::{Duration, Instant};
 
-use crate::{Configuration, TempStatistics, Statistics};
 use crate::text::CharacterResult;
+use crate::{Configuration, Statistics, TempStatistics};
 
 /// Handles statistics tracking and timing
 pub struct StatisticsTracker {
@@ -77,9 +77,10 @@ impl StatisticsTracker {
     /// Finalize the statistics using the total duration and input length
     /// This consumes the StatisticsTracker and returns finalized Statistics
     pub fn finalize(self, input_len: usize) -> Result<Statistics, &'static str> {
-        let total_duration = self.total_duration()
+        let total_duration = self
+            .total_duration()
             .ok_or("Cannot finalize statistics: session not completed")?;
-        
+
         Ok(self.stats.finalize(total_duration, input_len))
     }
 }

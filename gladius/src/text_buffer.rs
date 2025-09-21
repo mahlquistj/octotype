@@ -1,4 +1,4 @@
-use crate::text::{Character, Word, State};
+use crate::text::{Character, State, Word};
 
 /// Handles text storage, parsing, and word/character management
 pub struct TextBuffer {
@@ -264,7 +264,7 @@ mod tests {
 
         // Check initial words from "first word"
         assert_eq!(text_buffer.words.len(), 2);
-        
+
         // Verify first word
         assert_eq!(text_buffer.words[0].string, "first");
         assert_eq!(text_buffer.words[0].start, 0);
