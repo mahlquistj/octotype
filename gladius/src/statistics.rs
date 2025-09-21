@@ -74,6 +74,7 @@ pub struct Statistics {
     pub ipm: Ipm,
     pub accuracy: Accuracy,
     pub consistency: Consistency,
+    pub duration: Duration,
 
     // Historical data
     pub measurements: Vec<Measurement>,
@@ -171,7 +172,9 @@ impl TempStatistics {
     }
 
     /// Finalize the temporary statistics and return the final Statistics
-    pub fn finalize(self, total_time: Timestamp, input_len: usize) -> Statistics {
+    pub fn finalize(self, duration: Duration, input_len: usize) -> Statistics {
+        let total_time = duration.as_secs_f64();
+        
         let Self {
             measurements,
             input_history,
@@ -200,6 +203,7 @@ impl TempStatistics {
             ipm,
             accuracy,
             consistency,
+            duration,
             measurements,
             input_history,
             counters,

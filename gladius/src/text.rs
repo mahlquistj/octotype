@@ -1,7 +1,7 @@
 use crate::input_handler::InputHandler;
 use crate::statistics_tracker::StatisticsTracker;
 use crate::text_buffer::TextBuffer;
-use crate::{Configuration, TempStatistics};
+use crate::{Configuration, TempStatistics, Statistics};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum State {
@@ -39,8 +39,9 @@ pub enum CharacterResult {
 
 pub struct RenderingContext<'a> {
     pub character: &'a Character,
-    pub word: &'a Word,
+    pub word: Option<&'a Word>,
     pub has_cursor: bool,
+    pub index: usize,
 }
 
 pub struct Word {
@@ -60,6 +61,46 @@ pub struct Character {
     pub char: char,
     pub state: State,
 }
+
+/// Iterator for rendering contexts
+pub struct RenderingIterator<'a> {
+    typing_session: &'a TypingSession,
+    index: usize,
+    cursor_position: usize,
+}
+
+impl<'a> Iterator for RenderingIterator<'a> {
+    type Item = RenderingContext<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.typing_session.text_len() {
+            return None;
+        }
+
+        let character = self.typing_session.text_buffer.get_character(self.index)?;
+        let word = self.typing_session.text_buffer.get_word_containing(self.index);
+        let has_cursor = self.index == self.cursor_position;
+
+        let context = RenderingContext {
+            character,
+            word,
+            has_cursor,
+            index: self.index,
+        };
+
+        self.index += 1;
+        Some(context)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.typing_session.text_len().saturating_sub(self.index);
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a> ExactSizeIterator for RenderingIterator<'a> {}
+
+impl<'a> std::iter::FusedIterator for RenderingIterator<'a> {}
 
 /// Main coordinator struct that provides the same API as the old Text struct
 pub struct TypingSession {
@@ -136,6 +177,38 @@ impl TypingSession {
         self.text_buffer.word_count()
     }
 
+    /// Render the text using a generic renderer function
+    pub fn render<T>(&self, mut renderer: impl FnMut(RenderingContext) -> T) -> Vec<T> {
+        let mut results = Vec::with_capacity(self.text_len());
+        let cursor_position = self.input_len();
+
+        for i in 0..self.text_len() {
+            let character = self.text_buffer.get_character(i).unwrap();
+            let word = self.text_buffer.get_word_containing(i);
+            let has_cursor = i == cursor_position;
+
+            let context = RenderingContext {
+                character,
+                word,
+                has_cursor,
+                index: i,
+            };
+
+            results.push(renderer(context));
+        }
+
+        results
+    }
+
+    /// Create an iterator over rendering contexts
+    pub fn render_iter(&self) -> RenderingIterator<'_> {
+        RenderingIterator {
+            typing_session: self,
+            index: 0,
+            cursor_position: self.input_len(),
+        }
+    }
+
     /// Type input into the text.
     ///
     /// If `Some(char)` is given, the char will be added to the input and returned with it's [CharacterResult].
@@ -157,9 +230,25 @@ impl TypingSession {
                 self.input_handler.input_len(),
                 &self.config,
             );
+
+            // Check if typing is now complete and mark completion
+            if self.is_fully_typed() && !self.statistics.is_completed() {
+                self.statistics.mark_completed();
+            }
         }
 
         result
+    }
+
+    /// Finalize the typing session and return the final Statistics
+    /// This consumes the TypingSession and should only be called when typing is complete
+    pub fn finalize(self) -> Result<Statistics, &'static str> {
+        if !self.is_fully_typed() {
+            return Err("Cannot finalize: typing session is not complete");
+        }
+        
+        let text_len = self.text_len();
+        self.statistics.finalize(text_len)
     }
 }
 
@@ -304,5 +393,83 @@ mod tests {
         // Type wrong character - word should become Wrong (higher priority than Corrected)
         text2.input(Some('x')).unwrap();
         assert_eq!(text2.get_word(0).unwrap().state, State::Wrong);
+    }
+
+    #[test]
+    fn test_rendering() {
+        let mut text = TypingSession::new("hello").unwrap();
+        
+        // Type some characters
+        text.input(Some('h')).unwrap(); // Correct
+        text.input(Some('x')).unwrap(); // Wrong
+        
+        // Test render method
+        let rendered: Vec<String> = text.render(|ctx| {
+            let state_str = match ctx.character.state {
+                State::None => "none",
+                State::Correct => "correct",
+                State::Wrong => "wrong",
+                _ => "other",
+            };
+            let cursor_str = if ctx.has_cursor { " [cursor]" } else { "" };
+            format!("{}:{}{}", ctx.character.char, state_str, cursor_str)
+        });
+        
+        assert_eq!(rendered.len(), 5);
+        assert_eq!(rendered[0], "h:correct");
+        assert_eq!(rendered[1], "e:wrong");
+        assert_eq!(rendered[2], "l:none [cursor]");
+        assert_eq!(rendered[3], "l:none");
+        assert_eq!(rendered[4], "o:none");
+        
+        // Test render_iter method
+        let rendered_iter: Vec<char> = text.render_iter()
+            .map(|ctx| ctx.character.char)
+            .collect();
+        
+        assert_eq!(rendered_iter, vec!['h', 'e', 'l', 'l', 'o']);
+        
+        // Test that iterator has correct size
+        let iter = text.render_iter();
+        assert_eq!(iter.len(), 5);
+        assert_eq!(iter.size_hint(), (5, Some(5)));
+    }
+
+    #[test]
+    fn test_completion_and_finalization() {
+        let mut text = TypingSession::new("hi").unwrap();
+        
+        // Initially not completed
+        assert!(!text.is_fully_typed());
+        
+        // Type first character
+        text.input(Some('h')).unwrap();
+        assert!(!text.is_fully_typed());
+        
+        // Type second character - should complete the session
+        text.input(Some('i')).unwrap();
+        assert!(text.is_fully_typed());
+        
+        // Try to finalize
+        let final_stats = text.finalize();
+        assert!(final_stats.is_ok());
+        
+        let stats = final_stats.unwrap();
+        // Verify the statistics contain expected data
+        assert_eq!(stats.counters.adds, 2);
+        assert_eq!(stats.counters.corrects, 2);
+        assert_eq!(stats.counters.errors, 0);
+    }
+
+    #[test]
+    fn test_finalization_before_completion() {
+        let text = TypingSession::new("hello").unwrap();
+        
+        // Try to finalize without completing
+        let result = text.finalize();
+        assert!(result.is_err());
+        if let Err(msg) = result {
+            assert_eq!(msg, "Cannot finalize: typing session is not complete");
+        }
     }
 }
