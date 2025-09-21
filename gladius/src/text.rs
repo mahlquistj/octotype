@@ -1,4 +1,4 @@
-use web_time::Instant;
+use web_time::{Duration, Instant};
 
 use crate::{Configuration, TempStatistics};
 
@@ -59,85 +59,79 @@ pub struct Character {
     pub state: State,
 }
 
-pub struct Text {
+/// Handles text storage, parsing, and word/character management
+pub struct TextBuffer {
     characters: Vec<Character>,
     words: Vec<Word>,
-    input: Vec<char>,
-    stats: TempStatistics,
-    config: Configuration,
-    started_at: Option<Instant>,
     /// Maps each character index to its corresponding word index for O(1) lookup
     char_to_word_index: Vec<usize>,
 }
 
-impl Text {
+impl TextBuffer {
     pub fn new(string: &str) -> Option<Self> {
         if string.is_empty() {
             return None;
         }
 
-        let mut text = Self {
+        let mut buffer = Self {
             characters: vec![],
             words: vec![],
-            input: vec![],
-            stats: TempStatistics::default(),
-            config: Configuration::default(),
-            started_at: None,
             char_to_word_index: vec![],
         };
 
-        text.push_string(string);
-
-        Some(text)
+        buffer.push_string(string);
+        Some(buffer)
     }
 
-    /// Set configuration
-    pub fn with_configuration(mut self, config: Configuration) -> Self {
-        self.config = config;
-        self
-    }
-
-    /// Returns the amount of characters currently in the [Text].
+    /// Returns the amount of characters currently in the TextBuffer.
     pub fn text_len(&self) -> usize {
         self.characters.len()
     }
 
+    /// Returns the character at the given index.
+    pub fn get_character(&self, index: usize) -> Option<&Character> {
+        self.characters.get(index)
+    }
+
     /// Returns the current character awaiting input.
-    pub fn current_character(&self) -> &Character {
-        // Safety: It's impossible for the user to create an empty Text
+    pub fn current_character(&self, input_len: usize) -> Option<&Character> {
         self.characters
-            .get(self.input.len())
+            .get(input_len)
             .or_else(|| self.characters.last())
-            .unwrap()
     }
 
-    /// Returns true if the amount of characters currently in the [Text]'s input is 0.
-    pub fn is_input_empty(&self) -> bool {
-        self.input.is_empty()
+    /// Get the word that contains the character at the given index
+    pub fn get_word_containing(&self, char_index: usize) -> Option<&Word> {
+        let word_index = *self.char_to_word_index.get(char_index)?;
+        if word_index == usize::MAX {
+            return None; // Whitespace character
+        }
+        self.words.get(word_index)
     }
 
-    /// Returns the amount of characters currently in the [Text]'s input.
-    pub fn input_len(&self) -> usize {
-        self.input.len()
+    /// Get mutable reference to the word that contains the character at the given index
+    pub fn get_word_containing_mut(&mut self, char_index: usize) -> Option<&mut Word> {
+        let word_index = *self.char_to_word_index.get(char_index)?;
+        if word_index == usize::MAX {
+            return None; // Whitespace character
+        }
+        self.words.get_mut(word_index)
     }
 
-    /// Returns true if the text has been fully typed out.
-    ///
-    /// This means no additions or deletions will be accepted.
-    pub fn is_fully_typed(&self) -> bool {
-        self.input.len() == self.characters.len()
+    /// Get character by index (mutable)
+    pub fn get_character_mut(&mut self, index: usize) -> Option<&mut Character> {
+        self.characters.get_mut(index)
     }
 
-    /// Get the current statistics recorded for the text
-    pub fn statistics(&self) -> &TempStatistics {
-        &self.stats
+    /// Get slice of characters for a word
+    pub fn get_word_characters(&self, word: &Word) -> &[Character] {
+        &self.characters[word.start..word.end]
     }
 
     /// Allocate capacity for the vectors based on expected size
     fn allocate_capacity(&mut self, char_count: usize, word_count: usize) {
         self.characters.reserve(char_count);
         self.words.reserve(word_count);
-        self.input.reserve(char_count);
         self.char_to_word_index.reserve(char_count);
     }
 
@@ -212,7 +206,7 @@ impl Text {
         }
     }
 
-    /// Push more characters to the [Text].
+    /// Push more characters to the TextBuffer.
     ///
     /// This allows for dynamically adding text during typing.
     pub fn push_string(&mut self, string: &str) {
@@ -243,34 +237,119 @@ impl Text {
         self.finalize_last_word(current_word_start, &chars, original_len);
     }
 
-    /// Type input into the text.
-    ///
-    /// If `Some(char)` is given, the char will be added to the input and returned with it's [CharacterResult].
-    /// If `None` is given, the text will delete a character from the input and returned with
-    /// `CharacterResult::Deleted`.
-    ///
-    /// Returns `None` if trying to delete and empty input, or if the input is full (All text has
-    /// been typed).
-    pub fn input(&mut self, input: Option<char>) -> Option<(char, CharacterResult)> {
-        if self.is_fully_typed() {
+    /// Update word state incrementally based on a single character change
+    pub fn update_word_state_incrementally(
+        &mut self,
+        char_index: usize,
+        new_character_state: State,
+    ) {
+        let Some(&word_index) = self.char_to_word_index.get(char_index) else {
+            return;
+        };
+
+        // Skip whitespace characters (they map to usize::MAX)
+        if word_index == usize::MAX {
+            return;
+        }
+
+        let Some(word) = self.words.get_mut(word_index) else {
+            return;
+        };
+
+        let current_word_state = word.state;
+
+        // If new character state is higher priority, upgrade word state immediately
+        if new_character_state > current_word_state {
+            word.state = new_character_state;
+            return;
+        }
+
+        // If new character state is same or lower priority, check if recalculation is needed
+        if new_character_state < current_word_state {
+            // Only recalculate if the changed character might have been determining the word state
+            // This happens when we're downgrading a character that was at the current word state level
+            let word_start = word.start;
+            let word_end = word.end;
+
+            // Quick check: if any other character still has the current word state, no change needed
+            let has_character_at_current_state = self.characters[word_start..word_end]
+                .iter()
+                .enumerate()
+                .any(|(i, char)| word_start + i != char_index && char.state == current_word_state);
+
+            if !has_character_at_current_state {
+                // Need to recalculate word state from all characters
+                self.recalculate_word_state(word_index);
+            }
+        }
+
+        // If new_character_state == current_word_state, no change needed
+    }
+
+    /// Recalculate word state from all characters (fallback for edge cases)
+    fn recalculate_word_state(&mut self, word_index: usize) {
+        let Some(word) = self.words.get_mut(word_index) else {
+            return;
+        };
+
+        let word_characters = &self.characters[word.start..word.end];
+        let mut state = State::None;
+        for character in word_characters {
+            if character.state > state {
+                state = character.state;
+            }
+        }
+        word.state = state;
+    }
+}
+
+/// Handles input processing and position tracking
+pub struct InputHandler {
+    input: Vec<char>,
+}
+
+impl InputHandler {
+    pub fn new() -> Self {
+        Self { input: vec![] }
+    }
+
+    /// Returns true if the input is empty.
+    pub fn is_input_empty(&self) -> bool {
+        self.input.is_empty()
+    }
+
+    /// Returns the amount of characters currently in the input.
+    pub fn input_len(&self) -> usize {
+        self.input.len()
+    }
+
+    /// Returns true if the text has been fully typed.
+    pub fn is_fully_typed(&self, text_len: usize) -> bool {
+        self.input.len() == text_len
+    }
+
+    /// Process input (add or delete character)
+    pub fn process_input(
+        &mut self,
+        input: Option<char>,
+        text_buffer: &mut TextBuffer,
+    ) -> Option<(char, CharacterResult)> {
+        if self.is_fully_typed(text_buffer.text_len()) {
             return None;
         }
 
         input
-            .and_then(|char| self.add_input(char).map(|result| (char, result)))
-            .or_else(|| self.delete_input())
+            .and_then(|char| {
+                self.add_input(char, text_buffer)
+                    .map(|result| (char, result))
+            })
+            .or_else(|| self.delete_input(text_buffer))
     }
 
-    /// Updates the input and returns the typed characters new [State].
-    ///
-    /// Returns `None` if the input is full (All text has been typed).
-    fn add_input(&mut self, input: char) -> Option<CharacterResult> {
-        if self.started_at.is_none() {
-            self.started_at = Some(Instant::now());
-        }
-
+    /// Add character to input
+    fn add_input(&mut self, input: char, text_buffer: &mut TextBuffer) -> Option<CharacterResult> {
         let index = self.input.len();
-        let character = self.characters.get_mut(index)?;
+        let character = text_buffer.get_character_mut(index)?;
 
         let result;
         let new_state;
@@ -304,30 +383,17 @@ impl Text {
         // Push input
         self.input.push(input);
 
-        // Safety: We checked if started_at was none in the beginning of the function, and it wasn't.
-        let started_at = self.started_at.as_ref().unwrap();
-
-        // Update statistics with new length
-        self.stats.update(
-            input,
-            result,
-            self.input.len(),
-            started_at.elapsed(),
-            &self.config,
-        );
-
         // Update the character itself
         character.state = new_state;
 
-        self.update_word(index);
+        // Update word state
+        text_buffer.update_word_state_incrementally(index, new_state);
 
         Some(result)
     }
 
-    /// Deletes one char from the input and returns it, and it's previous [State]
-    ///
-    /// Returns `None` if the input is empty or full (All text has been typed)
-    fn delete_input(&mut self) -> Option<(char, CharacterResult)> {
+    /// Delete character from input
+    fn delete_input(&mut self, text_buffer: &mut TextBuffer) -> Option<(char, CharacterResult)> {
         // Delete the char from the input
         let deleted = self.input.pop()?;
 
@@ -335,16 +401,11 @@ impl Text {
 
         // Safety: No matter when the current function is called, because of the pop above
         // the input length should always be under or equal to the length of characters.
-        let character = self
-            .characters
-            .get_mut(index)
+        let character = text_buffer
+            .get_character_mut(index)
             .expect("Failed to get current character");
 
         let prev_state = character.state;
-
-        // Safety: We can't delete any input, unless input was already added.
-        //         When input is added, we set the `started_at` property
-        let started_at = self.started_at.as_ref().unwrap();
 
         // Update character
         match prev_state {
@@ -357,88 +418,165 @@ impl Text {
 
         let result = CharacterResult::Deleted(prev_state);
 
-        // Update statistics
-        self.stats.update(
-            deleted,
-            result,
-            self.input.len(),
-            started_at.elapsed(),
-            &self.config,
-        );
-
-        self.update_word(index);
+        let character_state = character.state;
+        // Update word state
+        text_buffer.update_word_state_incrementally(index, character_state);
 
         Some((deleted, result))
     }
+}
 
-    /// Update the word state to reflect it if it is correctly typed
-    fn update_word(&mut self, at_index: usize) {
-        // O(1) lookup using character-to-word index mapping
-        let Some(&word_index) = self.char_to_word_index.get(at_index) else {
-            return;
-        };
+impl Default for InputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-        // Skip whitespace characters (they map to usize::MAX)
-        if word_index == usize::MAX {
-            return;
+/// Handles statistics tracking and timing
+pub struct StatisticsTracker {
+    stats: TempStatistics,
+    started_at: Option<Instant>,
+}
+
+impl StatisticsTracker {
+    pub fn new() -> Self {
+        Self {
+            stats: TempStatistics::default(),
+            started_at: None,
         }
-
-        let character_state = self.characters[at_index].state;
-        
-        // Incremental state update: O(1) for most cases
-        self.update_word_state_incrementally(word_index, character_state, at_index);
     }
 
-    /// Update word state incrementally based on a single character change
-    fn update_word_state_incrementally(&mut self, word_index: usize, new_character_state: State, changed_index: usize) {
-        let Some(word) = self.words.get_mut(word_index) else {
-            return;
-        };
-        
-        let current_word_state = word.state;
-        
-        // If new character state is higher priority, upgrade word state immediately
-        if new_character_state > current_word_state {
-            word.state = new_character_state;
-            return;
-        }
-        
-        // If new character state is same or lower priority, check if recalculation is needed
-        if new_character_state < current_word_state {
-            // Only recalculate if the changed character might have been determining the word state
-            // This happens when we're downgrading a character that was at the current word state level
-            let word_start = word.start;
-            let word_end = word.end;
-            
-            // Quick check: if any other character still has the current word state, no change needed
-            let has_character_at_current_state = self.characters[word_start..word_end]
-                .iter()
-                .enumerate()
-                .any(|(i, char)| word_start + i != changed_index && char.state == current_word_state);
-            
-            if !has_character_at_current_state {
-                // Need to recalculate word state from all characters
-                self.recalculate_word_state(word_index);
-            }
-        }
-        
-        // If new_character_state == current_word_state, no change needed
+    /// Get the current statistics
+    pub fn statistics(&self) -> &TempStatistics {
+        &self.stats
     }
 
-    /// Recalculate word state from all characters (fallback for edge cases)
-    fn recalculate_word_state(&mut self, word_index: usize) {
-        let Some(word) = self.words.get_mut(word_index) else {
-            return;
-        };
-        
-        let word_characters = &self.characters[word.start..word.end];
-        let mut state = State::None;
-        for character in word_characters {
-            if character.state > state {
-                state = character.state;
-            }
+    /// Update statistics based on input result
+    pub fn update(
+        &mut self,
+        char: char,
+        result: CharacterResult,
+        input_len: usize,
+        config: &Configuration,
+    ) {
+        // Initialize timing on first input
+        if self.started_at.is_none() {
+            self.started_at = Some(Instant::now());
         }
-        word.state = state;
+
+        // Safety: We just set started_at above if it was None
+        let started_at = self.started_at.as_ref().unwrap();
+        let elapsed = started_at.elapsed();
+
+        self.stats.update(char, result, input_len, elapsed, config);
+    }
+
+    /// Check if timing has started
+    pub fn has_started(&self) -> bool {
+        self.started_at.is_some()
+    }
+
+    /// Get elapsed time since start
+    pub fn elapsed(&self) -> Option<Duration> {
+        self.started_at.map(|start| start.elapsed())
+    }
+}
+
+impl Default for StatisticsTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Main coordinator struct that provides the same API as the old Text struct
+pub struct TypingSession {
+    text_buffer: TextBuffer,
+    input_handler: InputHandler,
+    statistics: StatisticsTracker,
+    config: Configuration,
+}
+
+impl TypingSession {
+    pub fn new(string: &str) -> Option<Self> {
+        let text_buffer = TextBuffer::new(string)?;
+
+        Some(Self {
+            text_buffer,
+            input_handler: InputHandler::new(),
+            statistics: StatisticsTracker::new(),
+            config: Configuration::default(),
+        })
+    }
+
+    /// Set configuration
+    pub fn with_configuration(mut self, config: Configuration) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// Returns the amount of characters currently in the text.
+    pub fn text_len(&self) -> usize {
+        self.text_buffer.text_len()
+    }
+
+    /// Returns the current character awaiting input.
+    pub fn current_character(&self) -> &Character {
+        // Safety: It's impossible for the user to create an empty TypingSession
+        self.text_buffer
+            .current_character(self.input_handler.input_len())
+            .unwrap()
+    }
+
+    /// Returns true if the amount of characters currently in the input is 0.
+    pub fn is_input_empty(&self) -> bool {
+        self.input_handler.is_input_empty()
+    }
+
+    /// Returns the amount of characters currently in the input.
+    pub fn input_len(&self) -> usize {
+        self.input_handler.input_len()
+    }
+
+    /// Returns true if the text has been fully typed.
+    pub fn is_fully_typed(&self) -> bool {
+        self.input_handler
+            .is_fully_typed(self.text_buffer.text_len())
+    }
+
+    /// Get the current statistics recorded for the text
+    pub fn statistics(&self) -> &TempStatistics {
+        self.statistics.statistics()
+    }
+
+    /// Push more characters to the text.
+    pub fn push_string(&mut self, string: &str) {
+        self.text_buffer.push_string(string);
+    }
+
+    /// Type input into the text.
+    ///
+    /// If `Some(char)` is given, the char will be added to the input and returned with it's [CharacterResult].
+    /// If `None` is given, the text will delete a character from the input and returned with
+    /// `CharacterResult::Deleted`.
+    ///
+    /// Returns `None` if trying to delete and empty input, or if the input is full (All text has
+    /// been typed).
+    pub fn input(&mut self, input: Option<char>) -> Option<(char, CharacterResult)> {
+        let result = self
+            .input_handler
+            .process_input(input, &mut self.text_buffer);
+
+        // Update statistics if we got a result
+        if let Some((char, char_result)) = result {
+            self.statistics.update(
+                char,
+                char_result,
+                self.input_handler.input_len(),
+                &self.config,
+            );
+        }
+
+        result
     }
 }
 
@@ -449,29 +587,29 @@ mod tests {
     #[test]
     fn test_text_new() {
         // Test with valid string
-        let text = Text::new("hello world").unwrap();
+        let text = TypingSession::new("hello world").unwrap();
         assert_eq!(text.text_len(), 11);
         assert_eq!(text.input_len(), 0);
         assert!(text.is_input_empty());
         assert!(!text.is_fully_typed());
 
         // Test with empty string
-        let text = Text::new("");
+        let text = TypingSession::new("");
         assert!(text.is_none());
 
         // Test with single character
-        let text = Text::new("a").unwrap();
+        let text = TypingSession::new("a").unwrap();
         assert_eq!(text.text_len(), 1);
         assert_eq!(text.current_character().char, 'a');
 
         // Test with unicode characters
-        let text = Text::new("héllo wörld 🚀").unwrap();
+        let text = TypingSession::new("héllo wörld 🚀").unwrap();
         assert_eq!(text.text_len(), 13); // 13 Unicode code points
     }
 
     #[test]
     fn test_text_push() {
-        let mut text = Text::new("hello").unwrap();
+        let mut text = TypingSession::new("hello").unwrap();
         assert_eq!(text.text_len(), 5);
 
         // Push additional text
@@ -492,11 +630,11 @@ mod tests {
 
     #[test]
     fn test_text_word_boundaries() {
-        let mut text = Text::new("first word").unwrap();
+        let mut text = TypingSession::new("first word").unwrap();
 
         // Debug: Check initial words from "first word"
-        println!("Initial words: {:?}", text.words.len());
-        for (i, word) in text.words.iter().enumerate() {
+        println!("Initial words: {:?}", text.text_buffer.words.len());
+        for (i, word) in text.text_buffer.words.iter().enumerate() {
             println!(
                 "Word {}: '{}' start={} end={}",
                 i, word.string, word.start, word.end
@@ -505,12 +643,14 @@ mod tests {
 
         text.push_string(" second word");
 
+        let text_buffer = &text.text_buffer;
+
         // Verify text length
         assert_eq!(text.text_len(), 22);
 
         // Debug: Check all words after push
-        println!("After push words: {:?}", text.words.len());
-        for (i, word) in text.words.iter().enumerate() {
+        println!("After push words: {:?}", text_buffer.words.len());
+        for (i, word) in text_buffer.words.iter().enumerate() {
             println!(
                 "Word {}: '{}' start={} end={}",
                 i, word.string, word.start, word.end
@@ -518,32 +658,32 @@ mod tests {
         }
 
         // Test that words are properly tracked with correct boundaries
-        assert_eq!(text.words.len(), 4); // "first", "word", "second", "word"
+        assert_eq!(text_buffer.words.len(), 4); // "first", "word", "second", "word"
 
         // Verify first word
-        assert_eq!(text.words[0].string, "first");
-        assert_eq!(text.words[0].start, 0);
-        assert_eq!(text.words[0].end, 4);
+        assert_eq!(text_buffer.words[0].string, "first");
+        assert_eq!(text_buffer.words[0].start, 0);
+        assert_eq!(text_buffer.words[0].end, 4);
 
         // Verify second word
-        assert_eq!(text.words[1].string, "word");
-        assert_eq!(text.words[1].start, 6);
-        assert_eq!(text.words[1].end, 9);
+        assert_eq!(text_buffer.words[1].string, "word");
+        assert_eq!(text_buffer.words[1].start, 6);
+        assert_eq!(text_buffer.words[1].end, 9);
 
         // Verify third word (from push)
-        assert_eq!(text.words[2].string, "second");
-        assert_eq!(text.words[2].start, 11);
-        assert_eq!(text.words[2].end, 16);
+        assert_eq!(text_buffer.words[2].string, "second");
+        assert_eq!(text_buffer.words[2].start, 11);
+        assert_eq!(text_buffer.words[2].end, 16);
 
         // Verify fourth word (from push)
-        assert_eq!(text.words[3].string, "word");
-        assert_eq!(text.words[3].start, 18);
-        assert_eq!(text.words[3].end, 21);
+        assert_eq!(text_buffer.words[3].string, "word");
+        assert_eq!(text_buffer.words[3].start, 18);
+        assert_eq!(text_buffer.words[3].end, 21);
     }
 
     #[test]
     fn test_text_input_basic() {
-        let mut text = Text::new("abc").unwrap();
+        let mut text = TypingSession::new("abc").unwrap();
 
         // Type correct character
         let result = text.input(Some('a')).unwrap();
@@ -576,7 +716,7 @@ mod tests {
         assert!(matches!(result.1, CharacterResult::Correct));
         assert_eq!(text.input_len(), 3);
 
-        // Text should be fully typed
+        // TypingSession should be fully typed
         assert!(text.is_fully_typed());
 
         // Should return None when trying to input more
@@ -585,7 +725,7 @@ mod tests {
 
     #[test]
     fn test_text_deletion() {
-        let mut text = Text::new("abc").unwrap();
+        let mut text = TypingSession::new("abc").unwrap();
 
         // Can't delete from empty input
         assert!(text.input(None).is_none());
@@ -602,7 +742,7 @@ mod tests {
 
     #[test]
     fn test_text_correction_sequence() {
-        let mut text = Text::new("abc").unwrap();
+        let mut text = TypingSession::new("abc").unwrap();
 
         // Type wrong, delete, type correct
         text.input(Some('x')).unwrap(); // Wrong
@@ -615,7 +755,7 @@ mod tests {
 
     #[test]
     fn test_text_unicode_support() {
-        let mut text = Text::new("café 🚀").unwrap();
+        let mut text = TypingSession::new("café 🚀").unwrap();
         assert_eq!(text.text_len(), 6); // c, a, f, é, space, rocket emoji
 
         // Type unicode characters
@@ -634,7 +774,7 @@ mod tests {
 
     #[test]
     fn test_text_statistics_tracking() {
-        let mut text = Text::new("ab").unwrap();
+        let mut text = TypingSession::new("ab").unwrap();
 
         // Initially no statistics
         let stats = text.statistics();
@@ -656,77 +796,77 @@ mod tests {
 
     #[test]
     fn test_update_word() {
-        let mut text = Text::new("hello world").unwrap();
+        let mut text = TypingSession::new("hello world").unwrap();
 
         // Initially all words should have State::None
-        assert_eq!(text.words[0].state, State::None); // "hello"
-        assert_eq!(text.words[1].state, State::None); // "world"
+        assert_eq!(text.text_buffer.words[0].state, State::None); // "hello"
+        assert_eq!(text.text_buffer.words[1].state, State::None); // "world"
 
         // Type first character correctly - word should become Correct
         text.input(Some('h')).unwrap();
-        assert_eq!(text.words[0].state, State::Correct);
-        assert_eq!(text.words[1].state, State::None);
+        assert_eq!(text.text_buffer.words[0].state, State::Correct);
+        assert_eq!(text.text_buffer.words[1].state, State::None);
 
         // Type second character correctly - word should remain Correct
         text.input(Some('e')).unwrap();
-        assert_eq!(text.words[0].state, State::Correct);
+        assert_eq!(text.text_buffer.words[0].state, State::Correct);
 
         // Type third character wrong - word should become Wrong
         text.input(Some('x')).unwrap();
-        assert_eq!(text.words[0].state, State::Wrong);
+        assert_eq!(text.text_buffer.words[0].state, State::Wrong);
 
         // Delete the wrong character - word should become WasWrong
         text.input(None).unwrap();
-        assert_eq!(text.words[0].state, State::WasWrong);
+        assert_eq!(text.text_buffer.words[0].state, State::WasWrong);
 
         // Type correct character - word should become Corrected
         text.input(Some('l')).unwrap();
-        assert_eq!(text.words[0].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[0].state, State::Corrected);
 
         // Continue typing correctly - word should remain Corrected
         text.input(Some('l')).unwrap();
         text.input(Some('o')).unwrap();
-        assert_eq!(text.words[0].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[0].state, State::Corrected);
 
         // Move to next word - type space correctly
         text.input(Some(' ')).unwrap();
-        assert_eq!(text.words[0].state, State::Corrected);
-        assert_eq!(text.words[1].state, State::None);
+        assert_eq!(text.text_buffer.words[0].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[1].state, State::None);
 
         // Type first character of second word correctly
         text.input(Some('w')).unwrap();
-        assert_eq!(text.words[0].state, State::Corrected);
-        assert_eq!(text.words[1].state, State::Correct);
+        assert_eq!(text.text_buffer.words[0].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[1].state, State::Correct);
 
         // Type wrong character in second word
         text.input(Some('x')).unwrap();
-        assert_eq!(text.words[1].state, State::Wrong);
+        assert_eq!(text.text_buffer.words[1].state, State::Wrong);
 
         // Delete and correct
         text.input(None).unwrap();
-        assert_eq!(text.words[1].state, State::WasWrong);
+        assert_eq!(text.text_buffer.words[1].state, State::WasWrong);
 
         text.input(Some('o')).unwrap();
-        assert_eq!(text.words[1].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[1].state, State::Corrected);
 
         // Type rest of second word correctly
         text.input(Some('r')).unwrap();
         text.input(Some('l')).unwrap();
         text.input(Some('d')).unwrap();
-        assert_eq!(text.words[1].state, State::Corrected);
+        assert_eq!(text.text_buffer.words[1].state, State::Corrected);
 
         // Test that a Corrected word becomes Wrong when typing a wrong character
-        let mut text2 = Text::new("test").unwrap();
+        let mut text2 = TypingSession::new("test").unwrap();
 
         // Create a corrected word by typing wrong, deleting, then correct
         text2.input(Some('x')).unwrap(); // Wrong
         text2.input(None).unwrap(); // Delete
         text2.input(Some('t')).unwrap(); // Correct (now Corrected)
         text2.input(Some('e')).unwrap(); // Correct
-        assert_eq!(text2.words[0].state, State::Corrected);
+        assert_eq!(text2.text_buffer.words[0].state, State::Corrected);
 
         // Type wrong character - word should become Wrong (higher priority than Corrected)
         text2.input(Some('x')).unwrap();
-        assert_eq!(text2.words[0].state, State::Wrong);
+        assert_eq!(text2.text_buffer.words[0].state, State::Wrong);
     }
 }
