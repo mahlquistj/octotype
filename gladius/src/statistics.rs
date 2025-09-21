@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 pub use web_time::{Duration, Instant};
 
-use crate::{Accuracy, CharacterResult, Configuration, Float, Ipm, State, Timestamp, Word, Wpm};
+use crate::{Accuracy, CharacterResult, Configuration, Consistency, Float, Ipm, State, Timestamp, Word, Wpm};
 
 pub struct Input {
     pub timestamp: Timestamp,
@@ -22,18 +22,21 @@ pub struct Statistics {
     pub wpm: Wpm,
     pub ipm: Ipm,
     pub accuracy: Accuracy,
-    pub consistency: Float,
+    pub consistency: Consistency,
 
     // Historical data
-    pub measurements: Vec<(Timestamp, Measurement)>,
+    pub measurements: Vec<Measurement>,
     pub input_history: Vec<Input>,
 
     // Counters
     pub char_errors: HashMap<char, usize>,
-    pub word_errors: HashMap<String, usize>,
-    pub total_chars: usize,
-    pub total_inputs: usize,
-    pub total_adds: usize,
+    pub word_errors: HashMap<Word, usize>,
+    pub adds: usize,
+    pub deletes: usize,
+    pub errors: usize,
+    pub corrects: usize,
+    pub corrections: usize,
+    pub wrong_deletes: usize,
 }
 
 #[derive(Default)]
@@ -46,7 +49,8 @@ pub struct TempStatistics {
     pub char_errors: HashMap<char, usize>,
     pub word_errors: HashMap<Word, usize>,
     // All of the counters below could technically be calculated directly from `input_history`, but
-    // i think that it may be unnescessary overhead, during typing - I would rather use more memory
+    // i think that it may be unnescessary overhead during typing - I would rather use more memory,
+    // for now
     pub adds: usize,
     pub deletes: usize,
     pub errors: usize,
@@ -59,6 +63,7 @@ pub struct TempStatistics {
 }
 
 impl TempStatistics {
+    /// Update the statistics
     pub(crate) fn update(
         &mut self,
         char: char,
@@ -134,5 +139,52 @@ impl TempStatistics {
             char,
             result,
         });
+    }
+
+    /// Finalize the temporary statistics and return the final Statistics
+    pub fn finalize(self, total_time: Duration, input_len: usize) -> Statistics {
+        let Self {
+            measurements,
+            input_history,
+            char_errors,
+            word_errors,
+            adds,
+            deletes,
+            errors,
+            corrects,
+            corrections,
+            wrong_deletes,
+            ..
+        } = self;
+        let minutes = total_time.as_secs_f64() / 60.0;
+
+        // Calculate final WPM, IPM, and Accuracy
+        let wpm = Wpm::new(input_history.len(), errors, corrections, minutes);
+        let ipm = Ipm::new(adds, input_history.len(), minutes);
+        let accuracy = Accuracy::new(input_len, errors, corrections);
+
+        // Calculate consistency (standard deviation of WPM measurements)
+        let raw_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.raw).collect();
+        let corrected_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.corrected).collect();
+        let actual_wpm_values: Vec<Float> = measurements.iter().map(|m| m.wpm.actual).collect();
+        
+        let consistency = Consistency::new(&raw_wpm_values, &corrected_wpm_values, &actual_wpm_values);
+
+        Statistics {
+            wpm,
+            ipm,
+            accuracy,
+            consistency,
+            measurements,
+            input_history,
+            char_errors,
+            word_errors,
+            adds,
+            deletes,
+            errors,
+            corrects,
+            corrections,
+            wrong_deletes,
+        }
     }
 }

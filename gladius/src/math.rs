@@ -113,6 +113,58 @@ impl Accuracy {
     }
 }
 
+/// Typing consistency (standard deviation of WPM measurements)
+///
+/// Consistency describes the stability of typing speed over time.
+/// Lower values indicate more consistent typing.
+///
+/// The values in this struct are described as a percentage between 0.0 - 100.0.
+pub struct Consistency {
+    /// Raw consistency uses raw WPM measurements
+    pub raw: Float,
+    /// Corrected consistency uses corrected WPM measurements  
+    pub corrected: Float,
+    /// Actual consistency uses actual WPM measurements
+    pub actual: Float,
+}
+
+impl Consistency {
+    /// Calculate typing consistency
+    ///
+    /// * `raw_wpm_values` - Raw WPM measurements over time
+    /// * `corrected_wpm_values` - Corrected WPM measurements over time
+    /// * `actual_wpm_values` - Actual WPM measurements over time
+    pub fn new(
+        raw_wpm_values: &[Float],
+        corrected_wpm_values: &[Float],
+        actual_wpm_values: &[Float],
+    ) -> Self {
+        Self {
+            raw: Self::calculate_std_dev(raw_wpm_values),
+            corrected: Self::calculate_std_dev(corrected_wpm_values),
+            actual: Self::calculate_std_dev(actual_wpm_values),
+        }
+    }
+
+    fn calculate_std_dev(values: &[Float]) -> Float {
+        if values.len() <= 1 {
+            return 0.0;
+        }
+
+        let mean = values.iter().sum::<Float>() / values.len() as Float;
+        let variance = values
+            .iter()
+            .map(|&value| {
+                let diff = value - mean;
+                diff * diff
+            })
+            .sum::<Float>()
+            / values.len() as Float;
+
+        variance.sqrt()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +248,51 @@ mod tests {
         let ipm = Ipm::new(30, 40, 0.5);
         assert_eq!(ipm.actual, 60.0);
         assert_eq!(ipm.raw, 80.0);
+    }
+
+    #[test]
+    fn test_consistency_calculations() {
+        // Test with consistent typing (low standard deviation)
+        let consistent_raw = vec![50.0, 51.0, 49.0, 50.5, 49.5];
+        let consistent_corrected = vec![48.0, 49.0, 47.0, 48.5, 47.5];
+        let consistent_actual = vec![46.0, 47.0, 45.0, 46.5, 45.5];
+
+        let consistency =
+            Consistency::new(&consistent_raw, &consistent_corrected, &consistent_actual);
+
+        // Should have low standard deviation (more consistent)
+        assert!(consistency.raw < 1.0);
+        assert!(consistency.corrected < 1.0);
+        assert!(consistency.actual < 1.0);
+
+        // Test with inconsistent typing (high standard deviation)
+        let inconsistent_raw = vec![30.0, 60.0, 40.0, 70.0, 20.0];
+        let inconsistent_corrected = vec![25.0, 55.0, 35.0, 65.0, 15.0];
+        let inconsistent_actual = vec![20.0, 50.0, 30.0, 60.0, 10.0];
+
+        let consistency = Consistency::new(
+            &inconsistent_raw,
+            &inconsistent_corrected,
+            &inconsistent_actual,
+        );
+
+        // Should have high standard deviation (less consistent)
+        assert!(consistency.raw > 15.0);
+        assert!(consistency.corrected > 15.0);
+        assert!(consistency.actual > 15.0);
+
+        // Test with single measurement (should be 0)
+        let single = vec![50.0];
+        let consistency = Consistency::new(&single, &single, &single);
+        assert_eq!(consistency.raw, 0.0);
+        assert_eq!(consistency.corrected, 0.0);
+        assert_eq!(consistency.actual, 0.0);
+
+        // Test with no measurements (should be 0)
+        let empty: Vec<Float> = vec![];
+        let consistency = Consistency::new(&empty, &empty, &empty);
+        assert_eq!(consistency.raw, 0.0);
+        assert_eq!(consistency.corrected, 0.0);
+        assert_eq!(consistency.actual, 0.0);
     }
 }
