@@ -110,20 +110,22 @@ impl TempStatistics {
         // Update input history and counters
         self.update_from_result(char, result, timestamp);
 
-        // Only poll for measurements each second
-        if let Some(last_timestamp) = self.last_measurement {
-            let time = timestamp - last_timestamp;
-            if time >= config.measurement_interval_seconds {
-                self.measure(time, input_len);
-            }
-        } else if timestamp >= config.measurement_interval_seconds {
-            self.last_measurement = Some(timestamp);
-            self.measure(timestamp, input_len);
+        // Take measurement if enough time has elapsed
+        if self.should_take_measurement(timestamp, config.measurement_interval_seconds) {
+            self.take_measurement(timestamp, input_len);
         }
     }
 
-    /// Grab a measurement for the statistics
-    fn measure(&mut self, timestamp: Timestamp, input_len: usize) {
+    /// Check if enough time has elapsed to take a new measurement
+    fn should_take_measurement(&self, current_timestamp: Timestamp, interval_seconds: f64) -> bool {
+        match self.last_measurement {
+            Some(last_timestamp) => current_timestamp - last_timestamp >= interval_seconds,
+            None => current_timestamp >= interval_seconds,
+        }
+    }
+
+    /// Take a measurement and update the last measurement timestamp
+    fn take_measurement(&mut self, timestamp: Timestamp, input_len: usize) {
         let measurement = Measurement::new(
             timestamp,
             input_len,
@@ -134,7 +136,9 @@ impl TempStatistics {
             self.counters.corrections,
         );
         self.measurements.push(measurement);
+        self.last_measurement = Some(timestamp);
     }
+
 
     /// Update counters and input history
     fn update_from_result(&mut self, char: char, result: CharacterResult, timestamp: Timestamp) {
