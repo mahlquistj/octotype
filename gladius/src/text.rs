@@ -133,6 +133,85 @@ impl Text {
         &self.stats
     }
 
+    /// Allocate capacity for the vectors based on expected size
+    fn allocate_capacity(&mut self, char_count: usize, word_count: usize) {
+        self.characters.reserve(char_count);
+        self.words.reserve(word_count);
+        self.input.reserve(char_count);
+        self.char_to_word_index.reserve(char_count);
+    }
+
+    /// Process each character and handle word boundary detection
+    fn process_character(
+        &mut self,
+        char: char,
+        index: usize,
+        chars: &[char],
+        original_len: usize,
+        current_word_start: &mut Option<usize>,
+        current_word_index: &mut Option<usize>,
+    ) {
+        let is_whitespace = char.is_ascii_whitespace();
+
+        if let Some(word_start) = current_word_start.take_if(|_| is_whitespace) {
+            // Add new word, as we've hit whitespace
+            self.add_word(word_start, index, chars, original_len);
+            *current_word_index = None;
+        } else if !is_whitespace && current_word_start.is_none() {
+            // Start tracking a word
+            *current_word_start = Some(index);
+            *current_word_index = Some(self.words.len()); // Next word index
+        }
+
+        // Add character
+        self.characters.push(Character {
+            char,
+            state: State::default(),
+        });
+
+        // Map character to word index (or usize::MAX for whitespace)
+        if let Some(word_idx) = *current_word_index {
+            self.char_to_word_index.push(word_idx);
+        } else {
+            // Whitespace characters don't belong to any word
+            self.char_to_word_index.push(usize::MAX);
+        }
+    }
+
+    /// Add a word to the words vector
+    fn add_word(
+        &mut self,
+        word_start: usize,
+        word_end: usize,
+        chars: &[char],
+        original_len: usize,
+    ) {
+        self.words.push(Word {
+            start: word_start + original_len,
+            end: word_end + original_len - 1,
+            state: State::default(),
+            string: chars[word_start..word_end].iter().collect(),
+        });
+    }
+
+    /// Handle the final word if the string doesn't end with whitespace
+    fn finalize_last_word(
+        &mut self,
+        current_word_start: Option<usize>,
+        chars: &[char],
+        original_len: usize,
+    ) {
+        if let Some(word_start) = current_word_start {
+            let char_count = chars.len();
+            self.words.push(Word {
+                start: word_start + original_len,
+                end: char_count + original_len - 1,
+                state: State::default(),
+                string: chars[word_start..].iter().collect(),
+            });
+        }
+    }
+
     /// Push more characters to the [Text].
     ///
     /// This allows for dynamically adding text during typing.
@@ -141,62 +220,27 @@ impl Text {
         let mut current_word_index: Option<usize> = None;
 
         let chars: Vec<char> = string.chars().collect();
-
-        let current_len = self.characters.len();
         let word_count = string.split_ascii_whitespace().count();
-        let char_count = string.chars().count();
-        self.characters.reserve(char_count);
-        self.words.reserve(word_count);
-        self.input.reserve(char_count);
-        self.char_to_word_index.reserve(char_count);
+        let char_count = chars.len();
+        let original_len = self.characters.len();
 
-        string
-            .chars()
-            .enumerate()
-            .fold(&mut *self, |text, (index, char)| {
-                // Find Word-indices and create Characters
-                let is_whitespace = char.is_ascii_whitespace();
+        // Allocate capacity for efficient insertion
+        self.allocate_capacity(char_count, word_count);
 
-                if let Some(word_start) = current_word_start.take_if(|_| is_whitespace) {
-                    // Add new word, as we've hit whitespace
-                    text.words.push(Word {
-                        start: word_start + current_len,
-                        end: index + current_len - 1,
-                        state: State::default(),
-                        string: chars[word_start..index].iter().collect(),
-                    });
-                    current_word_index = None;
-                } else if !is_whitespace && current_word_start.is_none() {
-                    // Start tracking a word
-                    current_word_start = Some(index);
-                    current_word_index = Some(text.words.len()); // Next word index
-                }
-
-                text.characters.push(Character {
-                    char,
-                    state: State::default(),
-                });
-
-                // Map character to word index (or usize::MAX for whitespace)
-                if let Some(word_idx) = current_word_index {
-                    text.char_to_word_index.push(word_idx);
-                } else {
-                    // Whitespace characters don't belong to any word
-                    text.char_to_word_index.push(usize::MAX);
-                }
-
-                text
-            });
-
-        if let Some(word_start) = current_word_start {
-            self.words.push(Word {
-                start: word_start + current_len,
-                end: char_count + current_len - 1,
-                state: State::default(),
-                // We know this is the last word, so we can just go unbounded
-                string: chars[word_start..].iter().collect(),
-            })
+        // Process each character and build data structures directly
+        for (index, char) in chars.iter().enumerate() {
+            self.process_character(
+                *char,
+                index,
+                &chars,
+                original_len,
+                &mut current_word_start,
+                &mut current_word_index,
+            );
         }
+
+        // Handle the final word if string doesn't end with whitespace
+        self.finalize_last_word(current_word_start, &chars, original_len);
     }
 
     /// Type input into the text.
