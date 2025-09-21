@@ -66,6 +66,8 @@ pub struct Text {
     stats: TempStatistics,
     config: Configuration,
     started_at: Option<Instant>,
+    /// Maps each character index to its corresponding word index for O(1) lookup
+    char_to_word_index: Vec<usize>,
 }
 
 impl Text {
@@ -81,6 +83,7 @@ impl Text {
             stats: TempStatistics::default(),
             config: Configuration::default(),
             started_at: None,
+            char_to_word_index: vec![],
         };
 
         text.push_string(string);
@@ -135,6 +138,7 @@ impl Text {
     /// This allows for dynamically adding text during typing.
     pub fn push_string(&mut self, string: &str) {
         let mut current_word_start: Option<usize> = None;
+        let mut current_word_index: Option<usize> = None;
 
         let chars: Vec<char> = string.chars().collect();
 
@@ -144,6 +148,7 @@ impl Text {
         self.characters.reserve(char_count);
         self.words.reserve(word_count);
         self.input.reserve(char_count);
+        self.char_to_word_index.reserve(char_count);
 
         string
             .chars()
@@ -160,15 +165,25 @@ impl Text {
                         state: State::default(),
                         string: chars[word_start..index].iter().collect(),
                     });
+                    current_word_index = None;
                 } else if !is_whitespace && current_word_start.is_none() {
                     // Start tracking a word
                     current_word_start = Some(index);
+                    current_word_index = Some(text.words.len()); // Next word index
                 }
 
                 text.characters.push(Character {
                     char,
                     state: State::default(),
                 });
+
+                // Map character to word index (or usize::MAX for whitespace)
+                if let Some(word_idx) = current_word_index {
+                    text.char_to_word_index.push(word_idx);
+                } else {
+                    // Whitespace characters don't belong to any word
+                    text.char_to_word_index.push(usize::MAX);
+                }
 
                 text
             });
@@ -314,12 +329,17 @@ impl Text {
 
     /// Update the word state to reflect it if it is correctly typed
     fn update_word(&mut self, at_index: usize) {
-        // TODO: Optimize to faster search?
-        let Some(word) = self
-            .words
-            .iter_mut()
-            .find(|word| word.contains_index(&at_index))
-        else {
+        // O(1) lookup using character-to-word index mapping
+        let Some(&word_index) = self.char_to_word_index.get(at_index) else {
+            return;
+        };
+
+        // Skip whitespace characters (they map to usize::MAX)
+        if word_index == usize::MAX {
+            return;
+        }
+
+        let Some(word) = self.words.get_mut(word_index) else {
             return;
         };
 
@@ -533,20 +553,20 @@ mod tests {
 
         // Initially no statistics
         let stats = text.statistics();
-        assert_eq!(stats.adds, 0);
-        assert_eq!(stats.errors, 0);
+        assert_eq!(stats.counters.adds, 0);
+        assert_eq!(stats.counters.errors, 0);
 
         // Type wrong character
         text.input(Some('x')).unwrap();
         let stats = text.statistics();
-        assert_eq!(stats.adds, 1);
-        assert_eq!(stats.errors, 1);
+        assert_eq!(stats.counters.adds, 1);
+        assert_eq!(stats.counters.errors, 1);
 
         // Type correct character
         text.input(Some('b')).unwrap();
         let stats = text.statistics();
-        assert_eq!(stats.adds, 2);
-        assert_eq!(stats.errors, 1);
+        assert_eq!(stats.counters.adds, 2);
+        assert_eq!(stats.counters.errors, 1);
     }
 
     #[test]
