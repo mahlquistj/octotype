@@ -159,11 +159,20 @@ impl Consistency {
 
         Self {
             raw_deviation,
-            raw_percent: Self::cv_to_percentage(raw_deviation, Self::calculate_mean(&raw_wpm_values)),
+            raw_percent: Self::cv_to_percentage(
+                raw_deviation,
+                Self::calculate_mean(&raw_wpm_values),
+            ),
             corrected_deviation,
-            corrected_percent: Self::cv_to_percentage(corrected_deviation, Self::calculate_mean(&corrected_wpm_values)),
+            corrected_percent: Self::cv_to_percentage(
+                corrected_deviation,
+                Self::calculate_mean(&corrected_wpm_values),
+            ),
             actual_deviation,
-            actual_percent: Self::cv_to_percentage(actual_deviation, Self::calculate_mean(&actual_wpm_values)),
+            actual_percent: Self::cv_to_percentage(
+                actual_deviation,
+                Self::calculate_mean(&actual_wpm_values),
+            ),
         }
     }
 
@@ -194,7 +203,7 @@ impl Consistency {
     }
 
     fn cv_to_percentage(std_dev: Float, mean: Float) -> Float {
-        if mean == 0.0 { 
+        if mean == 0.0 {
             return 100.0; // Perfect consistency if no typing occurred
         }
         let cv = std_dev / mean; // Coefficient of variation
@@ -291,17 +300,19 @@ mod tests {
     #[test]
     fn test_consistency_calculations() {
         // Test with consistent typing (low standard deviation)
-        let consistent_raw = vec![50.0, 51.0, 49.0, 50.5, 49.5];
-        let consistent_corrected = vec![48.0, 49.0, 47.0, 48.5, 47.5];
-        let consistent_actual = vec![46.0, 47.0, 45.0, 46.5, 45.5];
+        let consistent_raw = [50.0, 51.0, 49.0, 50.5, 49.5];
+        let consistent_corrected = [48.0, 49.0, 47.0, 48.5, 47.5];
+        let consistent_actual = [46.0, 47.0, 45.0, 46.5, 45.5];
 
         // Create mock Wpm measurements for testing
-        let consistent_measurements: Vec<Wpm> = (0..5).map(|i| Wpm {
-            raw: consistent_raw[i],
-            corrected: consistent_corrected[i],
-            actual: consistent_actual[i],
-        }).collect();
-        
+        let consistent_measurements: Vec<Wpm> = (0..5)
+            .map(|i| Wpm {
+                raw: consistent_raw[i],
+                corrected: consistent_corrected[i],
+                actual: consistent_actual[i],
+            })
+            .collect();
+
         let consistency = Consistency::calculate(&consistent_measurements);
 
         // Should have low standard deviation (more consistent) and high percentage
@@ -313,31 +324,37 @@ mod tests {
         assert!(consistency.actual_percent > 90.0);
 
         // Test with inconsistent typing (high standard deviation)
-        let inconsistent_raw = vec![30.0, 60.0, 40.0, 70.0, 20.0];
-        let inconsistent_corrected = vec![25.0, 55.0, 35.0, 65.0, 15.0];
-        let inconsistent_actual = vec![20.0, 50.0, 30.0, 60.0, 10.0];
+        let inconsistent_raw = [30.0, 60.0, 40.0, 70.0, 20.0];
+        let inconsistent_corrected = [25.0, 55.0, 35.0, 65.0, 15.0];
+        let inconsistent_actual = [20.0, 50.0, 30.0, 60.0, 10.0];
 
-        let inconsistent_measurements: Vec<Wpm> = (0..5).map(|i| Wpm {
-            raw: inconsistent_raw[i],
-            corrected: inconsistent_corrected[i],
-            actual: inconsistent_actual[i],
-        }).collect();
-        
+        let inconsistent_measurements: Vec<Wpm> = (0..5)
+            .map(|i| Wpm {
+                raw: inconsistent_raw[i],
+                corrected: inconsistent_corrected[i],
+                actual: inconsistent_actual[i],
+            })
+            .collect();
+
         let consistency = Consistency::calculate(&inconsistent_measurements);
 
         // Should have high standard deviation (less consistent) and lower percentage
         assert!(consistency.raw_deviation > 15.0);
         assert!(consistency.corrected_deviation > 15.0);
         assert!(consistency.actual_deviation > 15.0);
-        
+
         // With coefficient of variation, consistency percentages depend on mean WPM
         // For inconsistent data with means around 40-44 WPM and ~18.5 std dev:
-        assert!(consistency.raw_percent < 70.0);     // CV ≈ 0.42 → ~58% consistency
+        assert!(consistency.raw_percent < 70.0); // CV ≈ 0.42 → ~58% consistency
         assert!(consistency.corrected_percent < 60.0); // CV ≈ 0.47 → ~52% consistency  
-        assert!(consistency.actual_percent < 50.0);    // CV ≈ 0.55 → ~45% consistency
+        assert!(consistency.actual_percent < 50.0); // CV ≈ 0.55 → ~45% consistency
 
         // Test with single measurement (should be 0 deviation, 100% consistency)
-        let single_measurement = vec![Wpm { raw: 50.0, corrected: 48.0, actual: 46.0 }];
+        let single_measurement = [Wpm {
+            raw: 50.0,
+            corrected: 48.0,
+            actual: 46.0,
+        }];
         let consistency = Consistency::calculate(&single_measurement);
         assert_eq!(consistency.raw_deviation, 0.0);
         assert_eq!(consistency.corrected_deviation, 0.0);
@@ -347,7 +364,7 @@ mod tests {
         assert_eq!(consistency.actual_percent, 100.0);
 
         // Test with no measurements (should be 0 deviation, 100% consistency)
-        let empty_measurements: Vec<Wpm> = vec![];
+        let empty_measurements = [];
         let consistency = Consistency::calculate(&empty_measurements);
         assert_eq!(consistency.raw_deviation, 0.0);
         assert_eq!(consistency.corrected_deviation, 0.0);
@@ -355,5 +372,262 @@ mod tests {
         assert_eq!(consistency.raw_percent, 100.0);
         assert_eq!(consistency.corrected_percent, 100.0);
         assert_eq!(consistency.actual_percent, 100.0);
+    }
+
+    #[test]
+    fn test_consistency_edge_cases() {
+        // Test with zero WPM values (should handle gracefully)
+        let zero_wpm_measurements = [
+            Wpm {
+                raw: 0.0,
+                corrected: 0.0,
+                actual: 0.0,
+            },
+            Wpm {
+                raw: 0.0,
+                corrected: 0.0,
+                actual: 0.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&zero_wpm_measurements);
+        assert_eq!(consistency.raw_deviation, 0.0);
+        assert_eq!(consistency.raw_percent, 100.0); // Zero mean should give 100% consistency
+        assert_eq!(consistency.corrected_percent, 100.0);
+        assert_eq!(consistency.actual_percent, 100.0);
+
+        // Test with mixed zero/non-zero values
+        let mixed_measurements = [
+            Wpm {
+                raw: 0.0,
+                corrected: 0.0,
+                actual: 0.0,
+            },
+            Wpm {
+                raw: 50.0,
+                corrected: 48.0,
+                actual: 46.0,
+            },
+            Wpm {
+                raw: 0.0,
+                corrected: 0.0,
+                actual: 0.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&mixed_measurements);
+        assert!(consistency.raw_deviation > 20.0); // High deviation due to variance
+        // Percentages depend on mean, should be lower due to high CV
+        assert!(consistency.raw_percent < 50.0);
+        assert!(consistency.corrected_percent < 50.0);
+        assert!(consistency.actual_percent < 50.0);
+
+        // Test identical measurements (zero standard deviation)
+        let identical_measurements = [
+            Wpm {
+                raw: 60.0,
+                corrected: 58.0,
+                actual: 56.0,
+            },
+            Wpm {
+                raw: 60.0,
+                corrected: 58.0,
+                actual: 56.0,
+            },
+            Wpm {
+                raw: 60.0,
+                corrected: 58.0,
+                actual: 56.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&identical_measurements);
+        assert_eq!(consistency.raw_deviation, 0.0);
+        assert_eq!(consistency.corrected_deviation, 0.0);
+        assert_eq!(consistency.actual_deviation, 0.0);
+        assert_eq!(consistency.raw_percent, 100.0);
+        assert_eq!(consistency.corrected_percent, 100.0);
+        assert_eq!(consistency.actual_percent, 100.0);
+    }
+
+    #[test]
+    fn test_consistency_boundary_conditions() {
+        // Test very high CV (should give 0% consistency)
+        let very_inconsistent = [
+            Wpm {
+                raw: 1.0,
+                corrected: 1.0,
+                actual: 1.0,
+            }, // Very low
+            Wpm {
+                raw: 100.0,
+                corrected: 98.0,
+                actual: 96.0,
+            }, // Very high
+            Wpm {
+                raw: 1.0,
+                corrected: 1.0,
+                actual: 1.0,
+            }, // Very low again
+        ];
+        let consistency = Consistency::calculate(&very_inconsistent);
+        assert!(consistency.raw_deviation > 45.0); // Very high std dev
+        assert_eq!(consistency.raw_percent, 0.0); // CV > 1.0 should give 0%
+        assert_eq!(consistency.corrected_percent, 0.0);
+        assert_eq!(consistency.actual_percent, 0.0);
+
+        // Test CV near 1.0 boundary
+        let near_boundary = [
+            Wpm {
+                raw: 20.0,
+                corrected: 18.0,
+                actual: 16.0,
+            },
+            Wpm {
+                raw: 40.0,
+                corrected: 38.0,
+                actual: 36.0,
+            },
+            Wpm {
+                raw: 20.0,
+                corrected: 18.0,
+                actual: 16.0,
+            },
+            Wpm {
+                raw: 40.0,
+                corrected: 38.0,
+                actual: 36.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&near_boundary);
+        // Should have some consistency but not much (CV ≈ 0.33)
+        assert!(consistency.raw_percent > 50.0 && consistency.raw_percent < 80.0);
+        assert!(consistency.corrected_percent > 50.0 && consistency.corrected_percent < 80.0);
+        assert!(consistency.actual_percent > 50.0 && consistency.actual_percent < 80.0);
+    }
+
+    #[test]
+    fn test_consistency_realistic_patterns() {
+        // Test gradual improvement over time
+        let improving_pattern = [
+            Wpm {
+                raw: 30.0,
+                corrected: 28.0,
+                actual: 26.0,
+            },
+            Wpm {
+                raw: 35.0,
+                corrected: 33.0,
+                actual: 31.0,
+            },
+            Wpm {
+                raw: 40.0,
+                corrected: 38.0,
+                actual: 36.0,
+            },
+            Wpm {
+                raw: 45.0,
+                corrected: 43.0,
+                actual: 41.0,
+            },
+            Wpm {
+                raw: 50.0,
+                corrected: 48.0,
+                actual: 46.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&improving_pattern);
+        // Should have moderate consistency (steady improvement)
+        assert!(consistency.raw_deviation > 5.0 && consistency.raw_deviation < 10.0);
+        assert!(consistency.raw_percent > 70.0 && consistency.raw_percent < 90.0);
+
+        // Test sporadic performance (realistic inconsistency)
+        let sporadic_pattern = [
+            Wpm {
+                raw: 45.0,
+                corrected: 43.0,
+                actual: 41.0,
+            },
+            Wpm {
+                raw: 50.0,
+                corrected: 48.0,
+                actual: 46.0,
+            },
+            Wpm {
+                raw: 35.0,
+                corrected: 33.0,
+                actual: 31.0,
+            }, // Sudden drop
+            Wpm {
+                raw: 55.0,
+                corrected: 53.0,
+                actual: 51.0,
+            }, // Recovery
+            Wpm {
+                raw: 48.0,
+                corrected: 46.0,
+                actual: 44.0,
+            },
+            Wpm {
+                raw: 42.0,
+                corrected: 40.0,
+                actual: 38.0,
+            },
+        ];
+        let consistency = Consistency::calculate(&sporadic_pattern);
+        // Should show lower consistency due to sporadic performance
+        assert!(consistency.raw_deviation > 5.0);
+        assert!(consistency.raw_percent < 90.0); // Moderate inconsistency
+
+        // Test beginner vs expert consistency patterns
+        let beginner_pattern = [
+            Wpm {
+                raw: 15.0,
+                corrected: 12.0,
+                actual: 10.0,
+            },
+            Wpm {
+                raw: 25.0,
+                corrected: 20.0,
+                actual: 15.0,
+            },
+            Wpm {
+                raw: 12.0,
+                corrected: 8.0,
+                actual: 5.0,
+            },
+            Wpm {
+                raw: 30.0,
+                corrected: 25.0,
+                actual: 20.0,
+            },
+        ];
+        let beginner_consistency = Consistency::calculate(&beginner_pattern);
+
+        let expert_pattern = [
+            Wpm {
+                raw: 85.0,
+                corrected: 83.0,
+                actual: 81.0,
+            },
+            Wpm {
+                raw: 87.0,
+                corrected: 85.0,
+                actual: 83.0,
+            },
+            Wpm {
+                raw: 83.0,
+                corrected: 81.0,
+                actual: 79.0,
+            },
+            Wpm {
+                raw: 89.0,
+                corrected: 87.0,
+                actual: 85.0,
+            },
+        ];
+        let expert_consistency = Consistency::calculate(&expert_pattern);
+
+        // Expert should have better consistency (lower CV)
+        assert!(expert_consistency.raw_percent > beginner_consistency.raw_percent);
+        assert!(expert_consistency.corrected_percent > beginner_consistency.corrected_percent);
+        assert!(expert_consistency.actual_percent > beginner_consistency.actual_percent);
     }
 }
