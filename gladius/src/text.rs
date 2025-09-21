@@ -383,20 +383,61 @@ impl Text {
             return;
         }
 
+        let character_state = self.characters[at_index].state;
+        
+        // Incremental state update: O(1) for most cases
+        self.update_word_state_incrementally(word_index, character_state, at_index);
+    }
+
+    /// Update word state incrementally based on a single character change
+    fn update_word_state_incrementally(&mut self, word_index: usize, new_character_state: State, changed_index: usize) {
         let Some(word) = self.words.get_mut(word_index) else {
             return;
         };
+        
+        let current_word_state = word.state;
+        
+        // If new character state is higher priority, upgrade word state immediately
+        if new_character_state > current_word_state {
+            word.state = new_character_state;
+            return;
+        }
+        
+        // If new character state is same or lower priority, check if recalculation is needed
+        if new_character_state < current_word_state {
+            // Only recalculate if the changed character might have been determining the word state
+            // This happens when we're downgrading a character that was at the current word state level
+            let word_start = word.start;
+            let word_end = word.end;
+            
+            // Quick check: if any other character still has the current word state, no change needed
+            let has_character_at_current_state = self.characters[word_start..word_end]
+                .iter()
+                .enumerate()
+                .any(|(i, char)| word_start + i != changed_index && char.state == current_word_state);
+            
+            if !has_character_at_current_state {
+                // Need to recalculate word state from all characters
+                self.recalculate_word_state(word_index);
+            }
+        }
+        
+        // If new_character_state == current_word_state, no change needed
+    }
 
+    /// Recalculate word state from all characters (fallback for edge cases)
+    fn recalculate_word_state(&mut self, word_index: usize) {
+        let Some(word) = self.words.get_mut(word_index) else {
+            return;
+        };
+        
         let word_characters = &self.characters[word.start..word.end];
-
-        // TODO: This could maybe be done more effeciently - Maybe pattern matching?
         let mut state = State::None;
         for character in word_characters {
             if character.state > state {
                 state = character.state;
             }
         }
-
         word.state = state;
     }
 }
