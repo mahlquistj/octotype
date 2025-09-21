@@ -1,5 +1,5 @@
-use crate::text::{CharacterResult, State};
-use crate::text_buffer::TextBuffer;
+use crate::buffer::Buffer;
+use crate::{CharacterResult, State};
 
 /// Handles input processing and position tracking
 pub struct InputHandler {
@@ -30,7 +30,7 @@ impl InputHandler {
     pub fn process_input(
         &mut self,
         input: Option<char>,
-        text_buffer: &mut TextBuffer,
+        text_buffer: &mut Buffer,
     ) -> Option<(char, CharacterResult)> {
         if self.is_fully_typed(text_buffer.text_len()) {
             return None;
@@ -45,7 +45,7 @@ impl InputHandler {
     }
 
     /// Add character to input
-    fn add_input(&mut self, input: char, text_buffer: &mut TextBuffer) -> Option<CharacterResult> {
+    fn add_input(&mut self, input: char, text_buffer: &mut Buffer) -> Option<CharacterResult> {
         let index = self.input.len();
         let character = text_buffer.get_character_mut(index)?;
 
@@ -91,7 +91,7 @@ impl InputHandler {
     }
 
     /// Delete character from input
-    fn delete_input(&mut self, text_buffer: &mut TextBuffer) -> Option<(char, CharacterResult)> {
+    fn delete_input(&mut self, text_buffer: &mut Buffer) -> Option<(char, CharacterResult)> {
         // Delete the char from the input
         let deleted = self.input.pop()?;
 
@@ -133,11 +133,11 @@ impl Default for InputHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::text_buffer::TextBuffer;
+    use crate::buffer::Buffer;
 
     #[test]
     fn test_input_handler_basic() {
-        let mut text_buffer = TextBuffer::new("abc").unwrap();
+        let mut text_buffer = Buffer::new("abc").unwrap();
         let mut input_handler = InputHandler::new();
 
         // Type correct character
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_input_handler_deletion() {
-        let mut text_buffer = TextBuffer::new("abc").unwrap();
+        let mut text_buffer = Buffer::new("abc").unwrap();
         let mut input_handler = InputHandler::new();
 
         // Can't delete from empty input
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_input_handler_correction_sequence() {
-        let mut text_buffer = TextBuffer::new("abc").unwrap();
+        let mut text_buffer = Buffer::new("abc").unwrap();
         let mut input_handler = InputHandler::new();
 
         // Type wrong, delete, type correct

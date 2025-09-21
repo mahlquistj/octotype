@@ -3,7 +3,9 @@ use std::collections::HashMap;
 pub use web_time::{Duration, Instant};
 
 use crate::{
-    Accuracy, CharacterResult, Configuration, Consistency, Ipm, State, Timestamp, Word, Wpm,
+    CharacterResult, State, Timestamp, Word,
+    config::Configuration,
+    math::{Accuracy, Consistency, Ipm, Wpm},
 };
 
 pub struct Input {

@@ -1,113 +1,14 @@
+use crate::buffer::Buffer;
+use crate::config::Configuration;
 use crate::input_handler::InputHandler;
+use crate::render::{RenderingContext, RenderingIterator};
+use crate::statistics::{Statistics, TempStatistics};
 use crate::statistics_tracker::StatisticsTracker;
-use crate::text_buffer::TextBuffer;
-use crate::{Configuration, Statistics, TempStatistics};
+use crate::{Character, CharacterResult, Word};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum State {
-    // == Pre delete or add ==
-    /// The text has never been touched
-    #[default]
-    None,
-
-    // The below are in the specific order to support the `update_word` method properly
-
-    // == Post add ==
-    /// The text is correct
-    Correct,
-    /// The text was corrected
-    Corrected,
-    /// The text is wrong
-    Wrong,
-
-    // == Post delete ==
-    /// The text was correct, but has since been deleted
-    WasCorrect,
-    /// The text was corrected, but has since been deleted
-    WasCorrected,
-    /// The text was wrong, but has since been deleted or corrected
-    WasWrong,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum CharacterResult {
-    Deleted(State),
-    Wrong,
-    Corrected,
-    Correct,
-}
-
-pub struct RenderingContext<'a> {
-    pub character: &'a Character,
-    pub word: Option<&'a Word>,
-    pub has_cursor: bool,
-    pub index: usize,
-}
-
-pub struct Word {
-    pub start: usize,
-    pub end: usize,
-    pub string: String,
-    pub state: State,
-}
-
-impl Word {
-    pub fn contains_index(&self, index: &usize) -> bool {
-        (self.start..self.end).contains(index)
-    }
-}
-
-pub struct Character {
-    pub char: char,
-    pub state: State,
-}
-
-/// Iterator for rendering contexts
-pub struct RenderingIterator<'a> {
-    typing_session: &'a TypingSession,
-    index: usize,
-    cursor_position: usize,
-}
-
-impl<'a> Iterator for RenderingIterator<'a> {
-    type Item = RenderingContext<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.typing_session.text_len() {
-            return None;
-        }
-
-        let character = self.typing_session.text_buffer.get_character(self.index)?;
-        let word = self
-            .typing_session
-            .text_buffer
-            .get_word_containing(self.index);
-        let has_cursor = self.index == self.cursor_position;
-
-        let context = RenderingContext {
-            character,
-            word,
-            has_cursor,
-            index: self.index,
-        };
-
-        self.index += 1;
-        Some(context)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.typing_session.text_len().saturating_sub(self.index);
-        (remaining, Some(remaining))
-    }
-}
-
-impl<'a> ExactSizeIterator for RenderingIterator<'a> {}
-
-impl<'a> std::iter::FusedIterator for RenderingIterator<'a> {}
-
-/// Main coordinator struct that provides the same API as the old Text struct
+/// A typing session
 pub struct TypingSession {
-    text_buffer: TextBuffer,
+    text_buffer: Buffer,
     input_handler: InputHandler,
     statistics: StatisticsTracker,
     config: Configuration,
@@ -115,7 +16,7 @@ pub struct TypingSession {
 
 impl TypingSession {
     pub fn new(string: &str) -> Option<Self> {
-        let text_buffer = TextBuffer::new(string)?;
+        let text_buffer = Buffer::new(string)?;
 
         Some(Self {
             text_buffer,
@@ -129,6 +30,16 @@ impl TypingSession {
     pub fn with_configuration(mut self, config: Configuration) -> Self {
         self.config = config;
         self
+    }
+
+    /// Get character at index
+    pub fn get_character(&self, index: usize) -> Option<&Character> {
+        self.text_buffer.get_character(index)
+    }
+
+    /// Get word containing index
+    pub fn get_word_containing_index(&self, index: usize) -> Option<&Word> {
+        self.text_buffer.get_word_containing(index)
     }
 
     /// Returns the amount of characters currently in the text.
@@ -181,7 +92,7 @@ impl TypingSession {
     }
 
     /// Render the text using a generic renderer function
-    pub fn render<T>(&self, mut renderer: impl FnMut(RenderingContext) -> T) -> Vec<T> {
+    pub fn render<T, F: FnMut(RenderingContext) -> T>(&self, mut renderer: F) -> Vec<T> {
         let mut results = Vec::with_capacity(self.text_len());
         let cursor_position = self.input_len();
 
@@ -205,11 +116,7 @@ impl TypingSession {
 
     /// Create an iterator over rendering contexts
     pub fn render_iter(&self) -> RenderingIterator<'_> {
-        RenderingIterator {
-            typing_session: self,
-            index: 0,
-            cursor_position: self.input_len(),
-        }
+        self.into()
     }
 
     /// Type input into the text.
@@ -257,6 +164,8 @@ impl TypingSession {
 
 #[cfg(test)]
 mod tests {
+    use crate::State;
+
     use super::*;
 
     #[test]

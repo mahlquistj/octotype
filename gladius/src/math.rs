@@ -30,9 +30,6 @@ impl Wpm {
         let errors = errors as Float;
         let corrections = corrections as Float;
 
-        #[cfg(not(feature = "f64"))]
-        let minutes = minutes as Float;
-
         // Errors Per Minute
         let epm = errors / minutes;
         // Corrections and Errors Per Minute
@@ -77,9 +74,6 @@ impl Ipm {
     pub fn calculate(actual_inputs: usize, raw_inputs: usize, minutes: Minutes) -> Self {
         let raw_inputs = raw_inputs as Float;
         let actual_inputs = actual_inputs as Float;
-
-        #[cfg(not(feature = "f64"))]
-        let minutes = minutes as Float;
 
         Self {
             raw: raw_inputs / minutes,

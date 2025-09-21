@@ -1,7 +1,8 @@
 use web_time::{Duration, Instant};
 
-use crate::text::CharacterResult;
-use crate::{Configuration, Statistics, TempStatistics};
+use crate::CharacterResult;
+use crate::config::Configuration;
+use crate::statistics::{Statistics, TempStatistics};
 
 /// Handles statistics tracking and timing
 pub struct StatisticsTracker {
@@ -94,7 +95,6 @@ impl Default for StatisticsTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Configuration;
 
     #[test]
     fn test_statistics_tracker() {

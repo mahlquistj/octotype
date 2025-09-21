@@ -1,14 +1,15 @@
-use crate::text::{Character, State, Word};
+use crate::{Character, State, Word};
 
 /// Handles text storage, parsing, and word/character management
-pub struct TextBuffer {
+pub struct Buffer {
     characters: Vec<Character>,
     words: Vec<Word>,
     /// Maps each character index to its corresponding word index for O(1) lookup
-    char_to_word_index: Vec<usize>,
+    char_to_word_index: Vec<Option<usize>>,
 }
 
-impl TextBuffer {
+impl Buffer {
+    /// Creates a new [Buffer] from a string.
     pub fn new(string: &str) -> Option<Self> {
         if string.is_empty() {
             return None;
@@ -24,7 +25,7 @@ impl TextBuffer {
         Some(buffer)
     }
 
-    /// Returns the amount of characters currently in the TextBuffer.
+    /// Returns the amount of characters currently in the [Buffer].
     pub fn text_len(&self) -> usize {
         self.characters.len()
     }
@@ -43,19 +44,13 @@ impl TextBuffer {
 
     /// Get the word that contains the character at the given index
     pub fn get_word_containing(&self, char_index: usize) -> Option<&Word> {
-        let word_index = *self.char_to_word_index.get(char_index)?;
-        if word_index == usize::MAX {
-            return None; // Whitespace character
-        }
+        let word_index = self.char_to_word_index.get(char_index).copied().flatten()?;
         self.words.get(word_index)
     }
 
     /// Get mutable reference to the word that contains the character at the given index
     pub fn get_word_containing_mut(&mut self, char_index: usize) -> Option<&mut Word> {
-        let word_index = *self.char_to_word_index.get(char_index)?;
-        if word_index == usize::MAX {
-            return None; // Whitespace character
-        }
+        let word_index = self.char_to_word_index.get(char_index).copied().flatten()?;
         self.words.get_mut(word_index)
     }
 
@@ -91,7 +86,6 @@ impl TextBuffer {
         &mut self,
         char: char,
         index: usize,
-        chars: &[char],
         original_len: usize,
         current_word_start: &mut Option<usize>,
         current_word_index: &mut Option<usize>,
@@ -100,7 +94,7 @@ impl TextBuffer {
 
         if let Some(word_start) = current_word_start.take_if(|_| is_whitespace) {
             // Add new word, as we've hit whitespace
-            self.add_word(word_start, index, chars, original_len);
+            self.add_word(word_start, index, original_len);
             *current_word_index = None;
         } else if !is_whitespace && current_word_start.is_none() {
             // Start tracking a word
@@ -116,26 +110,19 @@ impl TextBuffer {
 
         // Map character to word index (or usize::MAX for whitespace)
         if let Some(word_idx) = *current_word_index {
-            self.char_to_word_index.push(word_idx);
+            self.char_to_word_index.push(Some(word_idx));
         } else {
             // Whitespace characters don't belong to any word
-            self.char_to_word_index.push(usize::MAX);
+            self.char_to_word_index.push(None);
         }
     }
 
     /// Add a word to the words vector
-    fn add_word(
-        &mut self,
-        word_start: usize,
-        word_end: usize,
-        chars: &[char],
-        original_len: usize,
-    ) {
+    fn add_word(&mut self, word_start: usize, word_end: usize, original_len: usize) {
         self.words.push(Word {
             start: word_start + original_len,
             end: word_end + original_len - 1,
             state: State::default(),
-            string: chars[word_start..word_end].iter().collect(),
         });
     }
 
@@ -152,12 +139,11 @@ impl TextBuffer {
                 start: word_start + original_len,
                 end: char_count + original_len - 1,
                 state: State::default(),
-                string: chars[word_start..].iter().collect(),
             });
         }
     }
 
-    /// Push more characters to the TextBuffer.
+    /// Push more characters to the [Buffer].
     ///
     /// This allows for dynamically adding text during typing.
     pub fn push_string(&mut self, string: &str) {
@@ -177,7 +163,6 @@ impl TextBuffer {
             self.process_character(
                 *char,
                 index,
-                &chars,
                 original_len,
                 &mut current_word_start,
                 &mut current_word_index,
@@ -194,29 +179,23 @@ impl TextBuffer {
         char_index: usize,
         new_character_state: State,
     ) {
-        let Some(&word_index) = self.char_to_word_index.get(char_index) else {
+        let Some(word_index) = self.char_to_word_index.get(char_index).copied().flatten() else {
+            // Skip whitespace characters (they map to usize::MAX)
             return;
         };
-
-        // Skip whitespace characters (they map to usize::MAX)
-        if word_index == usize::MAX {
-            return;
-        }
 
         let Some(word) = self.words.get_mut(word_index) else {
             return;
         };
 
-        let current_word_state = word.state;
-
         // If new character state is higher priority, upgrade word state immediately
-        if new_character_state > current_word_state {
+        if new_character_state > word.state {
             word.state = new_character_state;
             return;
         }
 
         // If new character state is same or lower priority, check if recalculation is needed
-        if new_character_state < current_word_state {
+        if new_character_state < word.state {
             // Only recalculate if the changed character might have been determining the word state
             // This happens when we're downgrading a character that was at the current word state level
             let word_start = word.start;
@@ -226,7 +205,7 @@ impl TextBuffer {
             let has_character_at_current_state = self.characters[word_start..word_end]
                 .iter()
                 .enumerate()
-                .any(|(i, char)| word_start + i != char_index && char.state == current_word_state);
+                .any(|(i, char)| word_start + i != char_index && char.state == word.state);
 
             if !has_character_at_current_state {
                 // Need to recalculate word state from all characters
@@ -260,18 +239,16 @@ mod tests {
 
     #[test]
     fn test_text_buffer_word_boundaries() {
-        let mut text_buffer = TextBuffer::new("first word").unwrap();
+        let mut text_buffer = Buffer::new("first word").unwrap();
 
         // Check initial words from "first word"
         assert_eq!(text_buffer.words.len(), 2);
 
         // Verify first word
-        assert_eq!(text_buffer.words[0].string, "first");
         assert_eq!(text_buffer.words[0].start, 0);
         assert_eq!(text_buffer.words[0].end, 4);
 
         // Verify second word
-        assert_eq!(text_buffer.words[1].string, "word");
         assert_eq!(text_buffer.words[1].start, 6);
         assert_eq!(text_buffer.words[1].end, 9);
 
@@ -285,12 +262,10 @@ mod tests {
         assert_eq!(text_buffer.words.len(), 4); // "first", "word", "second", "word"
 
         // Verify third word (from push)
-        assert_eq!(text_buffer.words[2].string, "second");
         assert_eq!(text_buffer.words[2].start, 11);
         assert_eq!(text_buffer.words[2].end, 16);
 
         // Verify fourth word (from push)
-        assert_eq!(text_buffer.words[3].string, "word");
         assert_eq!(text_buffer.words[3].start, 18);
         assert_eq!(text_buffer.words[3].end, 21);
     }
