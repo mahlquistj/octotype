@@ -70,6 +70,7 @@ impl Session {
 
 // Rendering logic
 impl Session {
+    /// TODO: Refactor and simplify
     pub fn render(&self, frame: &mut Frame, area: Rect, config: &Config) {
         let text_theme = &config.settings.theme.text;
         let term_bg = config.settings.theme.term_bg;

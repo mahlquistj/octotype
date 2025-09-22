@@ -274,8 +274,9 @@ impl TempStatistics {
     ///
     /// Calculates final metrics based on the complete session data and returns
     /// a comprehensive Statistics struct suitable for analysis and storage.
-    pub fn finalize(self, duration: Duration, input_len: usize) -> Statistics {
+    pub fn finalize(mut self, duration: Duration, input_len: usize) -> Statistics {
         let total_time = duration.as_secs_f64();
+        self.take_measurement(total_time, input_len);
 
         let Self {
             measurements,
@@ -284,21 +285,14 @@ impl TempStatistics {
             ..
         } = self;
 
+        // Safety: We will always have at least one measurement
         let Measurement {
             wpm,
             ipm,
             accuracy,
             consistency,
             ..
-        } = Measurement::new(
-            total_time,
-            input_len,
-            &measurements,
-            &input_history,
-            counters.adds,
-            counters.errors,
-            counters.corrections,
-        );
+        } = measurements.last().copied().unwrap();
 
         Statistics {
             wpm,
