@@ -175,8 +175,10 @@ impl Session {
             let line_width = cursor_line_width.unwrap_or(0);
             let content_width = area.width.saturating_sub(padding.left + padding.right);
             let line_start_offset = content_width.saturating_sub(line_width) / 2;
+            // Adjust for even line length centering (add 1 when line length is even)
+            let centering_adjustment = if line_width % 2 == 0 { 1 } else { 0 };
 
-            let cursor_area_x = area.x + padding.left + line_start_offset + cursor_x + 1;
+            let cursor_area_x = area.x + padding.left + line_start_offset + centering_adjustment + cursor_x;
             let cursor_area_y = area.y + padding.top + cursor_y;
             frame.set_cursor_position((cursor_area_x, cursor_area_y));
         }
