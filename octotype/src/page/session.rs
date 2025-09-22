@@ -12,7 +12,7 @@ use ratatui::{
 
 use crate::{
     config::Config,
-    page::{self, Loading},
+    page::{self},
     utils::{center, centered_padding, fade, height_of_lines},
 };
 
@@ -34,6 +34,8 @@ impl Session {
     /// Creates a new `TypingSession`
     pub fn new(config: &Config, mut mode: Mode) -> Result<Self, FetchError> {
         let text = mode.source.fetch()?;
+        // Safety: Sources already check for empty output - This is the only error that can happen
+        // when initializing a TypingSession
         let gladius_session = TypingSession::new(&text).expect("Failed to create TypingSession");
 
         Ok(Self {
@@ -46,6 +48,7 @@ impl Session {
 
 impl Session {
     fn fetch_new_text(&mut self, config: &Config) -> Result<(), FetchError> {
+        // As long as we don't have enough words to meet the conditions, keep trying to fetch
         if let Some(target) = self.mode.conditions.words_typed
             && target as usize > self.gladius_session.word_count()
         {
@@ -57,10 +60,7 @@ impl Session {
                         "Source fetched too slowly".to_string(),
                     ));
                 }
-            } else {
-                let Some(text) = self.fetch_buffer.take() else {
-                    unreachable!("Text in buffer was None after checking!");
-                };
+            } else if let Some(text) = self.fetch_buffer.take() {
                 self.gladius_session.push_string(&text);
             }
         }
@@ -178,7 +178,8 @@ impl Session {
             // Adjust for even line length centering (add 1 when line length is even)
             let centering_adjustment = if line_width % 2 == 0 { 1 } else { 0 };
 
-            let cursor_area_x = area.x + padding.left + line_start_offset + centering_adjustment + cursor_x;
+            let cursor_area_x =
+                area.x + padding.left + line_start_offset + centering_adjustment + cursor_x;
             let cursor_area_y = area.y + padding.top + cursor_y;
             frame.set_cursor_position((cursor_area_x, cursor_area_y));
         }
