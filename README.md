@@ -87,6 +87,6 @@ missing more customizability when it came to what modes and words i could get.
 
 [Monkeytype]: https://monkeytype.com/
 [Ratatui]: https://ratatui.rs/
-[Wiki]: https://github.com/mahlquistj/octotype/wiki/Configuration
+[Wiki]: https://mahlquistj.github.io/octotype/
 [ZSA Moonlander]: https://www.zsa.io/moonlander
 [Gladius]: https://github.com/mahlquistj/octotype/tree/main/gladius
