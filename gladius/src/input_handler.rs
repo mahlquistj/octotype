@@ -1,5 +1,5 @@
 use crate::buffer::Buffer;
-use crate::{Character, CharacterResult, State};
+use crate::{CharacterResult, State};
 
 /// Handles input processing and position tracking
 #[derive(Debug, Clone)]

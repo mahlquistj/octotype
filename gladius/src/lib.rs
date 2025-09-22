@@ -11,9 +11,6 @@ pub mod statistics_tracker;
 
 pub use session::TypingSession;
 
-/// The average word length in the english dictionary
-const AVERAGE_WORD_LENGTH: usize = 5;
-
 // Shared types for readability
 type Timestamp = f64;
 type Minutes = f64;
