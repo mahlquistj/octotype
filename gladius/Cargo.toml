@@ -13,3 +13,14 @@ exclude.workspace = true
 
 [dependencies]
 web-time.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "math_benchmarks"
+harness = false
+
+[[bench]]
+name = "statistics_benchmarks"
+harness = false

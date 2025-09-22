@@ -1,3 +1,5 @@
+//! Gladius - A configurable library for creating typing trainers!
+
 pub mod buffer;
 pub mod config;
 pub mod input_handler;

@@ -104,7 +104,7 @@ pub struct TempStatistics {
 
 impl TempStatistics {
     /// Update the statistics
-    pub(crate) fn update(
+    pub fn update(
         &mut self,
         char: char,
         result: CharacterResult,
