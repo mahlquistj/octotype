@@ -180,7 +180,7 @@ impl Buffer {
     fn add_word(&mut self, word_start: usize, word_end: usize, original_len: usize) {
         self.words.push(Word {
             start: word_start + original_len,
-            end: word_end + original_len.saturating_sub(1),
+            end: (word_end + original_len).saturating_sub(1),
             state: State::default(),
         });
     }
