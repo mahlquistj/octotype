@@ -168,7 +168,7 @@ concurrently on different threads.
 
 ## 🔧 Minimum Supported Rust Version (MSRV)
 
-Gladius supports Rust 1.70.0 and later.
+Gladius supports Rust 1.88.0 and later.
 
 ## 🤝 Contributing
 
