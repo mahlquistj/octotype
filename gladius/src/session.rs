@@ -1,3 +1,59 @@
+//! # Session Module - Complete Typing Session Management
+//!
+//! This module provides the high-level interface for managing complete typing sessions.
+//! It coordinates all the core components (buffer, input handling, statistics, rendering)
+//! to provide a unified API for typing trainer applications.
+//!
+//! ## Key Features
+//!
+//! - **Session Coordination**: Orchestrates text buffer, input processing, and statistics
+//! - **Real-time Feedback**: Provides live statistics and progress tracking
+//! - **Flexible Rendering**: Multiple rendering modes for different UI frameworks
+//! - **Line Management**: Intelligent text wrapping and cursor tracking
+//! - **Unicode Support**: Full support for international characters and emojis
+//!
+//! ## Session Lifecycle
+//!
+#![doc = simple_mermaid::mermaid!("../diagrams/session_lifecycle.mmd")]
+//!
+//! ## Usage Examples
+//!
+//! ### Basic Session
+//!
+//! ```rust
+//! use gladius::session::TypingSession;
+//! use gladius::CharacterResult;
+//!
+//! let mut session = TypingSession::new("hello world").unwrap();
+//!
+//! // Process typing input
+//! let result = session.input(Some('h')).unwrap();
+//! assert_eq!(result.0, 'h');
+//! assert_eq!(result.1, CharacterResult::Correct);
+//!
+//! // Check progress
+//! println!("Progress: {:.1}%", session.completion_percentage());
+//! println!("Time elapsed: {:.2}s", session.time_elapsed());
+//! ```
+//!
+//! ### Line-based Rendering
+//!
+//! ```rust
+//! use gladius::session::TypingSession;
+//! use gladius::render::LineRenderConfig;
+//!
+//! let session = TypingSession::new("hello world this is a test").unwrap();
+//! let config = LineRenderConfig::new(10).with_word_wrapping(false);
+//!
+//! let lines: Vec<String> = session.render_lines(|line_context| {
+//!     Some(line_context.contents.iter()
+//!         .map(|ctx| ctx.character.char)
+//!         .collect())
+//! }, config);
+//!
+//! // Results in ["hello", "world this", "is a test"]
+//! ```
+
 use crate::buffer::Buffer;
 use crate::config::Configuration;
 use crate::input_handler::InputHandler;
@@ -7,16 +63,99 @@ use crate::statistics_tracker::StatisticsTracker;
 use crate::{Character, CharacterResult, Word};
 use web_time::Duration;
 
-/// A typing session
+/// Complete typing session coordinator and state manager
+///
+/// Represents a single typing practice session with integrated text management,
+/// input processing, statistics tracking, and rendering capabilities. This is the
+/// main entry point for typing trainer applications.
+///
+/// # Architecture
+///
+/// The TypingSession coordinates four main components:
+/// - **Buffer**: Text storage and word/character management
+/// - **InputHandler**: Keystroke processing and validation
+/// - **StatisticsTracker**: Real-time performance data collection
+/// - **Configuration**: Runtime behavior settings
+///
+/// # Performance
+///
+/// - Character input processing: O(1) per keystroke
+/// - Rendering: O(n) where n is text length
+/// - Line rendering: O(n) with intelligent word wrapping
+/// - Memory usage: O(n) for text storage plus O(k) for statistics history
+///
+/// # Thread Safety
+///
+/// TypingSession is not thread-safe. Each session should be used on a single thread.
+/// Multiple sessions can run concurrently on different threads.
+///
+/// # Examples
+///
+/// ```rust
+/// use gladius::session::TypingSession;
+/// use gladius::config::Configuration;
+///
+/// // Create a basic session
+/// let mut session = TypingSession::new("Hello, world!").unwrap();
+///
+/// // Process typing with error handling
+/// while !session.is_fully_typed() {
+///     // In a real app, get input from user
+///     if let Some(result) = session.input(Some('H')) {
+///         println!("Typed '{}': {:?}", result.0, result.1);
+///     }
+///     break; // Just demo - don't actually loop infinitely
+/// }
+///
+/// // Get final statistics when complete
+/// if session.is_fully_typed() {
+///     let stats = session.finalize().unwrap();
+///     println!("WPM: {:.1}", stats.wpm.raw);
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct TypingSession {
+    /// Text buffer containing characters, words, and typing state
     text_buffer: Buffer,
+    /// Input processor for keystroke validation and state management
     input_handler: InputHandler,
+    /// Statistics collector for performance tracking
     statistics: StatisticsTracker,
+    /// Configuration for measurement intervals and behavior
     config: Configuration,
 }
 
 impl TypingSession {
+    /// Create a new typing session with the given text
+    ///
+    /// Initializes all components with default settings and prepares the session
+    /// for input processing. The text is parsed into characters and words for
+    /// efficient access during typing.
+    ///
+    /// # Parameters
+    ///
+    /// * `string` - The text to be typed (must be non-empty)
+    ///
+    /// # Returns
+    ///
+    /// `Some(TypingSession)` if the text is valid, `None` if empty
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    ///
+    /// // Create session with simple text
+    /// let session = TypingSession::new("Hello, world!").unwrap();
+    /// assert_eq!(session.text_len(), 13);
+    ///
+    /// // Unicode support
+    /// let session = TypingSession::new("café 🚀").unwrap();
+    /// assert_eq!(session.text_len(), 6);
+    ///
+    /// // Empty text returns None
+    /// assert!(TypingSession::new("").is_none());
+    /// ```
     pub fn new(string: &str) -> Option<Self> {
         let text_buffer = Buffer::new(string)?;
 
@@ -28,13 +167,43 @@ impl TypingSession {
         })
     }
 
-    /// Set configuration
+    /// Configure the session with custom settings (builder pattern)
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Configuration for measurement intervals and behavior
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    /// use gladius::config::Configuration;
+    ///
+    /// let config = Configuration {
+    ///     measurement_interval_seconds: 0.5, // More frequent measurements
+    /// };
+    ///
+    /// let session = TypingSession::new("hello world")
+    ///     .unwrap()
+    ///     .with_configuration(config);
+    /// ```
     pub fn with_configuration(mut self, config: Configuration) -> Self {
         self.config = config;
         self
     }
 
-    /// Get character at index
+    /// Get a character by its index in the text
+    ///
+    /// Returns the character data including its current typing state.
+    /// Useful for custom rendering and analysis.
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - Zero-based character index
+    ///
+    /// # Returns
+    ///
+    /// `Some(&Character)` if index is valid, `None` otherwise
     pub fn get_character(&self, index: usize) -> Option<&Character> {
         self.text_buffer.get_character(index)
     }
@@ -44,7 +213,10 @@ impl TypingSession {
         self.text_buffer.get_word_containing(index)
     }
 
-    /// Returns the amount of characters currently in the text.
+    /// Get the total number of characters in the text
+    ///
+    /// Returns the length of the complete text including spaces and punctuation.
+    /// This represents the target length that the user needs to type.
     pub fn text_len(&self) -> usize {
         self.text_buffer.text_len()
     }
@@ -62,18 +234,39 @@ impl TypingSession {
         self.input_handler.is_input_empty()
     }
 
-    /// Returns the amount of characters currently in the input.
+    /// Get the number of characters currently typed
+    ///
+    /// Returns the current position in the text, representing how many
+    /// characters the user has typed so far (including errors).
     pub fn input_len(&self) -> usize {
         self.input_handler.input_len()
     }
 
-    /// Returns true if the text has been fully typed.
+    /// Check if the entire text has been successfully typed
+    ///
+    /// Returns true when the user has typed all characters in the text.
+    /// At this point, the session can be finalized to get complete statistics.
     pub fn is_fully_typed(&self) -> bool {
         self.input_handler
             .is_fully_typed(self.text_buffer.text_len())
     }
 
-    /// Returns the completion percentage of the current [Buffer] as a f64
+    /// Get the typing completion percentage
+    ///
+    /// Returns a value between 0.0 and 100.0 representing how much of the
+    /// text has been typed so far.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    ///
+    /// let mut session = TypingSession::new("hello").unwrap();
+    /// assert_eq!(session.completion_percentage(), 0.0);
+    ///
+    /// session.input(Some('h')).unwrap(); // 1/5 = 20%
+    /// assert_eq!(session.completion_percentage(), 20.0);
+    /// ```
     pub fn completion_percentage(&self) -> f64 {
         let input_len = self.input_handler.input_len();
         let text_len = self.text_buffer.text_len();
@@ -85,7 +278,10 @@ impl TypingSession {
         (input_len as f64 / text_len as f64) * 100.0
     }
 
-    /// Returns the current time elapsed in seconds
+    /// Get the elapsed time since the session started
+    ///
+    /// Returns the time in seconds from the first keystroke to now.
+    /// Returns 0.0 if no input has been processed yet.
     pub fn time_elapsed(&self) -> f64 {
         self.statistics
             .total_duration()
@@ -94,7 +290,10 @@ impl TypingSession {
             .unwrap_or(0.0)
     }
 
-    /// Get the current statistics recorded for the text
+    /// Get real-time statistics for the current session
+    ///
+    /// Returns live statistics including measurements, counters, and input history.
+    /// Use this for displaying real-time performance feedback during typing.
     pub fn statistics(&self) -> &TempStatistics {
         self.statistics.statistics()
     }
@@ -243,14 +442,56 @@ impl TypingSession {
         self.into()
     }
 
-    /// Type input into the text.
+    /// Process a typing input and update the session state
     ///
-    /// If `Some(char)` is given, the char will be added to the input and returned with it's [CharacterResult].
-    /// If `None` is given, the text will delete a character from the input and returned with
-    /// `CharacterResult::Deleted`.
+    /// This is the main method for handling user input during typing. It processes
+    /// character input or deletions, updates statistics, validates correctness,
+    /// and automatically handles session completion.
     ///
-    /// Returns `None` if trying to delete and the input is empty or full (All text has
-    /// been typed).
+    /// # Parameters
+    ///
+    /// * `input` - `Some(char)` to type a character, `None` to delete the last character
+    ///
+    /// # Returns
+    ///
+    /// * `Some((char, result))` - The character and its validation result
+    /// * `None` - If no input could be processed (empty input on deletion, or session complete)
+    ///
+    /// # Character Results
+    ///
+    /// - `Correct`: Character matches expected and was typed correctly
+    /// - `Wrong`: Character doesn't match expected character
+    /// - `Corrected`: Character matches expected but was previously typed incorrectly
+    /// - `Deleted(state)`: Character was deleted, with its previous state
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    /// use gladius::CharacterResult;
+    ///
+    /// let mut session = TypingSession::new("hello").unwrap();
+    ///
+    /// // Type correct character
+    /// let result = session.input(Some('h')).unwrap();
+    /// assert_eq!(result.0, 'h');
+    /// assert_eq!(result.1, CharacterResult::Correct);
+    ///
+    /// // Type wrong character  
+    /// let result = session.input(Some('x')).unwrap();
+    /// assert_eq!(result.0, 'x');
+    /// assert_eq!(result.1, CharacterResult::Wrong);
+    ///
+    /// // Delete wrong character
+    /// let result = session.input(None).unwrap();
+    /// assert_eq!(result.0, 'x');
+    /// assert!(matches!(result.1, CharacterResult::Deleted(_)));
+    ///
+    /// // Type correct character (now corrected)
+    /// let result = session.input(Some('e')).unwrap();
+    /// assert_eq!(result.0, 'e');
+    /// assert_eq!(result.1, CharacterResult::Corrected);
+    /// ```
     pub fn input(&mut self, input: Option<char>) -> Option<(char, CharacterResult)> {
         let result = self
             .input_handler
@@ -274,8 +515,33 @@ impl TypingSession {
         result
     }
 
-    /// Finalize the typing session and return the final Statistics
-    /// This consumes the TypingSession and should only be called when typing is complete
+    /// Finalize the session and generate complete statistics
+    ///
+    /// Consumes the session and returns comprehensive final statistics including
+    /// all performance metrics, measurements, and detailed analysis. This should
+    /// only be called when the session is complete.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Statistics)` - Complete session statistics
+    /// * `Err(message)` - If the session is not yet complete
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    ///
+    /// let mut session = TypingSession::new("hi").unwrap();
+    /// 
+    /// // Type the complete text
+    /// session.input(Some('h')).unwrap();
+    /// session.input(Some('i')).unwrap();
+    ///
+    /// // Now we can finalize
+    /// let stats = session.finalize().unwrap();
+    /// assert_eq!(stats.counters.corrects, 2);
+    /// assert_eq!(stats.counters.errors, 0);
+    /// ```
     pub fn finalize(self) -> Result<Statistics, &'static str> {
         if !self.is_fully_typed() {
             return Err("Cannot finalize: typing session is not complete");

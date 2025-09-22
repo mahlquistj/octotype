@@ -16,6 +16,7 @@ rustdoc-args = [ "--html-in-header", "./docs-header.html" ]
 
 [dependencies]
 web-time.workspace = true
+simple-mermaid.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

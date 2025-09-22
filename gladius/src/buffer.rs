@@ -1,16 +1,65 @@
+//! # Buffer Module - Text Storage and Word/Character Management
+//!
+//! This module provides efficient text storage and parsing capabilities for typing trainers.
+//! It manages the relationship between characters and words, tracks typing state, and provides
+//! fast lookups for rendering and analysis.
+//!
+//! ## Key Features
+//!
+//! - **Efficient Text Parsing**: Breaks text into characters and words with proper boundaries
+//! - **Fast Word Lookup**: O(1) character-to-word mapping for performance
+//! - **State Tracking**: Maintains typing state for each character and word
+//! - **Unicode Support**: Handles multi-byte characters correctly
+//!
+//! ## Data Structure
+//!
+#![doc = simple_mermaid::mermaid!("../diagrams/buffer_structure.mmd")]
+//!
+//! Data layout example: `"hello world"`
+//! ```text
+//! Characters: [h][e][l][l][o][ ][w][o][r][l][d]
+//! Words:      [---word 0----]   [---word 1----]
+//! Mapping:    [0][0][0][0][0][∅][1][1][1][1][1]
+//! ```
+//!
+//! The buffer maintains three synchronized data structures:
+//! - `characters`: Individual characters with their typing state
+//! - `words`: Word boundaries and state information  
+//! - `char_to_word_index`: Fast mapping from character to containing word
+
 use crate::{Character, State, Word};
 
-/// Handles text storage, parsing, and word/character management
+/// Text buffer with efficient character and word management
+///
+/// Stores parsed text as characters and words with fast lookup capabilities.
+/// Designed for real-time typing applications where character state updates
+/// and word boundary detection need to be performed efficiently.
+///
+/// # Performance Characteristics
+///
+/// - Character access: O(1)
+/// - Word lookup by character: O(1)
+/// - Text parsing: O(n) where n is text length
+/// - State updates: O(1) per character
 #[derive(Debug, Clone)]
 pub struct Buffer {
+    /// All characters in the text with their current typing state
     characters: Vec<Character>,
+    /// Word boundaries and state information
     words: Vec<Word>,
-    /// Maps each character index to its corresponding word index for O(1) lookup
+    /// Maps each character index to its containing word (None for whitespace)
     char_to_word_index: Vec<Option<usize>>,
 }
 
 impl Buffer {
-    /// Creates a new [Buffer] from a string.
+    /// Create a new buffer from text content
+    ///
+    /// Parses the input string into characters and words, building the internal
+    /// data structures needed for efficient typing analysis.
+    ///
+    /// # Returns
+    ///
+    /// `None` if the input string is empty, otherwise a fully parsed `Buffer`.
     pub fn new(string: &str) -> Option<Self> {
         if string.is_empty() {
             return None;
@@ -26,51 +75,60 @@ impl Buffer {
         Some(buffer)
     }
 
-    /// Returns the amount of characters currently in the [Buffer].
+    /// Get the total number of characters in the buffer
     pub fn text_len(&self) -> usize {
         self.characters.len()
     }
 
-    /// Returns the character at the given index.
+    /// Get a character by its index in the buffer
     pub fn get_character(&self, index: usize) -> Option<&Character> {
         self.characters.get(index)
     }
 
-    /// Returns the current character awaiting input.
+    /// Get the character that should be typed next
+    ///
+    /// Returns the character at the current input position, or the last
+    /// character if the input has reached the end of the buffer.
     pub fn current_character(&self, input_len: usize) -> Option<&Character> {
         self.characters
             .get(input_len)
             .or_else(|| self.characters.last())
     }
 
-    /// Get the word that contains the character at the given index
+    /// Find the word containing the character at the specified index
+    ///
+    /// Uses the internal character-to-word mapping for O(1) lookup performance.
     pub fn get_word_containing(&self, char_index: usize) -> Option<&Word> {
         let word_index = self.char_to_word_index.get(char_index).copied().flatten()?;
         self.words.get(word_index)
     }
 
-    /// Get mutable reference to the word that contains the character at the given index
+    /// Find the word containing the character at the specified index (mutable)
+    ///
+    /// Uses the internal character-to-word mapping for O(1) lookup performance.
     pub fn get_word_containing_mut(&mut self, char_index: usize) -> Option<&mut Word> {
         let word_index = self.char_to_word_index.get(char_index).copied().flatten()?;
         self.words.get_mut(word_index)
     }
 
-    /// Get character by index (mutable)
+    /// Get a mutable reference to a character by its index
     pub fn get_character_mut(&mut self, index: usize) -> Option<&mut Character> {
         self.characters.get_mut(index)
     }
 
-    /// Get slice of characters for a word
+    /// Get all characters that belong to a specific word
+    ///
+    /// Returns a slice of characters from the word's start to end boundaries.
     pub fn get_word_characters(&self, word: &Word) -> &[Character] {
         &self.characters[word.start..word.end]
     }
 
-    /// Get word by index
+    /// Get a word by its index in the word list
     pub fn get_word(&self, index: usize) -> Option<&Word> {
         self.words.get(index)
     }
 
-    /// Get number of words
+    /// Get the total number of words in the buffer
     pub fn word_count(&self) -> usize {
         self.words.len()
     }
@@ -144,9 +202,11 @@ impl Buffer {
         }
     }
 
-    /// Push more characters to the [Buffer].
+    /// Add more text to the buffer
     ///
-    /// This allows for dynamically adding text during typing.
+    /// Appends additional characters and words to the existing buffer,
+    /// maintaining proper word boundaries and character-to-word mappings.
+    /// Useful for dynamic text loading during typing sessions.
     pub fn push_string(&mut self, string: &str) {
         let mut current_word_start: Option<usize> = None;
         let mut current_word_index: Option<usize> = None;

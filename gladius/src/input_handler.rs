@@ -1,33 +1,114 @@
+//! # Input Handler Module - Keystroke Processing and Validation
+//!
+//! This module provides the core input processing logic for typing trainers.
+//! It handles character validation, input state management, and coordinates
+//! between user input and the text buffer to determine typing correctness.
+//!
+//! ## Key Responsibilities
+//!
+//! - **Input Validation**: Compare typed characters against expected text
+//! - **State Management**: Track current typing position and input history
+//! - **Result Classification**: Categorize each keystroke as correct, wrong, corrected, or deleted
+//! - **Buffer Coordination**: Update text buffer states based on typing results
+//!
+//! ## Input Processing Flow
+//!
+#![doc = simple_mermaid::mermaid!("../diagrams/input_handler_flow.mmd")]
+//!
+//! ## Usage Example
+//!
+//! ```rust
+//! use gladius::input_handler::InputHandler;
+//! use gladius::buffer::Buffer;
+//!
+//! let mut handler = InputHandler::new();
+//! let mut buffer = Buffer::new("hello").unwrap();
+//!
+//! // Process correct input
+//! if let Some((char, result)) = handler.process_input(Some('h'), &mut buffer) {
+//!     println!("Typed '{}' with result: {:?}", char, result);
+//! }
+//! ```
+
 use crate::buffer::Buffer;
 use crate::{CharacterResult, State};
 
-/// Handles input processing and position tracking
+/// Core input processor for typing validation and state management
+///
+/// Maintains the current typing state and processes each keystroke to determine
+/// correctness. Coordinates with the text buffer to update character and word
+/// states based on typing results.
+///
+/// # State Management
+///
+/// The input handler tracks:
+/// - Current input position in the text
+/// - History of all typed characters
+/// - Validation results for each keystroke
+///
+/// # Performance
+///
+/// - Input processing: O(1) per keystroke
+/// - Position tracking: O(1) lookups
+/// - Memory usage: O(n) where n is input length
 #[derive(Debug, Clone)]
 pub struct InputHandler {
+    /// All characters typed so far in the current session
     input: Vec<char>,
 }
 
 impl InputHandler {
+    /// Create a new input handler for a typing session
     pub fn new() -> Self {
         Self { input: vec![] }
     }
 
-    /// Returns true if the input is empty.
+    /// Check if no characters have been typed yet
     pub fn is_input_empty(&self) -> bool {
         self.input.is_empty()
     }
 
-    /// Returns the amount of characters currently in the input.
+    /// Get the number of characters typed so far
     pub fn input_len(&self) -> usize {
         self.input.len()
     }
 
-    /// Returns true if the text has been fully typed.
+    /// Check if the entire text has been successfully typed
     pub fn is_fully_typed(&self, text_len: usize) -> bool {
         self.input.len() == text_len
     }
 
-    /// Process input (add or delete character)
+    /// Process a keystroke and return the character and its validation result
+    ///
+    /// This is the main entry point for input processing. Handles both character
+    /// input and deletions, updating the input state and text buffer accordingly.
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - The character typed (`Some(char)`) or `None` for deletion
+    /// * `text_buffer` - Mutable reference to the text buffer for state updates
+    ///
+    /// # Returns
+    ///
+    /// `Some((character, result))` if input was processed, `None` if text is complete
+    /// or no valid input was provided.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::input_handler::InputHandler;
+    /// use gladius::buffer::Buffer;
+    /// use gladius::CharacterResult;
+    ///
+    /// let mut handler = InputHandler::new();
+    /// let mut buffer = Buffer::new("hello").unwrap();
+    ///
+    /// // Type correct character
+    /// if let Some((ch, result)) = handler.process_input(Some('h'), &mut buffer) {
+    ///     assert_eq!(ch, 'h');
+    ///     assert_eq!(result, CharacterResult::Correct);
+    /// }
+    /// ```
     pub fn process_input(
         &mut self,
         input: Option<char>,
