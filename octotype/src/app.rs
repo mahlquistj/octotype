@@ -1,6 +1,9 @@
+use std::io::stdout;
 use std::time::Duration;
 
+use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::execute;
 use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
 
 use crate::config::Config;
@@ -42,6 +45,8 @@ impl App {
     /// Runs the app
     pub fn run(&mut self) -> std::io::Result<()> {
         let mut terminal = ratatui::init();
+
+        execute!(stdout(), SetCursorStyle::SteadyBar)?;
 
         loop {
             let event = event::poll(Duration::ZERO)?.then(event::read).transpose()?;

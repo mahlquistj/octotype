@@ -46,21 +46,24 @@ impl Session {
 
 impl Session {
     fn fetch_new_text(&mut self, config: &Config) -> Result<(), FetchError> {
-        if self.fetch_buffer.is_none() {
-            if let Some(new_text) = self.mode.source.try_fetch()? {
-                self.fetch_buffer = Some(new_text);
-            } else if self.gladius_session.is_fully_typed() {
-                return Err(FetchError::SourceError(
-                    "Source fetched too slowly".to_string(),
-                ));
+        if let Some(target) = self.mode.conditions.words_typed
+            && target as usize > self.gladius_session.word_count()
+        {
+            if self.fetch_buffer.is_none() {
+                if let Some(new_text) = self.mode.source.try_fetch()? {
+                    self.fetch_buffer = Some(new_text);
+                } else if self.gladius_session.is_fully_typed() {
+                    return Err(FetchError::SourceError(
+                        "Source fetched too slowly".to_string(),
+                    ));
+                }
+            } else {
+                let Some(text) = self.fetch_buffer.take() else {
+                    unreachable!("Text in buffer was None after checking!");
+                };
+                self.gladius_session.push_string(&text);
             }
-        } else if self.gladius_session.completion_percentage() > 50.0 {
-            let Some(text) = self.fetch_buffer.take() else {
-                unreachable!("Text in buffer was None after checking!");
-            };
-            self.gladius_session.push_string(&text);
         }
-
         Ok(())
     }
 }
@@ -72,6 +75,9 @@ impl Session {
         let term_bg = config.settings.theme.term_bg;
         let term_fg = config.settings.theme.term_fg;
         let ghost_fade_disabled = config.settings.disable_ghost_fade;
+
+        let mut cursor_position: Option<(u16, u16)> = None;
+        let mut current_line = 0u16;
 
         let lines = self.gladius_session.render_lines(
             |line| {
@@ -98,6 +104,7 @@ impl Session {
                         )
                     };
 
+                let mut current_col = 0u16;
                 let rendered = line
                     .contents
                     .iter()
@@ -126,15 +133,17 @@ impl Session {
                         }
 
                         if ctx.has_cursor {
-                            let text = config.settings.theme.cursor.text;
-                            let cursor = config.settings.theme.cursor.color;
-                            style = style.bg(cursor).fg(text);
+                            // Position cursor at the current character
+                            cursor_position = Some((current_col, current_line));
                         }
 
-                        Span::from(ctx.character.char.to_string()).style(style)
+                        let span = Span::from(ctx.character.char.to_string()).style(style);
+                        current_col += 1;
+                        span
                     })
                     .collect::<Line>();
 
+                current_line += 1;
                 Some(rendered)
             },
             LineRenderConfig::new(area.width as usize).with_newline_breaking(true),
@@ -143,18 +152,40 @@ impl Session {
         let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let height = height_of_lines(&lines, area);
 
+        // Calculate line width before moving lines into paragraph
+        let cursor_line_width = cursor_position.and_then(|(_, cursor_y)| {
+            if cursor_y < lines.len() as u16 {
+                Some(lines[cursor_y as usize].width() as u16)
+            } else {
+                None
+            }
+        });
+
+        let padding = centered_padding(area, Some(height), None);
         let paragraph = Paragraph::new(lines)
             .wrap(Wrap { trim: false })
-            .block(Block::new().padding(centered_padding(area, Some(height), None)))
+            .block(Block::new().padding(padding))
             .centered();
 
         frame.render_widget(paragraph, area);
+
+        // Set cursor position if we found one
+        if let Some((cursor_x, cursor_y)) = cursor_position {
+            // Calculate where the centered line starts within the content area
+            let line_width = cursor_line_width.unwrap_or(0);
+            let content_width = area.width.saturating_sub(padding.left + padding.right);
+            let line_start_offset = content_width.saturating_sub(line_width) / 2;
+
+            let cursor_area_x = area.x + padding.left + line_start_offset + cursor_x + 1;
+            let cursor_area_y = area.y + padding.top + cursor_y;
+            frame.set_cursor_position((cursor_area_x, cursor_area_y));
+        }
     }
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
         let time = self.gladius_session.time_elapsed();
-        let seconds = time.rem(60.0);
-        let minutes = time / 60.0;
+        let seconds = time.rem(60.0).trunc() as u8;
+        let minutes = (time / 60.0).trunc() as u32;
 
         let stats = self
             .gladius_session
@@ -172,7 +203,7 @@ impl Session {
             })
             .unwrap_or("".to_string());
 
-        Some(Line::raw(format!("{minutes:.0}:{seconds:0>2} {stats}")))
+        Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
     }
 
     pub fn poll(&mut self, config: &Config) -> Option<Message> {
@@ -183,9 +214,7 @@ impl Session {
             ));
         }
 
-        if self.mode.conditions.words_typed.is_some()
-            && let Err(error) = self.fetch_new_text(config)
-        {
+        if let Err(error) = self.fetch_new_text(config) {
             return Some(Message::Error(Box::new(error)));
         }
 

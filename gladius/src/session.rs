@@ -532,7 +532,7 @@ impl TypingSession {
     /// use gladius::session::TypingSession;
     ///
     /// let mut session = TypingSession::new("hi").unwrap();
-    /// 
+    ///
     /// // Type the complete text
     /// session.input(Some('h')).unwrap();
     /// session.input(Some('i')).unwrap();
