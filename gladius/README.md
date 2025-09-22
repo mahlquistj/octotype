@@ -1,8 +1,15 @@
 # Gladius - High-Performance Typing Trainer Library
 
-Gladius is a comprehensive Rust library for building typing trainer applications. It provides real-time typing analysis, flexible rendering systems, and detailed performance statistics with a focus on accuracy, performance, and ease of use.
+Gladius is a comprehensive Rust library for building typing trainer
+applications. It provides real-time typing analysis, flexible rendering systems,
+and detailed performance statistics with a focus on accuracy, performance, and
+ease of use.
 
-**Gladius is the core library powering [OctoType](https://github.com/mahlquistj/octotype)** and follows the same versioning scheme. When OctoType releases version `0.3.2`, Gladius is also at version `0.3.2`, ensuring compatibility and synchronized development.
+**Gladius is the core library powering
+[OctoType](https://github.com/mahlquistj/octotype)** and follows the same
+versioning scheme. When OctoType releases version `0.3.2`, Gladius is also at
+version `0.3.2`, ensuring compatibility and synchronized development. Gladius
+might be split into it's own repository later.
 
 ## 🚀 Quick Start
 
@@ -27,20 +34,23 @@ println!("WPM: {:.1}", session.statistics().measurements.last()
 ## 💡 Key Features
 
 ### 🏃‍♂️ **High Performance**
+
 - **Fast character processing** - Amortized O(1) keystroke handling
 - **O(1) word lookups** - Efficient character-to-word mapping
 - **Optimized statistics** - Welford's algorithm for numerical stability
 - **Memory efficient** - Minimal allocations during typing
 
 ### 📊 **Comprehensive Statistics**
+
 - **Words per minute** (raw, corrected, actual)
-- **Input per minute** (raw, actual)  
+- **Input per minute** (raw, actual)
 - **Accuracy percentages** (raw, actual)
 - **Consistency analysis** with standard deviation
 - **Detailed error tracking** by character and word
 - **Real-time measurements** at configurable intervals
 
 ### 🎯 **Flexible Rendering**
+
 - **Character-level rendering** with typing state information
 - **Line-based rendering** with intelligent word wrapping
 - **Cursor position tracking** across line boundaries
@@ -48,6 +58,7 @@ println!("WPM: {:.1}", session.statistics().measurements.last()
 - **Generic renderer interface** for any UI framework
 
 ### ⚙️ **Configurable Behavior**
+
 - **Measurement intervals** for statistics collection
 - **Line wrapping options** (word boundaries vs. character wrapping)
 - **Newline handling** (respect or ignore paragraph breaks)
@@ -55,7 +66,10 @@ println!("WPM: {:.1}", session.statistics().measurements.last()
 
 ## 🔗 Relationship to OctoType
 
-Gladius serves as the **core engine** for [OctoType](https://github.com/mahlquistj/octotype), a TUI typing trainer. While OctoType provides the user interface, configuration system, and TUI experience, Gladius handles all the fundamental typing logic:
+Gladius serves as the **core engine** for
+[OctoType](https://github.com/mahlquistj/octotype), a TUI typing trainer. While
+OctoType provides the user interface, configuration system, and TUI experience,
+Gladius handles all the fundamental typing logic:
 
 - **Text processing and character management**
 - **Real-time typing statistics calculation**
@@ -64,6 +78,7 @@ Gladius serves as the **core engine** for [OctoType](https://github.com/mahlquis
 - **Performance metrics and analysis**
 
 This separation allows:
+
 - **Reusability**: Other applications can use Gladius as a typing engine
 - **Testing**: Core typing logic can be thoroughly tested independently
 - **Maintainability**: Clear separation of concerns between UI and logic
@@ -80,7 +95,8 @@ gladius = "0.3.2"
 
 ## 📚 Documentation
 
-Complete API documentation is available at [docs.rs/gladius](https://docs.rs/gladius).
+Complete API documentation is available at
+[docs.rs/gladius](https://docs.rs/gladius).
 
 ## 🧪 Examples
 
@@ -136,17 +152,19 @@ let rendered: Vec<String> = session.render(|ctx| {
 
 ## ⚡ Performance Characteristics
 
-| Operation | Time Complexity | Notes |
-|-----------|----------------|-------|
-| Character input | O(1) amortized, O(w) worst case | Usually constant, worst case when recalculating word state |
-| Character lookup | O(1) | Direct vector indexing |
-| Word lookup | O(1) | Pre-computed mapping |
-| Statistics update | O(1) typical, O(m) when measuring | Most updates are constant, measurements scan history |
-| Rendering | O(n) | Linear in text length |
+| Operation         | Time Complexity                   | Notes                                                      |
+| ----------------- | --------------------------------- | ---------------------------------------------------------- |
+| Character input   | O(1) amortized, O(w) worst case   | Usually constant, worst case when recalculating word state |
+| Character lookup  | O(1)                              | Direct vector indexing                                     |
+| Word lookup       | O(1)                              | Pre-computed mapping                                       |
+| Statistics update | O(1) typical, O(m) when measuring | Most updates are constant, measurements scan history       |
+| Rendering         | O(n)                              | Linear in text length                                      |
 
 ## 🛡️ Thread Safety
 
-Gladius types are not thread-safe by design for maximum performance. Each typing session should be used on a single thread. Multiple sessions can run concurrently on different threads.
+Gladius types are not thread-safe by design for maximum performance. Each typing
+session should be used on a single thread. Multiple sessions can run
+concurrently on different threads.
 
 ## 🔧 Minimum Supported Rust Version (MSRV)
 
@@ -154,7 +172,9 @@ Gladius supports Rust 1.70.0 and later.
 
 ## 🤝 Contributing
 
-Gladius development happens alongside OctoType. Contributions are welcome! Please see the [OctoType repository](https://github.com/mahlquistj/octotype) for contribution guidelines.
+Gladius development happens alongside OctoType. Contributions are welcome!
+Please see the [OctoType repository](https://github.com/mahlquistj/octotype) for
+contribution guidelines.
 
 ## 📄 License
 
@@ -162,6 +182,8 @@ Licensed under the MIT License. See [LICENSE](../LICENSE) for details.
 
 ## Why "Gladius"?
 
-Gladius is the Latin word for a small sword, but in biology, it's the name for the internal, feather-shaped shell of a squid.
+Gladius is the Latin word for a small sword, but in biology, it's the name for
+the internal, feather-shaped shell of a squid.
 
-Since gladius is the **core** library of **Octo**Type, this name felt very fitting.
+Since gladius is the **core** library of **Octo**Type, this name felt very
+fitting.
