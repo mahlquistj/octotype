@@ -313,6 +313,64 @@ impl TypingSession {
         self.text_buffer.word_count()
     }
 
+    /// Get the number of words the user has completely typed
+    ///
+    /// Returns the count of words that have been fully typed by the user.
+    /// This uses O(1) lookup via the character-to-word mapping for optimal performance.
+    ///
+    /// # Performance
+    ///
+    /// - Time complexity: O(1)
+    /// - Space complexity: O(1)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gladius::session::TypingSession;
+    ///
+    /// let mut session = TypingSession::new("hello world test").unwrap();
+    /// assert_eq!(session.words_typed_count(), 0);
+    ///
+    /// // Type "hello "
+    /// for ch in "hello ".chars() {
+    ///     session.input(Some(ch));
+    /// }
+    /// assert_eq!(session.words_typed_count(), 1); // "hello" is complete
+    ///
+    /// // Type "wo"
+    /// session.input(Some('w'));
+    /// session.input(Some('o'));
+    /// assert_eq!(session.words_typed_count(), 1); // "world" still incomplete
+    /// ```
+    pub fn words_typed_count(&self) -> usize {
+        let input_len = self.input_len();
+
+        // No input means no words typed
+        if input_len == 0 {
+            return 0;
+        }
+
+        // Find the highest word index that has been completely typed
+        // A word is completely typed when we've typed past its end boundary
+        let mut completed_words = 0;
+
+        for word_index in 0..self.text_buffer.word_count() {
+            if let Some(word) = self.text_buffer.get_word(word_index) {
+                // Account for the off-by-one in word boundaries - add 1 to end
+                // The actual word includes one more character than the stored end
+                if input_len > word.end {
+                    // We've typed past the end of this word (including any following space)
+                    completed_words = word_index + 1;
+                } else {
+                    // We haven't completed this word yet, so we're done
+                    break;
+                }
+            }
+        }
+
+        completed_words
+    }
+
     /// Render the text using a generic renderer function
     pub fn render<Char, F: FnMut(RenderingContext) -> Char>(&self, mut renderer: F) -> Vec<Char> {
         let mut results = Vec::with_capacity(self.text_len());
@@ -949,5 +1007,108 @@ mod tests {
         if let Some(empty_text) = TypingSession::new("") {
             assert_eq!(empty_text.completion_percentage(), 0.0);
         }
+    }
+
+    #[test]
+    fn test_words_typed_count() {
+        let mut session = TypingSession::new("hello world test").unwrap();
+
+        // Debug: print word boundaries and characters
+        for i in 0..session.word_count() {
+            if let Some(word) = session.get_word(i) {
+                let chars: String = (word.start..word.end)
+                    .map(|idx| session.get_character(idx).map(|c| c.char).unwrap_or('?'))
+                    .collect();
+                println!(
+                    "Word {}: start={}, end={}, chars='{}'",
+                    i, word.start, word.end, chars
+                );
+            }
+        }
+
+        // Print all characters with their positions
+        for i in 0..session.text_len() {
+            if let Some(ch) = session.get_character(i) {
+                println!("Char {}: '{}'", i, ch.char);
+            }
+        }
+
+        // Initially no words typed
+        println!(
+            "Initial: input_len={}, words_typed={}",
+            session.input_len(),
+            session.words_typed_count()
+        );
+        assert_eq!(session.words_typed_count(), 0);
+
+        // Type "h" - still in first word
+        session.input(Some('h')).unwrap();
+        assert_eq!(session.words_typed_count(), 0);
+
+        // Type "hell" - still in first word
+        session.input(Some('e')).unwrap();
+        session.input(Some('l')).unwrap();
+        session.input(Some('l')).unwrap();
+        assert_eq!(session.words_typed_count(), 0);
+
+        // Type "hello" - completed first word but not past it
+        session.input(Some('o')).unwrap();
+        assert_eq!(session.words_typed_count(), 1);
+
+        session.input(Some(' ')).unwrap();
+        assert_eq!(session.words_typed_count(), 1);
+
+        // Type "w" - starting second word
+        session.input(Some('w')).unwrap();
+        session.input(Some('o')).unwrap();
+        assert_eq!(session.words_typed_count(), 1);
+
+        // Type "world" - complete second word
+        session.input(Some('r')).unwrap();
+        session.input(Some('l')).unwrap();
+        session.input(Some('d')).unwrap();
+        assert_eq!(session.words_typed_count(), 2);
+
+        // Type space after "world"
+        session.input(Some(' ')).unwrap();
+        assert_eq!(session.words_typed_count(), 2);
+
+        // Type "t" - starting third word
+        session.input(Some('t')).unwrap();
+        assert_eq!(session.words_typed_count(), 2);
+
+        // Complete "test"
+        session.input(Some('e')).unwrap();
+        session.input(Some('s')).unwrap();
+        session.input(Some('t')).unwrap();
+        assert_eq!(session.words_typed_count(), 3);
+
+        // Test edge case: single word
+        let mut single_word = TypingSession::new("hello").unwrap();
+        assert_eq!(single_word.words_typed_count(), 0);
+
+        // Type complete word
+        for ch in "hello".chars() {
+            single_word.input(Some(ch)).unwrap();
+        }
+        assert_eq!(single_word.words_typed_count(), 1);
+
+        // Test edge case: text with leading/trailing spaces
+        let mut spaced = TypingSession::new(" hello world ").unwrap();
+        assert_eq!(spaced.words_typed_count(), 0);
+
+        // Type the leading space
+        spaced.input(Some(' ')).unwrap();
+        assert_eq!(spaced.words_typed_count(), 0);
+
+        // Type "hello"
+        for ch in "hello".chars() {
+            spaced.input(Some(ch)).unwrap();
+        }
+        assert_eq!(spaced.words_typed_count(), 1);
+
+        // Type space after hello
+        spaced.input(Some(' ')).unwrap();
+        assert_eq!(spaced.words_typed_count(), 1);
     }
 }

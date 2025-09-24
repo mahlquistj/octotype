@@ -49,7 +49,7 @@ impl Mode {
 #[derive(Debug)]
 pub struct Conditions {
     pub time: Option<Duration>,
-    pub words_typed: Option<i64>,
+    pub words_typed: Option<usize>,
     pub allow_deletions: bool,
     pub allow_errors: bool,
 }

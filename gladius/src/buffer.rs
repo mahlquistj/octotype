@@ -133,6 +133,14 @@ impl Buffer {
         self.words.len()
     }
 
+    /// Get the word index for a character position (O(1) lookup)
+    ///
+    /// Returns the word index that contains the character at the given position.
+    /// Returns None if the character is whitespace or the index is out of bounds.
+    pub fn get_word_index_at(&self, char_index: usize) -> Option<usize> {
+        self.char_to_word_index.get(char_index).copied().flatten()
+    }
+
     /// Allocate capacity for the vectors based on expected size
     fn allocate_capacity(&mut self, char_count: usize, word_count: usize) {
         self.characters.reserve(char_count);

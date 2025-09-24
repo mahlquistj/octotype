@@ -5,6 +5,7 @@ use gladius::{State, TypingSession, render::LineRenderConfig};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
+    prelude::Color,
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Paragraph, Wrap},
@@ -32,7 +33,7 @@ pub struct Session {
 
 impl Session {
     /// Creates a new `TypingSession`
-    pub fn new(config: &Config, mut mode: Mode) -> Result<Self, FetchError> {
+    pub fn new(_config: &Config, mut mode: Mode) -> Result<Self, FetchError> {
         let text = mode.source.fetch()?;
         // Safety: Sources already check for empty output - This is the only error that can happen
         // when initializing a TypingSession
@@ -47,10 +48,10 @@ impl Session {
 }
 
 impl Session {
-    fn fetch_new_text(&mut self, config: &Config) -> Result<(), FetchError> {
+    fn fetch_new_text(&mut self) -> Result<(), FetchError> {
         // As long as we don't have enough words to meet the conditions, keep trying to fetch
         if let Some(target) = self.mode.conditions.words_typed
-            && target as usize > self.gladius_session.word_count()
+            && target > self.gladius_session.word_count()
         {
             if self.fetch_buffer.is_none() {
                 if let Some(new_text) = self.mode.source.try_fetch()? {
@@ -66,17 +67,32 @@ impl Session {
         }
         Ok(())
     }
+
+    fn should_end(&self) -> bool {
+        if self.gladius_session.is_fully_typed() {
+            return true;
+        }
+
+        if let Some(target) = self.mode.conditions.words_typed {
+            return self.gladius_session.words_typed_count() == target;
+        }
+
+        if let Some(max_time) = self.mode.conditions.time {
+            return self.gladius_session.time_elapsed() > max_time.as_secs_f64();
+        }
+
+        if self.mode.conditions.allow_errors {
+            return self.gladius_session.statistics().counters.errors > 0;
+        }
+
+        false
+    }
 }
 
 // Rendering logic
 impl Session {
     /// TODO: Refactor and simplify
     pub fn render(&self, frame: &mut Frame, area: Rect, config: &Config) {
-        let text_theme = &config.settings.theme.text;
-        let term_bg = config.settings.theme.term_bg;
-        let term_fg = config.settings.theme.term_fg;
-        let ghost_fade_disabled = config.settings.disable_ghost_fade;
-
         let mut cursor_position: Option<(u16, u16)> = None;
         let mut current_line = 0u16;
 
@@ -88,22 +104,7 @@ impl Session {
                 }
 
                 let (success, warning, error, foreground) =
-                    if ghost_fade_disabled || relative_idx == 0 {
-                        (
-                            text_theme.success,
-                            text_theme.warning,
-                            text_theme.error,
-                            term_fg,
-                        )
-                    } else {
-                        let fade_percent = config.settings.ghost_opacity[relative_idx - 1];
-                        (
-                            fade(text_theme.success, term_bg, fade_percent, false),
-                            fade(text_theme.warning, term_bg, fade_percent, false),
-                            fade(text_theme.error, term_bg, fade_percent, false),
-                            fade(term_fg, term_bg, fade_percent, false),
-                        )
-                    };
+                    create_line_text_colors(relative_idx, config);
 
                 let mut current_col = 0u16;
                 let rendered = line
@@ -210,15 +211,15 @@ impl Session {
         Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
     }
 
-    pub fn poll(&mut self, config: &Config) -> Option<Message> {
-        if self.gladius_session.is_fully_typed() {
+    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
+        if self.should_end() {
             return Some(Message::Show(
                 // TODO: Clone for now, but maybe we need a better solution for finalizing
                 page::Stats::from(self.gladius_session.clone().finalize().unwrap()).into(),
             ));
         }
 
-        if let Err(error) = self.fetch_new_text(config) {
+        if let Err(error) = self.fetch_new_text() {
             return Some(Message::Error(Box::new(error)));
         }
 
@@ -245,5 +246,25 @@ impl Session {
         }
 
         None
+    }
+}
+
+fn create_line_text_colors(relative_idx: usize, config: &Config) -> (Color, Color, Color, Color) {
+    let theme = &config.settings.theme;
+    if config.settings.disable_ghost_fade || relative_idx == 0 {
+        (
+            theme.text.success,
+            theme.text.warning,
+            theme.text.error,
+            theme.term_fg,
+        )
+    } else {
+        let fade_percent = config.settings.ghost_opacity[relative_idx - 1];
+        (
+            fade(theme.text.success, theme.term_bg, fade_percent, false),
+            fade(theme.text.warning, theme.term_bg, fade_percent, false),
+            fade(theme.text.error, theme.term_bg, fade_percent, false),
+            fade(theme.term_fg, theme.term_bg, fade_percent, false),
+        )
     }
 }

@@ -78,7 +78,7 @@ impl ModeMeta {
 #[serde(untagged)]
 pub enum ConditionValue {
     String(String),
-    Number(i64),
+    Number(usize),
     Bool(bool),
 }
 
@@ -114,12 +114,12 @@ impl ConditionValue {
         self,
         key: &'static str,
         parameters: &ParameterValues,
-    ) -> Result<i64, ParseConditionError> {
+    ) -> Result<usize, ParseConditionError> {
         match self {
             Self::Number(num) => Ok(num),
             Self::String(string) => parameters
                 .replace_values(&string)
-                .parse::<i64>()
+                .parse::<usize>()
                 .map_err(|err: ParseIntError| ParseConditionError::Number(key, err.to_string())),
             Self::Bool(b) => Err(ParseConditionError::Number(
                 key,
