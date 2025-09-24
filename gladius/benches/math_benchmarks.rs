@@ -1,19 +1,24 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use gladius::math::{Wpm, Ipm, Accuracy, Consistency};
+use std::hint::black_box;
+
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use gladius::math::{Accuracy, Consistency, Ipm, Wpm};
 
 fn benchmark_wpm_calculations(c: &mut Criterion) {
     let mut group = c.benchmark_group("wpm_calculations");
-    
+
     // Benchmark with various input sizes
     let test_cases = vec![
-        (100, 5, 2, 1.0),    // Small dataset
-        (1000, 50, 20, 10.0), // Medium dataset  
+        (100, 5, 2, 1.0),         // Small dataset
+        (1000, 50, 20, 10.0),     // Medium dataset
         (10000, 500, 200, 100.0), // Large dataset
     ];
-    
+
     for (characters, errors, corrections, minutes) in test_cases {
         group.bench_with_input(
-            BenchmarkId::new("calculate", format!("{}chars_{}min", characters, minutes as u32)),
+            BenchmarkId::new(
+                "calculate",
+                format!("{}chars_{}min", characters, minutes as u32),
+            ),
             &(characters, errors, corrections, minutes),
             |b, &(characters, errors, corrections, minutes)| {
                 b.iter(|| {
@@ -27,22 +32,25 @@ fn benchmark_wpm_calculations(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_ipm_calculations(c: &mut Criterion) {
     let mut group = c.benchmark_group("ipm_calculations");
-    
+
     let test_cases = vec![
-        (100, 120, 1.0),     // Small dataset
-        (1000, 1200, 10.0),  // Medium dataset
+        (100, 120, 1.0),       // Small dataset
+        (1000, 1200, 10.0),    // Medium dataset
         (10000, 12000, 100.0), // Large dataset
     ];
-    
+
     for (actual_inputs, raw_inputs, minutes) in test_cases {
         group.bench_with_input(
-            BenchmarkId::new("calculate", format!("{}inputs_{}min", actual_inputs, minutes as u32)),
+            BenchmarkId::new(
+                "calculate",
+                format!("{}inputs_{}min", actual_inputs, minutes as u32),
+            ),
             &(actual_inputs, raw_inputs, minutes),
             |b, &(actual_inputs, raw_inputs, minutes)| {
                 b.iter(|| {
@@ -55,19 +63,19 @@ fn benchmark_ipm_calculations(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_accuracy_calculations(c: &mut Criterion) {
     let mut group = c.benchmark_group("accuracy_calculations");
-    
+
     let test_cases = vec![
-        (100, 5, 2),    // Small dataset
-        (1000, 50, 20), // Medium dataset
+        (100, 5, 2),       // Small dataset
+        (1000, 50, 20),    // Medium dataset
         (10000, 500, 200), // Large dataset
     ];
-    
+
     for (input_len, total_errors, total_corrections) in test_cases {
         group.bench_with_input(
             BenchmarkId::new("calculate", format!("{}chars", input_len)),
@@ -83,16 +91,16 @@ fn benchmark_accuracy_calculations(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_consistency_calculations(c: &mut Criterion) {
     let mut group = c.benchmark_group("consistency_calculations");
-    
+
     // Generate test data sets of different sizes
     let test_sizes = vec![10, 100, 1000];
-    
+
     for size in test_sizes {
         // Generate realistic WPM measurements with some variation
         let mut measurements = Vec::with_capacity(size);
@@ -105,53 +113,43 @@ fn benchmark_consistency_calculations(c: &mut Criterion) {
                 actual: base_wpm + variation - 3.0,
             });
         }
-        
+
         group.bench_with_input(
             BenchmarkId::new("calculate", format!("{}measurements", size)),
             &measurements,
-            |b, measurements| {
-                b.iter(|| {
-                    Consistency::calculate(black_box(measurements))
-                })
-            },
+            |b, measurements| b.iter(|| Consistency::calculate(black_box(measurements))),
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_consistency_std_dev_algorithms(c: &mut Criterion) {
     let mut group = c.benchmark_group("consistency_std_dev");
-    
+
     // Test different algorithms for standard deviation calculation
     let sizes = vec![10, 100, 1000, 10000];
-    
+
     for size in sizes {
-        let values: Vec<f64> = (0..size).map(|i| 50.0 + (i as f64 * 0.1).sin() * 5.0).collect();
-        
+        let values: Vec<f64> = (0..size)
+            .map(|i| 50.0 + (i as f64 * 0.1).sin() * 5.0)
+            .collect();
+
         // Benchmark the current Welford's algorithm implementation
         group.bench_with_input(
             BenchmarkId::new("welfords_algorithm", size),
             &values,
-            |b, values| {
-                b.iter(|| {
-                    calculate_std_dev_welford(black_box(values))
-                })
-            },
+            |b, values| b.iter(|| calculate_std_dev_welford(black_box(values))),
         );
-        
+
         // Benchmark naive two-pass algorithm for comparison
         group.bench_with_input(
             BenchmarkId::new("naive_two_pass", size),
             &values,
-            |b, values| {
-                b.iter(|| {
-                    calculate_std_dev_naive(black_box(values))
-                })
-            },
+            |b, values| b.iter(|| calculate_std_dev_naive(black_box(values))),
         );
     }
-    
+
     group.finish();
 }
 
@@ -183,12 +181,10 @@ fn calculate_std_dev_naive(values: &[f64]) -> f64 {
 
     // First pass: calculate mean
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    
+
     // Second pass: calculate variance
-    let variance = values.iter()
-        .map(|&x| (x - mean).powi(2))
-        .sum::<f64>() / values.len() as f64;
-    
+    let variance = values.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / values.len() as f64;
+
     variance.sqrt()
 }
 
@@ -201,3 +197,4 @@ criterion_group!(
     benchmark_consistency_std_dev_algorithms
 );
 criterion_main!(benches);
+
