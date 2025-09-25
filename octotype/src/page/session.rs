@@ -81,7 +81,7 @@ impl Session {
             return self.gladius_session.time_elapsed() > max_time.as_secs_f64();
         }
 
-        if self.mode.conditions.allow_errors {
+        if !self.mode.conditions.allow_errors {
             return self.gladius_session.statistics().counters.errors > 0;
         }
 
