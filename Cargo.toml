@@ -1,9 +1,11 @@
-[package]
-name = "octotype"
-version = "0.3.2"
+[workspace]
+members = ["gladius", "octotype"]
+resolver = "3"
+
+[workspace.package]
+version = "0.4.0"
 edition = "2024"
 authors = ["Mads Ahlquist Jensen <madsaj10@outlook.com>"]
-description = "A typing trainer for your terminal"
 repository = "https://github.com/mahlquistj/octotype"
 license = "MIT"
 readme = "README.md"
@@ -28,7 +30,7 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
-[lints.clippy]
+[workspace.lints.clippy]
 # Groups
 perf = { level = "deny", priority = -1 }
 correctness = { level = "deny", priority = -1 }
@@ -36,7 +38,9 @@ complexity = { level = "deny", priority = -1 }
 style = { level = "deny", priority = -1 }
 nursery = { level = "deny", priority = -1 }
 
-[dependencies]
+[workspace.dependencies]
+gladius = { path = "gladius" }
+
 ratatui = { version = "0.29", features = ["serde"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 figment = { version = "0.10", features = ["toml", "env"] }
@@ -51,3 +55,6 @@ directories = "6.0"
 toml = "0.9"
 which = "8.0"
 ansi_colours = "1.2.3"
+web-time = "1.1"
+criterion = "0.7"
+simple-mermaid = "0.2"

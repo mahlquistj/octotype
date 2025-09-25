@@ -36,11 +36,11 @@ impl ParameterValues {
     pub fn replace_values(&self, string: &str) -> String {
         let mut result = String::new();
         let mut remaining = string;
-        
+
         while let Some(start) = remaining.find('{') {
             result.push_str(&remaining[..start]);
             remaining = &remaining[start + 1..];
-            
+
             if let Some(end) = remaining.find('}') {
                 let key = &remaining[..end];
                 if !key.is_empty() {
@@ -60,7 +60,7 @@ impl ParameterValues {
                 break;
             }
         }
-        
+
         result.push_str(remaining);
         result
     }

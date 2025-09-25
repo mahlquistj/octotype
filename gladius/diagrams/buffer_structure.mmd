@@ -1,0 +1,9 @@
+graph TD
+    A["Text: 'hello world'"] --> B["Characters Vector<br/>[h,e,l,l,o, ,w,o,r,l,d]"]
+    A --> C["Words Vector<br/>Word 0: hello, Word 1: world"]
+    A --> D["Char-to-Word Mapping<br/>[0,0,0,0,0,∅,1,1,1,1,1]"]
+
+    B --> E["O(1) Character Access"]
+    C --> F["Word Boundaries"]
+    D --> G["O(1) Word Lookup"]
+

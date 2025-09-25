@@ -27,7 +27,7 @@
       }: let
         mkOctoType = import ./pkgOctotype.nix;
         rustToolchain = pkgs.rust-bin.stable.latest.default;
-        tools = with pkgs; [bacon cargo-nextest cargo-expand nodejs just];
+        tools = with pkgs; [bacon cargo-nextest cargo-expand cargo-msrv nodejs];
       in {
         _module.args.pkgs = import inputs.nixpkgs {
           inherit system;

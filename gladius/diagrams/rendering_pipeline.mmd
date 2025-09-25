@@ -1,0 +1,5 @@
+graph LR
+    A[TypingSession<br/>Text Buffer + Position] --> B[RenderingIterator<br/>Per-Character Iteration]
+    B --> C[RenderingContext<br/>Context + Cursor Information]
+    C --> D[LineContext<br/>Line Groups + Offsets]
+    D --> E[UI Display<br/>Visual Output]
