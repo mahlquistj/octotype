@@ -445,12 +445,16 @@ impl TypingSession {
                     }
                 }
 
-                // If adding the next word would exceed the line length, break now
+                // If adding the the next word and the space after it would exceed the line length,
+                // add the space to current line then break
                 if current_line_length + 1 + look_ahead_length > config.line_length {
+                    // Add the space to the current line first
+                    current_line_contexts.push(context);
+                    // Then break the line
                     lines.push((current_line_contexts, lines.len())); // Store line with its index
                     current_line_contexts = Vec::new();
                     current_line_length = 0;
-                    continue; // Skip the space
+                    continue; // Continue to next iteration
                 }
             }
 
