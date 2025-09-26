@@ -96,6 +96,8 @@ impl Session {
         let mut cursor_position: Option<(u16, u16)> = None;
         let mut current_line = 0u16;
 
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+
         let lines = self.gladius_session.render_lines(
             |line| {
                 let relative_idx = line.active_line_offset.unsigned_abs();
@@ -111,7 +113,7 @@ impl Session {
                     .contents
                     .iter()
                     .map(|ctx| {
-                        let mut style = Style::new().fg(foreground);
+                        let mut style = Style::new().fg(foreground).bg(Color::White);
                         let is_space = ctx.character.char == ' ';
 
                         style = match ctx.character.state {
@@ -151,7 +153,6 @@ impl Session {
             LineRenderConfig::new(area.width as usize).with_newline_breaking(true),
         );
 
-        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let height = height_of_lines(&lines, area);
 
         // Calculate line width before moving lines into paragraph
@@ -166,7 +167,11 @@ impl Session {
         let padding = centered_padding(area, Some(height), None);
         let paragraph = Paragraph::new(lines)
             .wrap(Wrap { trim: false })
-            .block(Block::new().padding(padding))
+            .block(
+                Block::new()
+                    .padding(padding)
+                    .style(Style::new().bg(Color::LightBlue)),
+            )
             .centered();
 
         frame.render_widget(paragraph, area);
@@ -175,13 +180,14 @@ impl Session {
         if let Some((cursor_x, cursor_y)) = cursor_position {
             // Calculate where the centered line starts within the content area
             let line_width = cursor_line_width.unwrap_or(0);
-            let content_width = area.width.saturating_sub(padding.left + padding.right);
-            let line_start_offset = content_width.saturating_sub(line_width) / 2;
+            let line_start_offset = area.width.saturating_sub(line_width) / 2;
+            let centering_offset = if line_width % 2 != area.width % 2 {
+                3
+            } else {
+                0
+            };
             // Adjust for even line length centering (add 1 when line length is even)
-            let centering_adjustment = if line_width % 2 == 0 { 1 } else { 0 };
-
-            let cursor_area_x =
-                area.x + padding.left + line_start_offset + centering_adjustment + cursor_x;
+            let cursor_area_x = area.x + line_start_offset + cursor_x + centering_offset;
             let cursor_area_y = area.y + padding.top + cursor_y;
             frame.set_cursor_position((cursor_area_x, cursor_area_y));
         }
