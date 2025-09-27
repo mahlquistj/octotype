@@ -109,7 +109,7 @@ use web_time::Duration;
 ///
 /// // Get final statistics when complete
 /// if session.is_fully_typed() {
-///     let stats = session.finalize().unwrap();
+///     let stats = session.finalize();
 ///     println!("WPM: {:.1}", stats.wpm.raw);
 /// }
 /// ```
@@ -599,8 +599,8 @@ impl TypingSession {
     /// session.input(Some('h')).unwrap();
     /// session.input(Some('i')).unwrap();
     ///
-    /// // Now we can finalize
-    /// let stats = session.finalize().unwrap();
+    /// // Now we're done
+    /// let stats = session.finalize();
     /// assert_eq!(stats.counters.corrects, 2);
     /// assert_eq!(stats.counters.errors, 0);
     /// ```

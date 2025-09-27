@@ -32,7 +32,7 @@
 //! // Mark session complete and get final statistics.
 //! tracker.mark_completed();
 //! // The tracker does not handle the input, so it needs to know the final input length
-//! let final_stats = tracker.finalize(2).unwrap(); // 2 = final input length
+//! let final_stats = tracker.finalize(2); // 2 = final input length
 //! ```
 
 use web_time::{Duration, Instant};
