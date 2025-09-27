@@ -182,12 +182,9 @@ impl StatisticsTracker {
     ///
     /// Returns an error if called before any keystrokes have been processed.
     /// The session must be started (but not necessarily completed) to finalize.
-    pub fn finalize(self, input_len: usize) -> Result<Statistics, &'static str> {
-        let total_duration = self
-            .total_duration()
-            .ok_or("Cannot finalize statistics: session not completed")?;
-
-        Ok(self.stats.finalize(total_duration, input_len))
+    pub fn finalize(self, input_len: usize) -> Statistics {
+        let total_duration = self.total_duration().unwrap_or(Duration::ZERO);
+        self.stats.finalize(total_duration, input_len)
     }
 }
 

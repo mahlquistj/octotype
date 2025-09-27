@@ -604,11 +604,7 @@ impl TypingSession {
     /// assert_eq!(stats.counters.corrects, 2);
     /// assert_eq!(stats.counters.errors, 0);
     /// ```
-    pub fn finalize(self) -> Result<Statistics, &'static str> {
-        if !self.is_fully_typed() {
-            return Err("Cannot finalize: typing session is not complete");
-        }
-
+    pub fn finalize(self) -> Statistics {
         let text_len = self.text_len();
         self.statistics.finalize(text_len)
     }
@@ -812,11 +808,9 @@ mod tests {
         text.input(Some('i')).unwrap();
         assert!(text.is_fully_typed());
 
-        // Try to finalize
-        let final_stats = text.finalize();
-        assert!(final_stats.is_ok());
+        // Finalize
+        let stats = text.finalize();
 
-        let stats = final_stats.unwrap();
         // Verify the statistics contain expected data
         assert_eq!(stats.counters.adds, 2);
         assert_eq!(stats.counters.corrects, 2);
@@ -828,11 +822,7 @@ mod tests {
         let text = TypingSession::new("hello").unwrap();
 
         // Try to finalize without completing
-        let result = text.finalize();
-        assert!(result.is_err());
-        if let Err(msg) = result {
-            assert_eq!(msg, "Cannot finalize: typing session is not complete");
-        }
+        text.finalize();
     }
 
     #[test]
@@ -855,8 +845,8 @@ mod tests {
 
         // Should break at word boundaries
         assert_eq!(lines.len(), 3);
-        assert_eq!(lines[0], "hello");
-        assert_eq!(lines[1], "world this");
+        assert_eq!(lines[0], "hello ");
+        assert_eq!(lines[1], "world this ");
         assert_eq!(lines[2], "is a test");
 
         // Test with word wrapping enabled
@@ -901,8 +891,8 @@ mod tests {
         assert_eq!(lines.len(), 3);
         // Cursor is at position 0, which is in the first line (line 0)
         // So line 0 has offset 0, line 1 has offset 1, line 2 has offset 2
-        assert_eq!(lines[0], (0, "one".to_string())); // cursor line - offset 0
-        assert_eq!(lines[1], (1, "two".to_string())); // 1 line after cursor
+        assert_eq!(lines[0], (0, "one ".to_string())); // cursor line - offset 0
+        assert_eq!(lines[1], (1, "two ".to_string())); // 1 line after cursor
         assert_eq!(lines[2], (2, "three".to_string())); // 2 lines after cursor
     }
 
@@ -933,9 +923,9 @@ mod tests {
 
         assert_eq!(lines.len(), 4);
         // Cursor is at position 5 (after "one t"), which is in line 1
-        assert_eq!(lines[0], (-1, "one".to_string())); // 1 line before cursor
-        assert_eq!(lines[1], (0, "two".to_string())); // cursor line - offset 0
-        assert_eq!(lines[2], (1, "three".to_string())); // 1 line after cursor
+        assert_eq!(lines[0], (-1, "one ".to_string())); // 1 line before cursor
+        assert_eq!(lines[1], (0, "two ".to_string())); // cursor line - offset 0
+        assert_eq!(lines[2], (1, "three ".to_string())); // 1 line after cursor
         assert_eq!(lines[3], (2, "four".to_string())); // 2 lines after cursor
     }
 

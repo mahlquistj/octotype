@@ -91,10 +91,11 @@ impl Session {
 
 // Rendering logic
 impl Session {
-    /// TODO: Refactor and simplify
     pub fn render(&self, frame: &mut Frame, area: Rect, config: &Config) {
         let mut cursor_position: Option<(u16, u16)> = None;
         let mut current_line = 0u16;
+
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         let lines = self.gladius_session.render_lines(
             |line| {
@@ -151,40 +152,21 @@ impl Session {
             LineRenderConfig::new(area.width as usize).with_newline_breaking(true),
         );
 
-        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
         let height = height_of_lines(&lines, area);
-
-        // Calculate line width before moving lines into paragraph
-        let cursor_line_width = cursor_position.and_then(|(_, cursor_y)| {
-            if cursor_y < lines.len() as u16 {
-                Some(lines[cursor_y as usize].width() as u16)
-            } else {
-                None
-            }
-        });
-
         let padding = centered_padding(area, Some(height), None);
-        let paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: false })
-            .block(Block::new().padding(padding))
-            .centered();
-
-        frame.render_widget(paragraph, area);
 
         // Set cursor position if we found one
         if let Some((cursor_x, cursor_y)) = cursor_position {
-            // Calculate where the centered line starts within the content area
-            let line_width = cursor_line_width.unwrap_or(0);
-            let content_width = area.width.saturating_sub(padding.left + padding.right);
-            let line_start_offset = content_width.saturating_sub(line_width) / 2;
-            // Adjust for even line length centering (add 1 when line length is even)
-            let centering_adjustment = if line_width % 2 == 0 { 1 } else { 0 };
-
-            let cursor_area_x =
-                area.x + padding.left + line_start_offset + centering_adjustment + cursor_x;
+            let cursor_area_x = area.x + padding.left + cursor_x;
             let cursor_area_y = area.y + padding.top + cursor_y;
             frame.set_cursor_position((cursor_area_x, cursor_area_y));
         }
+
+        let paragraph = Paragraph::new(lines)
+            .wrap(Wrap { trim: false })
+            .block(Block::new().padding(padding));
+
+        frame.render_widget(paragraph, area);
     }
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
@@ -214,8 +196,8 @@ impl Session {
     pub fn poll(&mut self, _config: &Config) -> Option<Message> {
         if self.should_end() {
             return Some(Message::Show(
-                // TODO: Clone for now, but maybe we need a better solution for finalizing
-                page::Stats::from(self.gladius_session.clone().finalize().unwrap()).into(),
+                // TODO: Clone for now, but we need a better solution for finalizing
+                page::Stats::from(self.gladius_session.clone().finalize()).into(),
             ));
         }
 
