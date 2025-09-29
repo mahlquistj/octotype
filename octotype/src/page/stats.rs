@@ -178,7 +178,7 @@ impl Stats {
                     .style(Style::default().fg(Color::Gray))
                     .labels([
                         Span::raw(self.wpm_low.trunc().to_string()),
-                        Span::raw((self.wpm_high / 2.0).trunc().to_string()),
+                        Span::raw(((self.wpm_high + self.wpm_low) / 2.0).trunc().to_string()),
                         Span::raw((self.wpm_high).trunc().to_string()),
                     ])
                     .bounds([self.wpm_low, self.wpm_high]),

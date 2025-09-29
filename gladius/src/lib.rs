@@ -157,7 +157,7 @@
 //!
 //! // Get final statistics
 //! if session.is_fully_typed() {
-//!     let stats = session.finalize().unwrap();
+//!     let stats = session.finalize();
 //!     println!("Final WPM: {:.1}", stats.wpm.raw);
 //!     println!("Accuracy: {:.1}%", stats.accuracy.raw);
 //!     println!("Total time: {:.2}s", stats.duration.as_secs_f64());

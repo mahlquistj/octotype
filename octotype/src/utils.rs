@@ -29,14 +29,16 @@ pub fn centered_padding(
 ) -> Padding {
     let (top, bottom) = widget_height
         .map(|height| {
+            let offset = if area.height % 2 == 0 { 1 } else { 0 };
             let top = (area.height.saturating_sub(height)) / 2;
-            (top, 0)
+            (top + offset, 0)
         })
         .unwrap_or((0, 0));
     let (left, right) = widget_width
         .map(|width| {
+            let offset = if area.width % 2 == 0 { 1 } else { 0 };
             let left = (area.width.saturating_sub(width)) / 2;
-            (left, 0)
+            (left + offset, 0)
         })
         .unwrap_or((0, 0));
     Padding::new(left, right, top, bottom)

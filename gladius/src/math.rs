@@ -87,7 +87,8 @@ impl Wpm {
     ///
     /// # Returns
     ///
-    /// A `Wpm` struct containing raw, corrected, and actual WPM calculations
+    /// A `Wpm` struct containing raw, corrected, and actual WPM calculations.
+    /// Wpm calculations are clamped to always be >= 0.0
     ///
     /// # Example
     ///
@@ -124,9 +125,9 @@ impl Wpm {
         let actual = raw - cepm;
 
         Self {
-            raw,
-            corrected,
-            actual,
+            raw: raw.max(0.0),
+            corrected: corrected.max(0.0),
+            actual: actual.max(0.0),
         }
     }
 }
