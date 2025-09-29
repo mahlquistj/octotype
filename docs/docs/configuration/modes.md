@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # 🎭 Modes
 
 A "Mode" in OctoType is what describes certain conditions to be met before a

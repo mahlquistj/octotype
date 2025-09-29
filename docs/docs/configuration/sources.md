@@ -1,3 +1,7 @@
+---
+sidebar_position: 5
+---
+
 # 🖊️ Sources
 
 A "Source" in OctoType is what generates the words/sentences/characters for a

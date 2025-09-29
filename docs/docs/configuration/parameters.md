@@ -1,3 +1,7 @@
+---
+sidebar_position: 3
+---
+
 # ⚙️ Parameters
 
 [Sources](Sources) and [Modes](Modes) both have a `parameters` section where you
