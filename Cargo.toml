@@ -12,7 +12,6 @@ readme = "README.md"
 keywords = ["typing-trainer", "tui", "ratatui"]
 categories = ["command-line-utilities"]
 exclude = [
-"assets/*", 
 "octotype.wiki/*", 
 ".github/*", 
 "flake.nix", 
