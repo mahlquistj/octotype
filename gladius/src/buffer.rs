@@ -243,6 +243,12 @@ impl Buffer {
     }
 
     /// Update word state incrementally based on a single character change
+    ///
+    /// # Performance
+    ///
+    /// - Best case: O(1) when upgrading character state (most common)
+    /// - Worst case: O(c) where c is characters in the word (when recalculating after state downgrade)
+    /// - Amortized: O(1) for typical typing patterns
     pub fn update_word_state_incrementally(
         &mut self,
         char_index: usize,
