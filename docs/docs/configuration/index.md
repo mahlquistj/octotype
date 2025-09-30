@@ -65,7 +65,7 @@ config, and install octotype like so:
 
 For more info regarding using OctoType with
 [Home Manager](https://github.com/nix-community/home-manager) see
-[Configuration](Configuration)
+[Settings](settings)
 
 ## 🔖 CLI Arguments
 

@@ -4,11 +4,11 @@ sidebar_position: 3
 
 # ⚙️ Parameters
 
-[Sources](Sources) and [Modes](Modes) both have a `parameters` section where you
+[Sources](sources) and [Modes](modes) both have a `parameters` section where you
 can define arbritrary keys.
 
 These parameters can be edited by the user upon selection and can be used to
-customize the command that is executed by the [Source](Sources)
+customize the command that is executed by the [Source](sources)
 
 ## Types
 
@@ -67,10 +67,10 @@ instead, if needed)
 ## Replacements
 
 Parameters exist for one reason only: To make an interface for the user to
-customize the default values of a [Source](Sources).
+customize the default values of a [Source](sources).
 
 Every parameter can be used as a replacement in certain places of a
-[Source](Sources#parameters) or [Mode](Modes#parameters).
+[Source](sources#parameters) or [Mode](modes#parameters).
 
 A Replacement is defined by a `String` which looks like so:
 `"{<parameter_key>}"` - This will translate into the final value of the

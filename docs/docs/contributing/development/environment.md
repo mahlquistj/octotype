@@ -5,7 +5,8 @@ title: Environment
 import Link from '@docusaurus/Link';
 
 Development of OctoType is pretty simple, and shouldn't require any obscure
-dependencies. All tools used by me are listed in the [Tools](#tools) section.
+dependencies. All tools used by me are listed in the [Tools](#other-great-tools)
+section.
 
 ## Nix Devshell
 

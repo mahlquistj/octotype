@@ -41,16 +41,16 @@ description = "My custom Mode!"
 | --------------- | ---------- | ----------------------------------------------------------------------- |
 | name            | `String`   | The name of the Mode                                                    |
 | description     | `String`   | A description of the Mode                                               |
-| allowed_sources | `[String]` | Optional: Names of allowed [Sources](Sources) to be used with this mode |
+| allowed_sources | `[String]` | Optional: Names of allowed [Sources](sources) to be used with this mode |
 
 ### `parameters`
 
-Any key is accepted here - See the [Parameters](Parameters) section for more
+Any key is accepted here - See the [Parameters](parameters) section for more
 info.
 
-Keys defined here can be used as [Replacements](Parameters#-replacements) for
+Keys defined here can be used as [Replacements](parameters#replacements) for
 values within [`conditions`](#conditions) and
-[`overrides`](#overridessourcename)
+[`overrides`](#overridessource_name)
 
 ### `conditions`
 
