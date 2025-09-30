@@ -19,7 +19,6 @@ const config: Config = {
   projectName: "octotype",
 
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
 
   i18n: {
     defaultLocale: "en",
@@ -28,6 +27,9 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
 
   themes: ["@docusaurus/theme-mermaid"],
@@ -99,7 +101,7 @@ const config: Config = {
           items: [
             {
               label: "Getting started",
-              to: "/docs/intro",
+              to: "/docs/configuration/",
             },
           ],
         },
