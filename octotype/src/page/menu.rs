@@ -171,10 +171,12 @@ impl Menu {
         let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
         let area = Block::new().padding(padding).inner(area);
 
-        frame.render_widget(
-            list.block(Block::default().title(format!("Select Source for {}", mode.meta.name))),
-            area,
-        );
+        let title = Line::from(vec![
+            Span::raw("Select Source for Mode "),
+            Span::raw(&mode.meta.name).bold(),
+        ]);
+
+        frame.render_widget(list.block(Block::default().title(title)), area);
     }
 
     fn render_parameter_config(
@@ -213,13 +215,14 @@ impl Menu {
         let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
         let area = Block::new().padding(padding).inner(area);
 
-        frame.render_widget(
-            list.block(Block::default().padding(padding).title(format!(
-                "Configuring Mode '{}' with Source '{}'",
-                mode.meta.name, source.meta.name
-            ))),
-            area,
-        );
+        let title = Line::from(vec![
+            Span::raw("Configuring Mode "),
+            Span::raw(&mode.meta.name).bold(),
+            Span::raw(" with Source "),
+            Span::raw(&source.meta.name).bold(),
+        ]);
+
+        frame.render_widget(list.block(Block::default().title(title)), area);
     }
 }
 
