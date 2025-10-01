@@ -208,11 +208,7 @@ impl Session {
         None
     }
 
-    pub fn handle_events(
-        &mut self,
-        event: &crossterm::event::Event,
-        _config: &Config,
-    ) -> Option<Message> {
+    pub fn handle_events(&mut self, event: &Event, _config: &Config) -> Option<Message> {
         if let Event::Key(key) = event
             && key.is_press()
         {

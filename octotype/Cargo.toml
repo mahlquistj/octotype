@@ -12,14 +12,13 @@ categories.workspace = true
 exclude.workspace = true
 
 [dependencies]
-gladius.workspace = true
+gladius = { version = "0.4.0" }
 ratatui.workspace = true
 serde.workspace = true
 figment.workspace = true
 strum.workspace = true
 clap.workspace = true
 derive_more.workspace = true
-
 terminal-colorsaurus.workspace = true
 thiserror.workspace = true
 crossterm.workspace = true

@@ -44,8 +44,8 @@ pub enum ConfigError {
 pub struct Settings {
     pub theme: theme::Theme,
     pub statistic: stats::StatisticsConfig,
-    pub sources_dir: Option<PathBuf>,
-    pub modes_dir: Option<PathBuf>,
+    sources_dir: Option<PathBuf>,
+    modes_dir: Option<PathBuf>,
     pub words_per_line: usize,
     pub show_ghost_lines: usize,
     #[serde(default)]
@@ -91,6 +91,10 @@ impl Config {
 
         sources.sort();
         sources
+    }
+
+    pub fn sources_dir(&self) -> &PathBuf {
+        self.settings.sources_dir.as_ref().unwrap()
     }
 
     pub fn get(override_path: Option<PathBuf>) -> Result<Self, ConfigError> {

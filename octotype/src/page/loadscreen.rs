@@ -40,10 +40,11 @@ impl Loading {
     /// * `E`: The error type returned by the closure (`F`)
     pub fn load<F, E>(config: &Config, message: &str, func: F) -> Self
     where
-        F: FnOnce() -> Result<Message, E> + Send + 'static,
+        F: FnOnce(&Config) -> Result<Message, E> + Send + 'static,
         E: std::error::Error + Send + 'static,
     {
-        let wrapper = move || func().map_err(|e| LoadError(e.to_string()));
+        let config_clone = config.clone();
+        let wrapper = move || func(&config_clone).map_err(|e| LoadError(e.to_string()));
         Self {
             handle: Some(std::thread::spawn(wrapper)),
             spinner_state: config.settings.theme.spinner.make_state(),

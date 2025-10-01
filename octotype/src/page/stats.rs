@@ -271,11 +271,7 @@ impl Stats {
         Some(Line::raw("<Enter> to go back to the menu"))
     }
 
-    pub fn handle_events(
-        &self,
-        event: &crossterm::event::Event,
-        _config: &Config,
-    ) -> Option<Message> {
+    pub fn handle_events(&self, event: &Event, _config: &Config) -> Option<Message> {
         if let Event::Key(key) = event
             && key.code == KeyCode::Enter
         {
