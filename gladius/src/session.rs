@@ -316,12 +316,13 @@ impl TypingSession {
     /// Get the number of words the user has completely typed
     ///
     /// Returns the count of words that have been fully typed by the user.
-    /// This uses O(1) lookup via the character-to-word mapping for optimal performance.
+    /// Iterates through words to find the last completed one.
     ///
     /// # Performance
     ///
-    /// - Time complexity: O(1)
+    /// - Time complexity: O(w) where w is the number of words in the text
     /// - Space complexity: O(1)
+    /// - Average case: O(completed_words) due to early break when finding incomplete word
     ///
     /// # Examples
     ///
@@ -394,6 +395,16 @@ impl TypingSession {
         results
     }
 
+    /// Render the text as lines with word wrapping and line management
+    ///
+    /// Breaks the text into lines according to the configuration and applies
+    /// the provided renderer function to each line.
+    ///
+    /// # Performance
+    ///
+    /// - Time complexity: O(n) where n is text length, with O(w) lookahead for word wrapping
+    /// - Space complexity: O(n) for storing line contexts
+    /// - Word wrapping adds constant factor overhead for lookahead scanning
     pub fn render_lines<Line, F: FnMut(LineContext) -> Option<Line>>(
         &self,
         mut line_renderer: F,

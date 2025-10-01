@@ -19,12 +19,20 @@ const config: Config = {
   projectName: "octotype",
 
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
 
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  markdown: {
+    mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
+
+  themes: ["@docusaurus/theme-mermaid"],
 
   presets: [
     [
@@ -69,12 +77,6 @@ const config: Config = {
         },
         {
           type: "docSidebar",
-          sidebarId: "cli",
-          position: "left",
-          label: "Commandline Interface",
-        },
-        {
-          type: "docSidebar",
           sidebarId: "contributing",
           position: "left",
           label: "Contributing",
@@ -99,7 +101,7 @@ const config: Config = {
           items: [
             {
               label: "Getting started",
-              to: "/docs/intro",
+              to: "/docs/configuration/",
             },
           ],
         },

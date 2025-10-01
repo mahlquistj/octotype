@@ -1,3 +1,7 @@
+---
+sidebar_position: 5
+---
+
 # 🖊️ Sources
 
 A "Source" in OctoType is what generates the words/sentences/characters for a
@@ -47,10 +51,10 @@ description = "My custom Source!"
 
 ### `parameters`
 
-Any key is accepted here - See the [Parameters](Parameters) section for more
+Any key is accepted here - See the [Parameters](parameters) section for more
 info.
 
-Keys defined here can be used as [Replacements](Parameters#-replacements) for
+Keys defined here can be used as [Replacements](parameters#replacements) for
 values within [`meta.command`](#command)
 
 ## Command

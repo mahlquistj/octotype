@@ -17,6 +17,7 @@ macos ARGS="":
     @cargo build --target="x86_64-apple-darwin" {{ARGS}}
 
 # Builds the docs
+[working-directory('../docs/')]
 docs:
     @npm ci
     @npm run build

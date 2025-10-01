@@ -78,6 +78,12 @@ impl Measurement {
     /// Calculates all performance metrics based on the current state of the typing session.
     /// Consistency is calculated using all previous measurements plus the current one.
     ///
+    /// # Performance
+    ///
+    /// - Time complexity: O(m) where m = number of previous measurements
+    /// - Space complexity: O(m) for temporary Vec of WPM values during consistency calculation
+    /// - Dominated by Welford's algorithm for standard deviation calculation
+    ///
     /// # Parameters
     ///
     /// * `timestamp` - Current time in seconds from session start
@@ -191,6 +197,14 @@ impl TempStatistics {
     ///
     /// Updates counters, adds to input history, and takes a measurement
     /// if enough time has elapsed since the last one.
+    ///
+    /// # Performance
+    ///
+    /// - Time complexity: O(1) typical case, O(m) when taking measurements
+    ///   where m = number of previous measurements taken in this session
+    /// - Space complexity: O(1) per call (grows input history by 1)
+    /// - Measurements are taken at intervals (default: 1 second)
+    /// - For a t-second session with i-second intervals: m ≈ t/i measurements
     ///
     /// # Parameters
     ///
