@@ -191,7 +191,7 @@ impl Session {
                     measure.ipm.actual
                 )
             })
-            .unwrap_or("".to_string());
+            .unwrap_or_default();
 
         Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
     }
