@@ -503,9 +503,10 @@ dependencies = [
 
 [[package]]
 name = "gladius"
-version = "0.4.0"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "302fbde4fb5b7b91fff9cb8a099a6197bd119f7f602bb6009e4d78526d8f2822"
 dependencies = [
- "criterion",
  "simple-mermaid",
  "web-time",
 ]
@@ -701,6 +702,7 @@ version = "0.4.0"
 dependencies = [
  "ansi_colours",
  "clap",
+ "criterion",
  "crossterm 0.29.0",
  "derive_more",
  "directories",
@@ -708,10 +710,12 @@ dependencies = [
  "gladius",
  "ratatui",
  "serde",
+ "simple-mermaid",
  "strum 0.27.2",
  "terminal-colorsaurus",
  "thiserror",
  "toml 0.9.6",
+ "web-time",
  "which",
 ]
 
