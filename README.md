@@ -7,6 +7,7 @@
 
 [![Built With Ratatui](https://img.shields.io/badge/Built_With_Ratatui-000?logo=ratatui&logoColor=fff)](https://ratatui.rs/)
 [![Crate Badge]][Crate]
+[![Discord Badge]][Discord]
 
 </div>
 
@@ -100,4 +101,7 @@ missing more customizability when it came to what modes and words i could get.
 [Gladius]: https://github.com/mahlquistj/gladius
 [Crate]: https://crates.io/crates/octotype
 [Crate Badge]: https://img.shields.io/crates/v/octotype
+[Discord]: 
+[Discord Badge]: https://img.shields.io/discord/1416561228561776724?logo=discord&label=Discord
+
 
