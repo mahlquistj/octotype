@@ -13,11 +13,17 @@ const DEFAULT_SPINNER: [char; 8] = ['⣷', '⣯', '⣟', '⡿', '⢿', '⣻', '�
 /// General theme
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Theme {
+    #[serde(default)]
     pub spinner: Spinner,
+    #[serde(default)]
     pub text: TextTheme,
+    #[serde(default)]
     pub plot: PlotTheme,
+    #[serde(default)]
     pub cursor: CursorTheme,
+    #[serde(default)]
     pub term_fg: Color,
+    #[serde(default)]
     pub term_bg: Color,
 }
 
@@ -46,6 +52,7 @@ impl Default for Theme {
 
 /// Spinner logic inspired from: https://crates.io/crates/throbber-widgets-tui
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Spinner {
     pub color: Color,
     pub animation: Vec<char>,
@@ -178,6 +185,38 @@ impl Default for PlotTheme {
             errors: Color::Red,
             scatter_symbol: PlotSymbol::Dot,
             line_symbol: PlotSymbol::HalfBlock,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{fs::read_to_string, path::PathBuf, str::FromStr};
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::config::theme::Theme;
+
+    #[derive(Serialize, Deserialize)]
+    struct TestTheme {
+        theme: Theme,
+    }
+
+    #[test]
+    fn parse_official_themes() {
+        let themes = PathBuf::from_str("./themes/").unwrap();
+
+        for entry in themes.read_dir().unwrap().map(Result::unwrap) {
+            if entry.path().extension().is_none_or(|ext| ext != "toml") {
+                continue;
+            };
+
+            let theme_str = read_to_string(entry.path()).unwrap();
+
+            if let Err(error) = toml::from_str::<TestTheme>(&theme_str) {
+                let name = entry.file_name();
+                panic!("Failed to parse theme '{name:?}': {error}",)
+            }
         }
     }
 }

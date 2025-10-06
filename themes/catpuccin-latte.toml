@@ -1,6 +1,5 @@
-[theme]
-spinner_color = "#df8e1d"
-spinner_symbol = "BrailleSix"
+[theme.spinner]
+color = "#df8e1d"
 
 [theme.text]
 success = "#40a02b"

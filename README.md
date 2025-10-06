@@ -22,8 +22,8 @@ Heavily inspired by [Monkeytype], with a focus on customizability
 
 ## 💡 Features
 
-- 🎭 Custom [Modes](https://github.com/mahlquistj/octotype/wiki/Modes)
-- 🖊️ Custom [Sources](https://github.com/mahlquistj/octotype/wiki/Sources)
+- 🎭 Custom [Modes](https://mahlquistj.github.io/octotype/docs/configuration/modes)
+- 🖊️ Custom [Sources](https://mahlquistj.github.io/octotype/docs/configuration/sources)
 - 🎨 Custom theming
 - 📈 Pretty graphs
 - 🪶 Lightweight (~2MB)

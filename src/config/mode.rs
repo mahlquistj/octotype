@@ -148,3 +148,28 @@ impl Default for ConditionConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::{fs::read_to_string, path::PathBuf, str::FromStr};
+
+    use crate::config::ModeConfig;
+
+    #[test]
+    fn parse_official_modes() {
+        let modes = PathBuf::from_str("./modes/").unwrap();
+
+        for entry in modes.read_dir().unwrap().map(Result::unwrap) {
+            if entry.path().extension().is_none_or(|ext| ext != "toml") {
+                continue;
+            };
+
+            let mode_str = read_to_string(entry.path()).unwrap();
+
+            if let Err(error) = toml::from_str::<ModeConfig>(&mode_str) {
+                let name = entry.file_name();
+                panic!("Failed to parse mode '{name:?}': {error}",)
+            }
+        }
+    }
+}

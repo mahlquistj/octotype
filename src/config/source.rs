@@ -78,3 +78,28 @@ pub enum Formatting {
     Raw,
     Spaced,
 }
+
+#[cfg(test)]
+mod test {
+    use std::{fs::read_to_string, path::PathBuf, str::FromStr};
+
+    use crate::config::SourceConfig;
+
+    #[test]
+    fn parse_official_sources() {
+        let sources = PathBuf::from_str("./sources/").unwrap();
+
+        for entry in sources.read_dir().unwrap().map(Result::unwrap) {
+            if entry.path().extension().is_none_or(|ext| ext != "toml") {
+                continue;
+            };
+
+            let source_str = read_to_string(entry.path()).unwrap();
+
+            if let Err(error) = toml::from_str::<SourceConfig>(&source_str) {
+                let name = entry.file_name();
+                panic!("Failed to parse source '{name:?}': {error}",)
+            }
+        }
+    }
+}
