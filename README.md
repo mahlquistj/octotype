@@ -101,7 +101,7 @@ missing more customizability when it came to what modes and words i could get.
 [Gladius]: https://github.com/mahlquistj/gladius
 [Crate]: https://crates.io/crates/octotype
 [Crate Badge]: https://img.shields.io/crates/v/octotype
-[Discord]: 
+[Discord]: https://discord.gg/zk4SXvdUxj
 [Discord Badge]: https://img.shields.io/discord/1416561228561776724?logo=discord&label=Discord
 
 
