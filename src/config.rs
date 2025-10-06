@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, net::TcpStream, path::PathBuf, sync::Arc, time::Duration};
 
 use derive_more::{Deref, From};
 use directories::ProjectDirs;
@@ -68,6 +68,16 @@ impl Default for Settings {
     }
 }
 
+fn is_online() -> bool {
+    // Google's public DNS server (highly reliable)
+    let address = "8.8.8.8:53";
+
+    // Short timeout to avoid blocking the thread for too long
+    let timeout = Duration::from_secs(2);
+
+    TcpStream::connect_timeout(&address.parse().unwrap(), timeout).is_ok()
+}
+
 #[derive(Clone, Debug, Deref, Default, Serialize)]
 pub struct Config(Arc<InnerConfig>);
 
@@ -87,8 +97,13 @@ impl Config {
     }
 
     pub fn list_sources(&self) -> Vec<String> {
-        let mut sources: Vec<_> = self.sources.keys().map(|key| key.to_string()).collect();
-
+        let is_online = is_online();
+        let mut sources: Vec<_> = self
+            .sources
+            .iter()
+            .filter(|(_, cfg)| is_online || !cfg.meta.network_required)
+            .map(|(key, _)| key.to_string())
+            .collect();
         sources.sort();
         sources
     }

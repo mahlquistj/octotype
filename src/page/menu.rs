@@ -20,6 +20,15 @@ use crate::{
 };
 
 #[derive(Debug, Error, From)]
+pub enum ContextError {
+    #[error("No sources where found")]
+    NoSources,
+
+    #[error("No modes where found - You might not have any offline sources available")]
+    NoModes,
+}
+
+#[derive(Debug, Error, From)]
 pub enum CreateSessionError {
     #[error("{0}")]
     Mode(Box<CreateModeError>),
@@ -49,17 +58,27 @@ struct Context {
 }
 
 impl Context {
-    fn new(config: &Config) -> Self {
-        Self {
-            modes: config.list_modes(),
-            sources: config.list_sources(),
+    fn new(config: &Config) -> Result<Self, ContextError> {
+        let modes = config.list_modes();
+        if modes.is_empty() {
+            return Err(ContextError::NoModes);
+        }
+
+        let sources = config.list_sources();
+        if sources.is_empty() {
+            return Err(ContextError::NoSources);
+        }
+
+        Ok(Self {
+            modes,
+            sources,
             selected_mode: None,
             selected_source: None,
             parameters: vec![],
             mode_index: 0,
             source_index: 0,
             param_index: 0,
-        }
+        })
     }
 }
 
@@ -71,11 +90,11 @@ pub struct Menu {
 
 impl Menu {
     /// Creates a new menu
-    pub fn new(config: &Config) -> Self {
-        Self {
+    pub fn new(config: &Config) -> Result<Self, ContextError> {
+        Ok(Self {
             state: State::ModeSelect,
-            context: Context::new(config),
-        }
+            context: Context::new(config)?,
+        })
     }
 }
 

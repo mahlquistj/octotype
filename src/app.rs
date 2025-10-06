@@ -37,7 +37,10 @@ impl App {
         let page = if config.sources.is_empty() || config.modes.is_empty() {
             page::Error::new(NO_CONFIG_ERROR.to_string()).into()
         } else {
-            page::Menu::new(&config).into()
+            page::Loading::load(&config, "Loading menu", |config| {
+                page::Menu::new(config).map(|menu| Message::Show(menu.into()))
+            })
+            .into()
         };
         Self { page, config }
     }
@@ -54,7 +57,12 @@ impl App {
                 match message {
                     Message::Error(error) => self.page = page::Error::from(error).into(),
                     Message::Show(page) => self.page = page,
-                    Message::Reset => self.page = page::Menu::new(&self.config).into(),
+                    Message::Reset => {
+                        self.page = page::Loading::load(&self.config, "Loading menu", |config| {
+                            page::Menu::new(config).map(|menu| Message::Show(menu.into()))
+                        })
+                        .into()
+                    }
                     Message::Quit => break,
                 }
             }
