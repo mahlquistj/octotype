@@ -1,5 +1,4 @@
 use std::{
-    path::PathBuf,
     process::{Child, Command, Stdio},
     string::FromUtf8Error,
     time::Duration,
@@ -9,7 +8,7 @@ use derive_more::From;
 use thiserror::Error;
 
 use crate::config::{
-    ModeConfig, SourceConfig,
+    Config, ModeConfig, SourceConfig,
     mode::{ConditionConfig, ParseConditionError},
     parameters::ParameterValues,
     source::Formatting,
@@ -32,13 +31,13 @@ pub struct Mode {
 
 impl Mode {
     pub fn from_config(
-        sources_dir: PathBuf,
+        config: &Config,
         mode: ModeConfig,
         source: SourceConfig,
         parameters: ParameterValues,
     ) -> Result<Self, CreateModeError> {
         let resolved_conditions = Conditions::from_config(mode.conditions, &parameters)?;
-        let resolved_source = Source::from_config(sources_dir, source, &parameters)?;
+        let resolved_source = Source::from_config(config, source, &parameters)?;
         Ok(Self {
             conditions: resolved_conditions,
             source: resolved_source,
@@ -56,11 +55,17 @@ pub struct Conditions {
 
 impl Conditions {
     pub fn from_config(
-        config: ConditionConfig,
+        condition_config: ConditionConfig,
         parameters: &ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let time = config
-            .time
+        let ConditionConfig {
+            time,
+            words_typed,
+            allow_deletions,
+            allow_errors,
+        } = condition_config;
+
+        let time = time
             .map(|value| {
                 value
                     .parse_number("time", parameters)
@@ -68,16 +73,13 @@ impl Conditions {
             })
             .transpose()?;
 
-        let words_typed = config
-            .words_typed
+        let words_typed = words_typed
             .map(|value| value.parse_number("words_typed", parameters))
             .transpose()?;
 
-        let allow_deletions = config
-            .allow_deletions
-            .parse_bool("allow_deletions", parameters)?;
+        let allow_deletions = allow_deletions.parse_bool("allow_deletions", parameters)?;
 
-        let allow_errors = config.allow_errors.parse_bool("allow_errors", parameters)?;
+        let allow_errors = allow_errors.parse_bool("allow_errors", parameters)?;
 
         Ok(Self {
             time,
@@ -150,23 +152,20 @@ impl Source {
     }
 
     pub fn from_config(
-        sources_dir: PathBuf,
-        config: SourceConfig,
+        config: &Config,
+        source_config: SourceConfig,
         parameters: &ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        // Ensure required tools exist in path
-        config
-            .meta
-            .required_tools
-            .into_iter()
-            .try_for_each(|tool| {
-                which::which(&tool)
-                    .map(|_| ())
-                    .map_err(|error| (tool, error))
-            })?;
+        let SourceConfig { meta, .. } = source_config;
 
-        let mut program = config
-            .meta
+        // Ensure required tools exist in path
+        meta.required_tools.into_iter().try_for_each(|tool| {
+            which::which(&tool)
+                .map(|_| ())
+                .map_err(|error| (tool, error))
+        })?;
+
+        let mut program = meta
             .command
             .iter()
             .map(|string| parameters.replace_values(string))
@@ -175,14 +174,14 @@ impl Source {
         let mut command = std::process::Command::new(program.remove(0));
         command
             .args(program)
-            .current_dir(sources_dir)
+            .current_dir(config.sources_dir())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
         Ok(Self {
             command,
             child: None,
-            format: config.meta.formatting,
+            format: meta.formatting,
         })
     }
 }

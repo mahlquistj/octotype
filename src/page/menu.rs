@@ -1,12 +1,12 @@
 use super::{Message, loadscreen::Loading, session::Session};
 
-use crossterm::event::{Event, KeyCode};
+use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
 use ratatui::{
-    layout::{Alignment, Constraint},
+    layout::Constraint,
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List, Padding, Paragraph},
+    widgets::{Block, List},
 };
 use thiserror::Error;
 
@@ -16,7 +16,7 @@ use crate::{
         parameters::{Definition, Parameter},
     },
     page::session::{CreateModeError, FetchError, Mode},
-    utils::center,
+    utils::{center, centered_padding},
 };
 
 #[derive(Debug, Error, From)]
@@ -29,31 +29,52 @@ pub enum CreateSessionError {
 }
 
 /// Page: Main menu
+#[derive(Debug, Clone, Copy)]
+enum State {
+    ModeSelect,
+    SourceSelect,
+    ParameterConfig,
+}
+
 #[derive(Debug)]
-pub enum Menu {
-    ModeSelect {
-        mode_index: usize,
-        modes: Vec<String>,
-    },
-    SourceSelect {
-        selected_mode: String,
-        source_index: usize,
-        sources: Vec<String>,
-    },
-    ParameterConfig {
-        mode: Box<ModeConfig>,
-        source: Box<SourceConfig>,
-        parameters: Vec<(String, Parameter)>,
-        param_index: usize,
-    },
+struct Context {
+    modes: Vec<String>,
+    sources: Vec<String>,
+    selected_mode: Option<Box<ModeConfig>>,
+    selected_source: Option<Box<SourceConfig>>,
+    parameters: Vec<(String, Parameter)>,
+    mode_index: usize,
+    source_index: usize,
+    param_index: usize,
+}
+
+impl Context {
+    fn new(config: &Config) -> Self {
+        Self {
+            modes: config.list_modes(),
+            sources: config.list_sources(),
+            selected_mode: None,
+            selected_source: None,
+            parameters: vec![],
+            mode_index: 0,
+            source_index: 0,
+            param_index: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Menu {
+    state: State,
+    context: Context,
 }
 
 impl Menu {
     /// Creates a new menu
     pub fn new(config: &Config) -> Self {
-        Self::ModeSelect {
-            mode_index: 0,
-            modes: config.list_modes(),
+        Self {
+            state: State::ModeSelect,
+            context: Context::new(config),
         }
     }
 }
@@ -66,76 +87,63 @@ impl Menu {
         area: ratatui::prelude::Rect,
         config: &Config,
     ) {
-        let center = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
-        let block = Block::new().padding(Padding::new(0, 0, center.height / 2, 0));
-        let inner = block.inner(center);
-        let config = &config;
+        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
-        match &self {
-            Self::ModeSelect { mode_index, modes } => {
-                self.render_mode_select(frame, inner, config, modes, *mode_index);
+        match &self.state {
+            State::ModeSelect => {
+                self.render_mode_select(frame, area, config);
             }
-            Self::SourceSelect {
-                selected_mode,
-                source_index,
-                sources,
-                ..
-            } => {
-                self.render_source_select(
-                    frame,
-                    inner,
-                    config,
-                    selected_mode,
-                    sources,
-                    *source_index,
-                );
+            State::SourceSelect => {
+                self.render_source_select(frame, area, config);
             }
-            Self::ParameterConfig {
-                mode,
-                source,
-                parameters,
-                param_index,
-            } => {
-                self.render_parameter_config(
-                    frame,
-                    inner,
-                    config,
-                    &mode.meta.name,
-                    &source.meta.name,
-                    parameters,
-                    *param_index,
-                );
+            State::ParameterConfig => {
+                self.render_parameter_config(frame, area, config);
             }
         }
     }
 
+    pub fn handle_events(&mut self, event: &Event, config: &Config) -> Option<Message> {
+        if let Event::Key(key) = event
+            && key.is_press()
+        {
+            return match self.state {
+                State::ModeSelect => self.handle_mode_select(key, config),
+                State::SourceSelect => self.handle_source_select(key, config),
+                State::ParameterConfig => self.handle_parameter_config(key, config),
+            };
+        }
+
+        None
+    }
+}
+
+// Render helpers
+impl Menu {
     fn render_mode_select(
         &self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         config: &Config,
-        modes: &[String],
-        index: usize,
     ) {
-        // TODO: Render selected mode description
-        let items: Vec<Line> = modes
-            .iter()
-            .enumerate()
-            .map(|(i, mode)| {
-                let style = if i == index {
-                    Style::new()
-                        .fg(config.settings.theme.text.highlight)
-                        .reversed()
-                } else {
-                    Style::new()
-                };
-                Line::from(Span::styled(format!("{}. {}", i + 1, mode), style))
-            })
-            .collect();
+        let index = self.context.mode_index;
+        let items = self.context.modes.iter().enumerate().map(|(i, mode)| {
+            let mut selector = "  ";
+            let style = if i == index {
+                selector = "> ";
+                Style::new()
+                    .fg(config.settings.theme.text.highlight)
+                    .reversed()
+            } else {
+                Style::new()
+            };
+            Line::from(Span::styled(format!("{selector}{mode}"), style))
+        });
 
-        let list = List::new(items).block(Block::default().title("Select Mode"));
+        let list = List::new(items);
+        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
+        let area = Block::new().padding(padding).inner(area);
 
-        frame.render_widget(list, area);
+        frame.render_widget(list.block(Block::new().title("Select Mode")), area);
     }
 
     fn render_source_select(
@@ -143,227 +151,200 @@ impl Menu {
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         config: &Config,
-        mode_name: &str,
-        sources: &[String],
-        index: usize,
     ) {
-        let items: Vec<Line> = sources
-            .iter()
-            .enumerate()
-            .map(|(i, source)| {
-                let style = if i == index {
-                    Style::new()
-                        .fg(config.settings.theme.text.highlight)
-                        .reversed()
-                } else {
-                    Style::new()
-                };
-                Line::from(Span::styled(format!("{}. {}", i + 1, source), style))
-            })
-            .collect();
-
-        let list = List::new(items)
-            .block(Block::default().title(format!("Select Source for {}", mode_name)));
-
-        frame.render_widget(list, area);
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn render_parameter_config(
-        &self,
-        frame: &mut ratatui::Frame,
-        area: ratatui::prelude::Rect,
-        config: &Config,
-        mode_name: &str,
-        source_name: &str,
-        params: &[(String, Parameter)],
-        index: usize,
-    ) {
-        let mut lines = vec![
-            Line::from(format!("Configuring {} -> {}", mode_name, source_name)),
-            Line::from(""),
-        ];
-
-        for (i, (name, parameter)) in params.iter().filter(|(_, p)| p.is_mutable()).enumerate() {
+        let mode = self.context.selected_mode.as_ref().unwrap();
+        let index = self.context.source_index;
+        let items = self.context.sources.iter().enumerate().map(|(i, source)| {
+            let mut selector = "  ";
             let style = if i == index {
+                selector = "> ";
                 Style::new()
                     .fg(config.settings.theme.text.highlight)
                     .reversed()
             } else {
                 Style::new()
             };
-            lines.push(Line::from(Span::styled(
-                format!("{}: {}", name, parameter.get_value()),
-                style,
-            )));
-        }
+            Line::from(Span::styled(format!("{selector}{source}"), style))
+        });
 
-        lines.push(Line::from(""));
-        lines.push(Line::from("Press Enter to start typing session"));
+        let list = List::new(items);
+        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
+        let area = Block::new().padding(padding).inner(area);
 
-        let paragraph = Paragraph::new(lines)
-            .block(Block::default().title("Configure Parameters"))
-            .alignment(Alignment::Left);
+        let title = Line::from(vec![
+            Span::raw("Select Source for Mode "),
+            Span::raw(&mode.meta.name).bold(),
+        ]);
 
-        frame.render_widget(paragraph, area);
+        frame.render_widget(list.block(Block::default().title(title)), area);
     }
 
-    pub fn handle_events(
-        &mut self,
-        event: &crossterm::event::Event,
+    fn render_parameter_config(
+        &self,
+        frame: &mut ratatui::Frame,
+        area: ratatui::prelude::Rect,
         config: &Config,
-    ) -> Option<Message> {
-        if let Event::Key(key) = event
-            && key.is_press()
-        {
-            match self {
-                Self::ModeSelect { mode_index, modes } => {
-                    match key.code {
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            increment_index(mode_index, modes.len())
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            decrement_index(mode_index, modes.len())
-                        }
-                        KeyCode::Enter => {
-                            // SAFETY: The index is always within range of the `modes` Vec
-                            let mode_name = modes.get(*mode_index).unwrap();
+    ) {
+        let mode = self.context.selected_mode.as_ref().unwrap();
+        let source = self.context.selected_source.as_ref().unwrap();
+        let index = self.context.param_index;
 
-                            if let Some(mode) = config.modes.get(mode_name) {
-                                let sources = mode
-                                    .meta
-                                    .allowed_sources
-                                    .clone()
-                                    .unwrap_or_else(|| config.list_sources());
+        let items = self
+            .context
+            .parameters
+            .iter()
+            .filter(|(_, p)| p.is_mutable())
+            .enumerate()
+            .map(|(i, (name, parameter))| {
+                let mut selector = "  ";
+                let style = if i == index {
+                    selector = "> ";
+                    Style::new()
+                        .fg(config.settings.theme.text.highlight)
+                        .reversed()
+                } else {
+                    Style::new()
+                };
+                Line::from(Span::styled(
+                    format!("{selector}{name}: {}", parameter.get_value()),
+                    style,
+                ))
+            });
 
-                                *self = Self::SourceSelect {
-                                    selected_mode: mode_name.clone(),
-                                    sources,
-                                    source_index: 0,
-                                };
-                            }
-                        }
-                        _ => (),
-                    }
-                }
-                Self::SourceSelect {
-                    selected_mode,
-                    source_index,
-                    sources,
-                } => match key.code {
-                    KeyCode::Up | KeyCode::Char('k') => {
-                        increment_index(source_index, sources.len())
-                    }
-                    KeyCode::Down | KeyCode::Char('j') => {
-                        decrement_index(source_index, sources.len())
-                    }
-                    KeyCode::Enter => {
-                        let selected_source = sources[*source_index].clone();
-                        let mut source = config.sources.get(&selected_source)?.clone();
-                        let mut mode = config.modes.get(selected_mode)?.clone();
-                        let mut source_overrides = mode.overrides.get_mut(&selected_source);
+        let list = List::new(items);
+        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
+        let area = Block::new().padding(padding).inner(area);
 
-                        let mut parameters = Vec::new();
+        let title = Line::from(vec![
+            Span::raw("Configuring Mode "),
+            Span::raw(&mode.meta.name).bold(),
+            Span::raw(" with Source "),
+            Span::raw(&source.meta.name).bold(),
+        ]);
 
-                        for (name, mut definition) in
-                            source.parameters.drain().chain(mode.parameters.drain())
-                        {
-                            let mut mutable = true;
-                            if let Some(ref mut overrides) = source_overrides
-                                && let Some(override_param) = overrides.remove(&name)
-                            {
-                                mutable = false;
-                                definition = Definition::FixedString(override_param);
-                            }
-
-                            let parameter = match definition.into_parameter(mutable) {
-                                Ok(p) => p,
-                                Err(error) => return Some(Message::Error(Box::new(error))),
-                            };
-
-                            parameters.push((name, parameter));
-                        }
-
-                        if parameters.is_empty() {
-                            return create_session(config, mode, source, parameters);
-                        }
-
-                        *self = Self::ParameterConfig {
-                            mode: Box::new(mode),
-                            source: Box::new(source),
-                            parameters,
-                            param_index: 0,
-                        };
-                    }
-                    KeyCode::Backspace => {
-                        *self = Self::ModeSelect {
-                            mode_index: 0,
-                            modes: config.list_modes(),
-                        };
-                    }
-                    _ => {}
-                },
-                Self::ParameterConfig {
-                    mode,
-                    source,
-                    parameters,
-                    param_index,
-                } => {
-                    match key.code {
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            increment_index(param_index, parameters.len())
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            decrement_index(param_index, parameters.len())
-                        }
-                        KeyCode::Right | KeyCode::Char('l') => {
-                            parameters[*param_index].1.increment()
-                        }
-                        KeyCode::Left | KeyCode::Char('h') => {
-                            parameters[*param_index].1.decrement()
-                        }
-                        KeyCode::Enter => {
-                            return create_session(
-                                config,
-                                *mode.clone(),
-                                *source.clone(),
-                                parameters.clone(),
-                            );
-                        }
-                        KeyCode::Backspace => {
-                            // Go back to source selection
-                            *self = Self::SourceSelect {
-                                selected_mode: mode.meta.name.clone(),
-                                source_index: 0,
-                                sources: config.list_sources(),
-                            }
-                        }
-                        _ => (),
-                    }
-                }
-            }
-        }
-        None
+        frame.render_widget(list.block(Block::default().title(title)), area);
     }
 }
 
-fn create_session(
-    config: &Config,
-    mode: ModeConfig,
-    source: SourceConfig,
-    parameters: Vec<(String, Parameter)>,
-) -> Option<Message> {
-    let parameters = parameters.into_iter().collect();
-    let sources_dir = config.settings.sources_dir.clone().unwrap_or_default();
-    let config_clone = config.clone();
-    let session_loader = Loading::load(config, "Loading words...", move || {
-        let mode = Mode::from_config(sources_dir, mode, source, parameters).map_err(Box::new)?;
-        Session::new(&config_clone, mode)
-            .map(|session| Message::Show(session.into()))
-            .map_err(CreateSessionError::from)
-    });
+// Event handlers
+impl Menu {
+    fn handle_mode_select(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                increment_index(&mut self.context.mode_index, self.context.modes.len())
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                decrement_index(&mut self.context.mode_index, self.context.modes.len())
+            }
+            KeyCode::Enter => {
+                // SAFETY: The index is always within range of the `modes` Vec
+                let mode_name = &self.context.modes[self.context.mode_index];
+                if let Some(mode) = config.modes.get(mode_name) {
+                    self.context.selected_mode = Some(Box::new(mode.clone()));
+                    self.state = State::SourceSelect;
+                }
+            }
+            _ => (),
+        };
 
-    Some(Message::Show(session_loader.into()))
+        None
+    }
+
+    fn handle_source_select(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                increment_index(&mut self.context.source_index, self.context.sources.len())
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                decrement_index(&mut self.context.source_index, self.context.sources.len())
+            }
+            KeyCode::Enter => {
+                let selected_source = &self.context.sources[self.context.source_index];
+                let source = config.sources.get(selected_source).unwrap().clone();
+                let mode = self.context.selected_mode.as_ref().unwrap();
+                let source_overrides = mode.overrides.get(selected_source);
+
+                let mut parameters = Vec::new();
+
+                for (name, definition) in source.parameters.iter().chain(mode.parameters.iter()) {
+                    let mut definition = definition.clone();
+                    let mut mutable = true;
+                    if let Some(overrides) = source_overrides
+                        && let Some(override_param) = overrides.get(name)
+                    {
+                        mutable = false;
+                        definition = Definition::FixedString(override_param.clone());
+                    }
+
+                    let parameter = match definition.into_parameter(mutable) {
+                        Ok(p) => p,
+                        Err(error) => return Some(Message::Error(Box::new(error))),
+                    };
+
+                    parameters.push((name.clone(), parameter));
+                }
+
+                self.context.selected_source = Some(Box::new(source));
+
+                if parameters.is_empty() {
+                    return self.create_session(config);
+                }
+
+                self.context.parameters = parameters;
+                self.state = State::ParameterConfig;
+            }
+            KeyCode::Backspace => {
+                self.context.selected_mode = None;
+                self.state = State::ModeSelect;
+            }
+            _ => (),
+        };
+
+        None
+    }
+
+    fn handle_parameter_config(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                increment_index(&mut self.context.param_index, self.context.parameters.len())
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                decrement_index(&mut self.context.param_index, self.context.parameters.len())
+            }
+            KeyCode::Right | KeyCode::Char('l') => self.context.parameters
+                [self.context.param_index]
+                .1
+                .increment(),
+            KeyCode::Left | KeyCode::Char('h') => self.context.parameters[self.context.param_index]
+                .1
+                .decrement(),
+            KeyCode::Enter => {
+                return self.create_session(config);
+            }
+            KeyCode::Backspace => {
+                // Go back to source selection
+                self.context.selected_source = None;
+                self.state = State::SourceSelect;
+            }
+            _ => (),
+        };
+
+        None
+    }
+
+    fn create_session(&self, config: &Config) -> Option<Message> {
+        let mode = *self.context.selected_mode.as_ref().unwrap().clone();
+        let source = *self.context.selected_source.as_ref().unwrap().clone();
+        let parameters = self.context.parameters.iter().cloned().collect();
+        let session_loader = Loading::load(config, "Loading words...", move |config| {
+            let mode = Mode::from_config(config, mode, source, parameters).map_err(Box::new)?;
+            Session::new(config, mode)
+                .map(|session| Message::Show(session.into()))
+                .map_err(CreateSessionError::from)
+        });
+
+        Some(Message::Show(session_loader.into()))
+    }
 }
 
 const fn increment_index(index: &mut usize, len: usize) {

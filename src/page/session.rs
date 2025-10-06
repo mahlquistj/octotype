@@ -97,12 +97,15 @@ impl Session {
 
         let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
+        let mut longest_line = 0;
         let lines = self.gladius_session.render_lines(
             |line| {
                 let relative_idx = line.active_line_offset.unsigned_abs();
                 if relative_idx > config.settings.show_ghost_lines {
                     return None;
                 }
+
+                longest_line = longest_line.max(line.contents.len());
 
                 let (success, warning, error, foreground) =
                     create_line_text_colors(relative_idx, config);
@@ -153,7 +156,7 @@ impl Session {
         );
 
         let height = height_of_lines(&lines, area);
-        let padding = centered_padding(area, Some(height), None);
+        let padding = centered_padding(area, Some(height), Some(longest_line as u16));
 
         // Set cursor position if we found one
         if let Some((cursor_x, cursor_y)) = cursor_position {
@@ -208,11 +211,7 @@ impl Session {
         None
     }
 
-    pub fn handle_events(
-        &mut self,
-        event: &crossterm::event::Event,
-        _config: &Config,
-    ) -> Option<Message> {
+    pub fn handle_events(&mut self, event: &Event, _config: &Config) -> Option<Message> {
         if let Event::Key(key) = event
             && key.is_press()
         {

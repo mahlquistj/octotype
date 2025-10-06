@@ -512,6 +512,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gladius"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9277cb7f444176ebf411b48a4b84f3da91d45a61f1dd91c6d063dfb961d91a54"
+dependencies = [
+ "simple-mermaid",
+ "web-time",
+]
+
+[[package]]
 name = "half"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -707,7 +717,7 @@ dependencies = [
  "derive_more",
  "directories",
  "figment",
- "gladius",
+ "gladius 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ratatui",
  "serde",
  "simple-mermaid",
