@@ -98,3 +98,5 @@ missing more customizability when it came to what modes and words i could get.
 [ZSA Moonlander]: https://www.zsa.io/moonlander
 [Gladius]: https://github.com/mahlquistj/gladius
 [Crate]: https://crates.io/crates/octotype
+[Crate Badge]: https://img.shields.io/crates/v/octotype
+
