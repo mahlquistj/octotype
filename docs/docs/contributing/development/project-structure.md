@@ -5,40 +5,42 @@ title: Project Structure
 # OctoType Project Structure
 
 This guide provides a comprehensive overview of the OctoType project
-architecture for contributors. The project follows a modular design with clear
-separation between the core typing engine library (Gladius) and the terminal
-user interface application (OctoType).
+architecture for contributors. The project is a terminal user interface
+application built on top of the [Gladius](https://github.com/mahlquistj/gladius)
+typing engine library.
 
 ## Repository Overview
 
-OctoType is structured as a Rust workspace containing two main crates:
+OctoType is a Rust application that uses the external [Gladius](https://github.com/mahlquistj/gladius) library:
 
 ```mermaid
 graph TB
-    A[octotype/] --> B[Gladius Library]
-    A --> C[OctoType TUI Application]
-    A --> D[Documentation]
-    A --> E[Configuration Files]
-    
-    B --> B1[Core Typing Engine]
-    B --> B2[Statistics & Analytics]
-    B --> B3[Rendering System]
-    
-    C --> C1[Terminal Interface]
-    C --> C2[Configuration Management]
-    C --> C3[Page/UI Components]
-    
-    D --> D1[User Documentation]
-    D --> D2[API Documentation]
-    D --> D3[Contributing Guides]
+    A[octotype/] --> B[OctoType TUI Application]
+    A --> C[Documentation]
+    A --> D[Configuration Files]
+
+    E[Gladius Library] --> B
+
+    E --> E1[Core Typing Engine]
+    E --> E2[Statistics & Analytics]
+    E --> E3[Rendering System]
+
+    B --> B1[Terminal Interface]
+    B --> B2[Configuration Management]
+    B --> B3[Page/UI Components]
+
+    C --> C1[User Documentation]
+    C --> C2[API Documentation]
+    C --> C3[Contributing Guides]
 ```
 
 ## Core Components
 
-### 1. Gladius Library (`gladius/`)
+### 1. Gladius Library (External Dependency)
 
-Gladius is the high-performance typing trainer library that provides the core
-functionality for any typing trainer application.
+[Gladius](https://github.com/mahlquistj/gladius) is the high-performance typing
+trainer library that provides the core functionality for any typing trainer
+application. This is an external dependency maintained in its own repository.
 
 ```mermaid
 graph LR
@@ -76,7 +78,7 @@ graph LR
 - Welford's algorithm for numerical stability
 - Minimal memory allocations during typing
 
-### 2. OctoType Application (`octotype/`)
+### 2. OctoType Application
 
 The terminal-based typing trainer application built on top of Gladius.
 
@@ -192,26 +194,21 @@ Configuration files are typically located in:
 
 ## Build System
 
-The project uses Cargo workspaces for efficient dependency management:
+The project uses Cargo for dependency management:
 
 ```mermaid
 graph TB
-    A[Cargo.toml<br/>Workspace Root] --> B[gladius/Cargo.toml]
-    A --> C[octotype/Cargo.toml]
-    
-    B --> D[Gladius Dependencies]
-    C --> E[OctoType Dependencies]
-    C --> F[gladius path dependency]
-    
-    D --> G[web-time, simple-mermaid]
-    E --> H[ratatui, crossterm, clap, serde, figment]
+    A[Cargo.toml] --> B[OctoType Dependencies]
+    A --> C[gladius crate dependency]
+
+    B --> D[ratatui, crossterm, clap, serde, figment]
+    C --> E[External Gladius Library]
 ```
 
 **Key Build Features:**
 
 - Optimized release builds with LTO and strip
-- Shared workspace dependencies
-- Criterion benchmarks for performance testing
+- External gladius library dependency
 - Clippy linting with strict rules
 
 ## Documentation System

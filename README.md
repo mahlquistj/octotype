@@ -89,4 +89,4 @@ missing more customizability when it came to what modes and words i could get.
 [Ratatui]: https://ratatui.rs/
 [Wiki]: https://mahlquistj.github.io/octotype/
 [ZSA Moonlander]: https://www.zsa.io/moonlander
-[Gladius]: https://github.com/mahlquistj/octotype/tree/main/gladius
+[Gladius]: https://github.com/mahlquistj/gladius
