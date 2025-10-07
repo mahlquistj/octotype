@@ -27,6 +27,8 @@ pub enum CreateModeError {
 pub struct Mode {
     pub conditions: Conditions,
     pub source: Source,
+    pub mode_name: String,
+    pub source_name: String,
 }
 
 impl Mode {
@@ -36,11 +38,15 @@ impl Mode {
         source: SourceConfig,
         parameters: ParameterValues,
     ) -> Result<Self, CreateModeError> {
+        let mode_name = mode.meta.name.clone();
+        let source_name = source.meta.name.clone();
         let resolved_conditions = Conditions::from_config(mode.conditions, &parameters)?;
         let resolved_source = Source::from_config(config, source, &parameters)?;
         Ok(Self {
             conditions: resolved_conditions,
             source: resolved_source,
+            mode_name,
+            source_name,
         })
     }
 }

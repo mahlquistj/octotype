@@ -1,6 +1,7 @@
 mod app;
 mod config;
 mod page;
+mod statistics;
 mod utils;
 
 use std::{path::PathBuf, str::FromStr};

@@ -710,6 +710,7 @@ dependencies = [
  "gladius",
  "ratatui",
  "serde",
+ "serde_json",
  "simple-mermaid",
  "strum 0.27.2",
  "terminal-colorsaurus",

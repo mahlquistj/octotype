@@ -196,11 +196,24 @@ impl Session {
         Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
     }
 
-    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
+    pub fn poll(&mut self, config: &Config) -> Option<Message> {
         if self.should_end() {
+            let statistics = self.gladius_session.clone().finalize();
+
+            // Save statistics if enabled
+            if let Some(stats_manager) = &config.statistics_manager {
+                if let Err(error) = stats_manager.save_session(
+                    &self.mode,
+                    self.mode.mode_name.clone(),
+                    self.mode.source_name.clone(),
+                    &statistics
+                ) {
+                    eprintln!("Failed to save session statistics: {}", error);
+                }
+            }
+
             return Some(Message::Show(
-                // TODO: Clone for now, but we need a better solution for finalizing
-                page::Stats::from(self.gladius_session.clone().finalize()).into(),
+                page::Stats::from(statistics).into(),
             ));
         }
 
