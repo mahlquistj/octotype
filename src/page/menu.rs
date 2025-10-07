@@ -3,10 +3,10 @@ use super::{Message, loadscreen::Loading, session::Session};
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
 use ratatui::{
-    layout::Constraint,
+    layout::{Constraint, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List},
+    widgets::{Block, List, block::Title},
 };
 use thiserror::Error;
 
@@ -145,24 +145,8 @@ impl Menu {
         config: &Config,
     ) {
         let index = self.context.mode_index;
-        let items = self.context.modes.iter().enumerate().map(|(i, mode)| {
-            let mut selector = "  ";
-            let style = if i == index {
-                selector = "> ";
-                Style::new()
-                    .fg(config.settings.theme.text.highlight)
-                    .reversed()
-            } else {
-                Style::new()
-            };
-            Line::from(Span::styled(format!("{selector}{mode}"), style))
-        });
-
-        let list = List::new(items);
-        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
-        let area = Block::new().padding(padding).inner(area);
-
-        frame.render_widget(list.block(Block::new().title("Select Mode")), area);
+        let items = self.context.modes.iter().map(|mode| mode.to_string());
+        render_list(config, frame, items, "Select mode", area, index);
     }
 
     fn render_source_select(
@@ -173,29 +157,13 @@ impl Menu {
     ) {
         let mode = self.context.selected_mode.as_ref().unwrap();
         let index = self.context.source_index;
-        let items = self.context.sources.iter().enumerate().map(|(i, source)| {
-            let mut selector = "  ";
-            let style = if i == index {
-                selector = "> ";
-                Style::new()
-                    .fg(config.settings.theme.text.highlight)
-                    .reversed()
-            } else {
-                Style::new()
-            };
-            Line::from(Span::styled(format!("{selector}{source}"), style))
-        });
-
-        let list = List::new(items);
-        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
-        let area = Block::new().padding(padding).inner(area);
-
+        let items = self.context.sources.iter().map(|source| source.to_string());
         let title = Line::from(vec![
             Span::raw("Select Source for Mode "),
             Span::raw(&mode.meta.name).bold(),
         ]);
 
-        frame.render_widget(list.block(Block::default().title(title)), area);
+        render_list(config, frame, items, title, area, index);
     }
 
     fn render_parameter_config(
@@ -213,26 +181,7 @@ impl Menu {
             .parameters
             .iter()
             .filter(|(_, p)| p.is_mutable())
-            .enumerate()
-            .map(|(i, (name, parameter))| {
-                let mut selector = "  ";
-                let style = if i == index {
-                    selector = "> ";
-                    Style::new()
-                        .fg(config.settings.theme.text.highlight)
-                        .reversed()
-                } else {
-                    Style::new()
-                };
-                Line::from(Span::styled(
-                    format!("{selector}{name}: {}", parameter.get_value()),
-                    style,
-                ))
-            });
-
-        let list = List::new(items);
-        let padding = centered_padding(area, Some(list.len() as u16 + 1), None);
-        let area = Block::new().padding(padding).inner(area);
+            .map(|(name, parameter)| format!("{name}: {}", parameter.get_value()));
 
         let title = Line::from(vec![
             Span::raw("Configuring Mode "),
@@ -241,7 +190,7 @@ impl Menu {
             Span::raw(&source.meta.name).bold(),
         ]);
 
-        frame.render_widget(list.block(Block::default().title(title)), area);
+        render_list(config, frame, items, title, area, index)
     }
 }
 
@@ -364,6 +313,37 @@ impl Menu {
 
         Some(Message::Show(session_loader.into()))
     }
+}
+
+fn render_list<'a>(
+    config: &Config,
+    frame: &mut ratatui::Frame,
+    items: impl Iterator<Item = String>,
+    title: impl Into<Title<'a>>,
+    area: Rect,
+    index: usize,
+) {
+    let items = items.enumerate().map(|(i, item)| {
+        let mut selector = "  ";
+        let style = if i == index {
+            selector = "> ";
+            Style::new()
+                .fg(config.settings.theme.text.highlight)
+                .reversed()
+        } else {
+            Style::new()
+        };
+        Line::from(vec![Span::raw(selector), Span::styled(item, style)])
+    });
+    let list = List::new(items);
+    let padding = centered_padding(
+        area,
+        // + 1 to account for title
+        Some(list.len() as u16 + 1),
+        None,
+    );
+    let area = Block::new().padding(padding).inner(area);
+    frame.render_widget(list.block(Block::default().title(title)), area);
 }
 
 const fn increment_index(index: &mut usize, len: usize) {
