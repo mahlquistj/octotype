@@ -42,3 +42,12 @@ jobs:
 
       - name: Publish Binary
         run: just publish
+
+      - name: Generate changelog
+        run: |
+          cargo install git-cliff
+          git-cliff --latest --strip all > release-notes.md
+
+      - name: Update release notes
+        run: |
+          gh release edit ${{ github.ref_name }} --notes-file release-notes.md

@@ -1,0 +1,28 @@
+# Committed configuration for conventional commits
+
+# Disable default checks that conflict with conventional commits
+subject_capitalized = false
+subject_not_punctuated = true
+imperative_subject = false
+
+[[check]]
+check = "conventional"
+
+[conventional]
+# Allowed commit types
+types = [
+  "feat",     # New feature
+  "fix",      # Bug fix
+  "docs",     # Documentation changes
+  "style",    # Formatting, missing semi colons, etc
+  "refactor", # Code refactoring
+  "perf",     # Performance improvements
+  "test",     # Adding tests
+  "chore",    # Maintenance tasks
+  "ci",       # CI/CD changes
+  "build",    # Build system changes
+  "revert",   # Revert previous commit
+]
+
+# Allow optional scope in parentheses
+scopes = []
