@@ -52,6 +52,8 @@
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
           shellHook = ''
             export PATH="$HOME/.cargo/bin:$PATH"
+            echo "Installing committed..."
+            cargo binstall --no-confirm committed
             echo "Installing git hooks..."
             if [ ! -f .git/hooks/commit-msg ]; then
               cat > .git/hooks/commit-msg << 'EOF'
