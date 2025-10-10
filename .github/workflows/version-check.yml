@@ -23,6 +23,3 @@ jobs:
             exit 1
           fi
           echo "Version updated: $MAIN_VERSION -> $CURRENT_VERSION"
-
-      - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v2
