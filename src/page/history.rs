@@ -311,7 +311,7 @@ impl History {
                 Axis::default()
                     .title("Accuracy (%)")
                     .style(Style::default().fg(Color::Gray))
-                    .labels([Span::raw("0%"), Span::raw("50%"), Span::raw("100%")])
+                    .labels(["0%", "50%", "100%"])
                     .bounds([0.0, 100.0]),
             )
             .legend_position(Some(LegendPosition::BottomLeft));
