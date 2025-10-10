@@ -18,9 +18,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify version matches release tag
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+
+          if [ "v$CARGO_VERSION" != "v$TAG_VERSION" ]; then
+            echo "Error: Cargo.toml version (v$CARGO_VERSION) doesn't match release tag (v$TAG_VERSION)"
+            echo "Deleting release and tag..."
+            gh release delete ${{ github.ref_name }} --yes
+            gh api -X DELETE /repos/${{ github.repository }}/git/refs/tags/${{ github.ref_name }}
+            exit 1
+          fi
+
+          echo "Version verified: v$CARGO_VERSION matches tag v$TAG_VERSION"
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: extractions/setup-just@v3
+
       - name: Check Code
         run: just lint
+
       - name: Publish Binary
         run: just publish
