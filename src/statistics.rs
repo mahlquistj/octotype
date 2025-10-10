@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-use std::fs;
-use serde::{Deserialize, Serialize};
-use web_time::SystemTime;
 use gladius::statistics::Statistics;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 use thiserror::Error;
+use web_time::SystemTime;
 
 use crate::page::session::Mode;
 
@@ -101,7 +101,13 @@ impl StatisticsManager {
         Ok(Self { directory })
     }
 
-    pub fn save_session(&self, mode: &Mode, mode_name: String, source_name: String, statistics: &Statistics) -> Result<(), StatisticsError> {
+    pub fn save_session(
+        &self,
+        mode: &Mode,
+        mode_name: String,
+        source_name: String,
+        statistics: &Statistics,
+    ) -> Result<(), StatisticsError> {
         let session_stats = SessionStatistics {
             timestamp: SystemTime::now(),
             session_id: format!("{:?}", SystemTime::now()),
@@ -109,13 +115,17 @@ impl StatisticsManager {
             statistics: SerializableStatistics::from(statistics),
         };
 
-        let filename = format!("session_{}.json",
-            session_stats.timestamp.duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default().as_secs());
+        let filename = format!(
+            "session_{}.json",
+            session_stats
+                .timestamp
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        );
         let file_path = self.directory.join(filename);
 
-        let json = serde_json::to_string_pretty(&session_stats)
-            .map_err(StatisticsError::Parse)?;
+        let json = serde_json::to_string_pretty(&session_stats).map_err(StatisticsError::Parse)?;
         fs::write(file_path, json).map_err(StatisticsError::WriteFile)?;
 
         Ok(())
@@ -149,10 +159,20 @@ impl StatisticsManager {
         Ok(sessions)
     }
 
-    pub fn load_sessions_for_config(&self, mode_name: &str, source_name: &str) -> Result<Vec<SessionStatistics>, StatisticsError> {
+    // Allow unused for future use case, as filters would be cool
+    #[allow(unused)]
+    pub fn load_sessions_for_config(
+        &self,
+        mode_name: &str,
+        source_name: &str,
+    ) -> Result<Vec<SessionStatistics>, StatisticsError> {
         let all_sessions = self.load_all_sessions()?;
-        Ok(all_sessions.into_iter()
-            .filter(|s| s.session_config.mode_name == mode_name && s.session_config.source_name == source_name)
+        Ok(all_sessions
+            .into_iter()
+            .filter(|s| {
+                s.session_config.mode_name == mode_name
+                    && s.session_config.source_name == source_name
+            })
             .collect())
     }
 }

@@ -168,18 +168,18 @@ impl Stats {
                     .title("Time")
                     .style(Style::default().fg(Color::Gray))
                     .labels([
-                        Span::raw(0.0f64.trunc().to_string()),
-                        Span::raw(total_duration.trunc().to_string()),
+                        1.0f64.trunc().to_string(),
+                        total_duration.trunc().to_string(),
                     ])
-                    .bounds([0.0, total_duration]),
+                    .bounds([1.0, total_duration]),
             )
             .y_axis(
                 Axis::default()
                     .style(Style::default().fg(Color::Gray))
                     .labels([
-                        Span::raw(self.wpm_low.trunc().to_string()),
-                        Span::raw(((self.wpm_high + self.wpm_low) / 2.0).trunc().to_string()),
-                        Span::raw((self.wpm_high).trunc().to_string()),
+                        self.wpm_low.trunc().to_string(),
+                        ((self.wpm_high + self.wpm_low) / 2.0).trunc().to_string(),
+                        (self.wpm_high).trunc().to_string(),
                     ])
                     .bounds([self.wpm_low, self.wpm_high]),
             )
@@ -193,13 +193,13 @@ impl Stats {
                 Axis::default()
                     .title("Time")
                     .style(Style::default().fg(Color::Gray))
-                    .labels([Span::raw("start"), Span::raw("end")])
-                    .bounds([0.0, total_duration]),
+                    .labels(["start", "end"])
+                    .bounds([1.0, total_duration]),
             )
             .y_axis(
                 Axis::default()
                     .style(Style::default().fg(Color::Gray))
-                    .labels([Span::raw("0%"), Span::raw("50%"), Span::raw("100%")])
+                    .labels(["0%", "50%", "100%"])
                     .bounds([0.0, 100.0]),
             )
             .legend_position(Some(LegendPosition::BottomRight));

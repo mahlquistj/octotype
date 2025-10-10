@@ -4,9 +4,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, ToSpan},
-    widgets::{
-        Axis, Block, Chart, Dataset, GraphType, List, LegendPosition, Paragraph,
-    },
+    widgets::{Axis, Block, Chart, Dataset, GraphType, LegendPosition, List, Paragraph},
 };
 use web_time::SystemTime;
 
@@ -14,7 +12,7 @@ use crate::{
     app::Message,
     config::Config,
     statistics::SessionStatistics,
-    utils::{center, centered_padding, ROUNDED_BLOCK},
+    utils::{ROUNDED_BLOCK, center},
 };
 
 /// Page: History
@@ -36,7 +34,9 @@ enum ViewMode {
 impl History {
     pub fn new(config: &Config) -> Result<Self, String> {
         let sessions = if let Some(stats_manager) = &config.statistics_manager {
-            stats_manager.load_all_sessions().map_err(|e| e.to_string())?
+            stats_manager
+                .load_all_sessions()
+                .map_err(|e| e.to_string())?
         } else {
             Vec::new()
         };
@@ -91,17 +91,17 @@ impl History {
 
     fn render_list_view(&self, frame: &mut Frame, area: Rect, config: &Config) {
         if self.sessions.is_empty() {
-            let no_data = Paragraph::new("No statistics saved yet.\nComplete a typing session to see your history here.")
-                .block(ROUNDED_BLOCK.title("Statistics History".to_span().bold()))
-                .centered();
+            let no_data = Paragraph::new(
+                "No statistics saved yet.\nComplete a typing session to see your history here.",
+            )
+            .block(ROUNDED_BLOCK.title("Statistics History".to_span().bold()))
+            .centered();
             frame.render_widget(no_data, area);
             return;
         }
 
-        let [list_area, detail_area] = Layout::horizontal([
-            Constraint::Percentage(60),
-            Constraint::Percentage(40)
-        ]).areas(area);
+        let [detail_area, list_area] =
+            Layout::vertical([Constraint::Percentage(60), Constraint::Percentage(40)]).areas(area);
 
         // Render session list
         let items = self.sessions.iter().enumerate().map(|(i, session)| {
@@ -115,62 +115,106 @@ impl History {
                 Style::new()
             };
 
-            let mode_source = format!("{} / {}",
-                session.session_config.mode_name,
-                session.session_config.source_name);
+            let mode_source = format!(
+                "{} / {}",
+                session.session_config.mode_name, session.session_config.source_name
+            );
             let wpm = format!("{:.1} wpm", session.statistics.wpm_actual);
             let accuracy = format!("{:.0}%", session.statistics.accuracy_actual);
             let time_ago = Self::format_timestamp(session.timestamp);
 
             Line::from(vec![
                 Span::raw(selector),
-                Span::styled(format!("{:<20} | {:<8} | {:<5} | {}",
-                    mode_source, wpm, accuracy, time_ago), style)
+                Span::styled(
+                    format!(
+                        "{:<20} | {:<8} | {:<5} | {}",
+                        mode_source, wpm, accuracy, time_ago
+                    ),
+                    style,
+                ),
             ])
         });
 
-        let list = List::new(items)
-            .block(ROUNDED_BLOCK.title("Session History".to_span().bold()));
-
-        let padding = centered_padding(list_area, Some(self.sessions.len() as u16 + 2), None);
-        let list_inner = Block::new().padding(padding).inner(list_area);
-        frame.render_widget(list, list_inner);
+        let list = List::new(items).block(ROUNDED_BLOCK.title("Session History".to_span().bold()));
+        frame.render_widget(list, list_area);
 
         // Render selected session details
         if let Some(session) = self.get_selected_session() {
-            let details = vec![
+            let settings = vec![
                 Line::from(format!("Mode: {}", session.session_config.mode_name)),
                 Line::from(format!("Source: {}", session.session_config.source_name)),
-                Line::from(""),
-                Line::from(format!("Time: {:.2} min", session.statistics.duration / 60.0)),
-                Line::from(format!("WPM (Actual): {:.2}", session.statistics.wpm_actual)),
-                Line::from(format!("WPM (Raw): {:.2}", session.statistics.wpm_raw)),
-                Line::from(format!("Accuracy: {:.1}%", session.statistics.accuracy_actual)),
-                Line::from(format!("Consistency: {:.1}%", session.statistics.consistency_actual_percent)),
-                Line::from(""),
-                Line::from(format!("Errors: {}", session.statistics.errors)),
-                Line::from(format!("Corrections: {}", session.statistics.corrections)),
-                Line::from(format!("Correct Characters: {}", session.statistics.corrects)),
-                Line::from(format!("Total Added: {}", session.statistics.adds)),
-                Line::from(""),
-                Line::from("Settings:"),
-                Line::from(format!("  Deletions: {}", if session.session_config.allow_deletions { "Allowed" } else { "Disabled" })),
-                Line::from(format!("  Errors: {}", if session.session_config.allow_errors { "Allowed" } else { "Disabled" })),
+                Line::from(format!(
+                    "Deletions: {}",
+                    if session.session_config.allow_deletions {
+                        "Allowed"
+                    } else {
+                        "Disabled"
+                    }
+                )),
+                Line::from(format!(
+                    "Errors: {}",
+                    if session.session_config.allow_errors {
+                        "Allowed"
+                    } else {
+                        "Disabled"
+                    }
+                )),
                 if let Some(limit) = session.session_config.time_limit {
-                    Line::from(format!("  Time Limit: {:.0}s", limit))
+                    Line::from(format!("Time Limit: {:.0}s", limit))
                 } else {
-                    Line::from("  Time Limit: None")
+                    Line::from("Time Limit: None")
                 },
                 if let Some(limit) = session.session_config.words_typed_limit {
                     Line::from(format!("  Word Limit: {}", limit))
                 } else {
-                    Line::from("  Word Limit: None")
+                    Line::from("Word Limit: None")
                 },
             ];
+            let stats = vec![
+                Line::from(format!(
+                    "Time: {:.2} min",
+                    session.statistics.duration / 60.0
+                )),
+                Line::from(format!(
+                    "WPM (Actual): {:.2}",
+                    session.statistics.wpm_actual
+                )),
+                Line::from(format!("WPM (Raw): {:.2}", session.statistics.wpm_raw)),
+                Line::from(format!(
+                    "Accuracy: {:.1}%",
+                    session.statistics.accuracy_actual
+                )),
+                Line::from(format!(
+                    "Consistency: {:.1}%",
+                    session.statistics.consistency_actual_percent
+                )),
+                Line::from(format!("Errors: {}", session.statistics.errors)),
+                Line::from(format!("Corrections: {}", session.statistics.corrections)),
+                Line::from(format!(
+                    "Correct Characters: {}",
+                    session.statistics.corrects
+                )),
+                Line::from(format!("Total Added: {}", session.statistics.adds)),
+            ];
 
-            let detail_paragraph = Paragraph::new(details)
-                .block(ROUNDED_BLOCK.title("Session Details".to_span().bold()));
-            frame.render_widget(detail_paragraph, detail_area);
+            let outer_block = ROUNDED_BLOCK.title("Session Details".to_span().bold());
+            let inner_area = outer_block.inner(detail_area);
+
+            let [settings_area, stats_area] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(inner_area);
+
+            frame.render_widget(outer_block, detail_area);
+            frame.render_widget(
+                Paragraph::new(settings)
+                    .block(Block::new().title(Span::from("Settings").bold().underlined())),
+                settings_area,
+            );
+            frame.render_widget(
+                Paragraph::new(stats)
+                    .block(Block::new().title(Span::from("Stats").bold().underlined())),
+                stats_area,
+            );
         }
     }
 
@@ -183,10 +227,8 @@ impl History {
             return;
         }
 
-        let [wpm_area, accuracy_area] = Layout::vertical([
-            Constraint::Percentage(50),
-            Constraint::Percentage(50)
-        ]).areas(area);
+        let [wpm_area, accuracy_area] =
+            Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(area);
 
         // Prepare data for charts - reverse to show chronological order
         let mut wpm_data = Vec::new();
@@ -216,9 +258,11 @@ impl History {
             .style(Style::default().fg(theme.actual_wpm))
             .data(&wpm_data);
 
-        let (wpm_min, wpm_max) = wpm_data.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |acc, (_, y)| {
-            (acc.0.min(*y), acc.1.max(*y))
-        });
+        let (wpm_min, wpm_max) = wpm_data
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |acc, (_, y)| {
+                (acc.0.min(*y), acc.1.max(*y))
+            });
 
         let wpm_bounds = if wpm_min.is_finite() && wpm_max.is_finite() {
             [wpm_min - 5.0, wpm_max + 5.0]
@@ -232,15 +276,17 @@ impl History {
                 Axis::default()
                     .title("Sessions")
                     .style(Style::default().fg(Color::Gray))
-                    .bounds([0.0, (sessions_reversed.len() - 1) as f64])
+                    .labels((1..=self.sessions.len()).map(|i| i.to_string()))
+                    .bounds([0.0, (sessions_reversed.len() - 1) as f64]),
             )
             .y_axis(
                 Axis::default()
                     .title("WPM")
                     .style(Style::default().fg(Color::Gray))
-                    .bounds(wpm_bounds)
+                    .labels((wpm_min as usize..=wpm_max as usize).map(|wpm| wpm.to_string()))
+                    .bounds(wpm_bounds),
             )
-            .legend_position(Some(LegendPosition::TopRight));
+            .legend_position(Some(LegendPosition::BottomLeft));
 
         frame.render_widget(wpm_chart, wpm_area);
 
@@ -258,15 +304,17 @@ impl History {
                 Axis::default()
                     .title("Sessions")
                     .style(Style::default().fg(Color::Gray))
-                    .bounds([0.0, (sessions_reversed.len() - 1) as f64])
+                    .labels((1..=self.sessions.len()).map(|i| i.to_string()))
+                    .bounds([0.0, (sessions_reversed.len() - 1) as f64]),
             )
             .y_axis(
                 Axis::default()
                     .title("Accuracy (%)")
                     .style(Style::default().fg(Color::Gray))
-                    .bounds([0.0, 100.0])
+                    .labels([Span::raw("0%"), Span::raw("50%"), Span::raw("100%")])
+                    .bounds([0.0, 100.0]),
             )
-            .legend_position(Some(LegendPosition::TopRight));
+            .legend_position(Some(LegendPosition::BottomLeft));
 
         frame.render_widget(accuracy_chart, accuracy_area);
     }
@@ -285,7 +333,9 @@ impl History {
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
         match self.view_mode {
-            ViewMode::List => Some(Line::raw("<Enter> menu | <Tab> trends | <Up/Down> navigate")),
+            ViewMode::List => Some(Line::raw(
+                "<Enter> menu | <Tab> trends | <Up/Down> navigate",
+            )),
             ViewMode::Trends => Some(Line::raw("<Enter> menu | <Tab> list view")),
         }
     }

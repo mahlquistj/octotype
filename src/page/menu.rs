@@ -1,4 +1,4 @@
-use super::{Message, History, loadscreen::Loading, session::Session};
+use super::{History, Message, loadscreen::Loading, session::Session};
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
@@ -232,7 +232,10 @@ impl Menu {
                         // View Statistics History
                         return match History::new(config) {
                             Ok(history) => Some(Message::Show(history.into())),
-                            Err(error) => Some(Message::Error(Box::new(std::io::Error::new(std::io::ErrorKind::Other, error)))),
+                            Err(error) => Some(Message::Error(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                error,
+                            )))),
                         };
                     }
                     _ => (),

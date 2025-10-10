@@ -13,7 +13,7 @@ pub use mode::ModeConfig;
 pub use source::SourceConfig;
 
 use crate::config::{stats::StatisticsConfig, theme::Theme};
-use crate::statistics::{StatisticsManager, StatisticsError};
+use crate::statistics::{StatisticsError, StatisticsManager};
 
 pub mod mode;
 pub mod parameters;

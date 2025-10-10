@@ -206,15 +206,13 @@ impl Session {
                     &self.mode,
                     self.mode.mode_name.clone(),
                     self.mode.source_name.clone(),
-                    &statistics
+                    &statistics,
                 ) {
                     eprintln!("Failed to save session statistics: {}", error);
                 }
             }
 
-            return Some(Message::Show(
-                page::Stats::from(statistics).into(),
-            ));
+            return Some(Message::Show(page::Stats::from(statistics).into()));
         }
 
         if let Err(error) = self.fetch_new_text() {
