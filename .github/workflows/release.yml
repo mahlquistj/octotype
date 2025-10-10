@@ -2,6 +2,10 @@ name: Release Docs
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Release Binary"]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,8 +23,6 @@ jobs:
         working-directory: docs
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: extractions/setup-just@v3
 
