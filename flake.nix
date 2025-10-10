@@ -27,7 +27,7 @@
       }: let
         mkOctoType = import ./pkgOctotype.nix;
         rustToolchain = pkgs.rust-bin.stable.latest.default;
-        tools = with pkgs; [just bacon cargo-nextest cargo-expand cargo-msrv nodejs];
+        tools = with pkgs; [just bacon cargo-nextest cargo-expand cargo-msrv cargo-binstall nodejs];
       in {
         _module.args.pkgs = import inputs.nixpkgs {
           inherit system;
@@ -41,6 +41,22 @@
             ++ self'.packages.octotype.buildInputs
             ++ [rustToolchain tools];
           RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+          shellHook = ''
+            export PATH="$HOME/.cargo/bin:$PATH"
+            echo "Installing development tools..."
+            cargo binstall --no-confirm committed git-cliff 2>/dev/null || true
+            echo "Installing git hooks..."
+            if [ ! -f .git/hooks/commit-msg ]; then
+              cat > .git/hooks/commit-msg << 'EOF'
+#!/usr/bin/env bash
+committed --commit-file "$1" --config .committed.toml
+EOF
+              chmod +x .git/hooks/commit-msg
+              echo "commit-msg hook installed"
+            else
+              echo "commit-msg hook already exists"
+            fi
+          '';
         };
 
         packages.default = self'.packages.octotype;
