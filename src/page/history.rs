@@ -52,7 +52,7 @@ impl History {
         self.sessions.get(self.selected_index)
     }
 
-    fn move_selection_up(&mut self) {
+    const fn move_selection_up(&mut self) {
         if self.sessions.is_empty() {
             return;
         }
@@ -63,7 +63,7 @@ impl History {
         };
     }
 
-    fn move_selection_down(&mut self) {
+    const fn move_selection_down(&mut self) {
         if self.sessions.is_empty() {
             return;
         }
@@ -159,16 +159,14 @@ impl History {
                         "Disabled"
                     }
                 )),
-                if let Some(limit) = session.session_config.time_limit {
-                    Line::from(format!("Time Limit: {:.0}s", limit))
-                } else {
-                    Line::from("Time Limit: None")
-                },
-                if let Some(limit) = session.session_config.words_typed_limit {
-                    Line::from(format!("  Word Limit: {}", limit))
-                } else {
-                    Line::from("Word Limit: None")
-                },
+                session.session_config.time_limit.map_or_else(
+                    || Line::from("Time Limit: None"),
+                    |limit| Line::from(format!("Time Limit: {:.0}s", limit)),
+                ),
+                session.session_config.words_typed_limit.map_or_else(
+                    || Line::from("Word Limit: None"),
+                    |limit| Line::from(format!("Word Limit: {}", limit)),
+                ),
             ];
             let stats = vec![
                 Line::from(format!(
@@ -233,7 +231,6 @@ impl History {
         // Prepare data for charts - reverse to show chronological order
         let mut wpm_data = Vec::new();
         let mut accuracy_data = Vec::new();
-        let mut x_axis_labels = Vec::new();
 
         let sessions_reversed: Vec<_> = self.sessions.iter().rev().collect();
 
@@ -241,11 +238,6 @@ impl History {
             let x = i as f64;
             wpm_data.push((x, session.statistics.wpm_actual));
             accuracy_data.push((x, session.statistics.accuracy_actual));
-
-            let interval = (sessions_reversed.len() / 5).max(1);
-            if i == 0 || i == sessions_reversed.len() - 1 || i % interval == 0 {
-                x_axis_labels.push(Self::format_timestamp(session.timestamp));
-            }
         }
 
         let theme = &config.settings.theme.plot;
