@@ -144,7 +144,7 @@ impl StatisticsManager {
             let entry = entry.map_err(StatisticsError::ReadFile)?;
             let path = entry.path();
 
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
                 let content = fs::read_to_string(&path).map_err(StatisticsError::ReadFile)?;
                 match serde_json::from_str::<SessionStatistics>(&content) {
                     Ok(session) => sessions.push(session),

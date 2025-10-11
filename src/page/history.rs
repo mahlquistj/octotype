@@ -1,4 +1,5 @@
 use crossterm::event::{Event, KeyCode};
+use derive_more::{Display, From};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -6,12 +7,13 @@ use ratatui::{
     text::{Line, Span, ToSpan},
     widgets::{Axis, Block, Chart, Dataset, GraphType, LegendPosition, List, Paragraph},
 };
+use thiserror::Error;
 use web_time::SystemTime;
 
 use crate::{
     app::Message,
     config::Config,
-    statistics::SessionStatistics,
+    statistics::{SessionStatistics, StatisticsError},
     utils::{ROUNDED_BLOCK, center},
 };
 
@@ -31,12 +33,14 @@ enum ViewMode {
     Trends,
 }
 
+#[derive(Debug, From, Error, Display)]
+#[display("Failed to load history: {_0}")]
+pub struct LoadHistoryError(StatisticsError);
+
 impl History {
-    pub fn new(config: &Config) -> Result<Self, String> {
+    pub fn new(config: &Config) -> Result<Self, LoadHistoryError> {
         let sessions = if let Some(stats_manager) = &config.statistics_manager {
-            stats_manager
-                .load_all_sessions()
-                .map_err(|e| e.to_string())?
+            stats_manager.load_all_sessions()?
         } else {
             Vec::new()
         };

@@ -151,7 +151,7 @@ impl Menu {
         area: ratatui::prelude::Rect,
         config: &Config,
     ) {
-        let main_menu_items = vec!["Start Typing Session", "View Statistics History"];
+        let main_menu_items = ["Start Typing Session", "View Statistics History"];
         let index = self.context.main_index;
         let items = main_menu_items.iter().map(|item| item.to_string());
         render_list(config, frame, items, "Main Menu", area, index);
@@ -232,10 +232,7 @@ impl Menu {
                         // View Statistics History
                         return match History::new(config) {
                             Ok(history) => Some(Message::Show(history.into())),
-                            Err(error) => Some(Message::Error(Box::new(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                error,
-                            )))),
+                            Err(error) => Some(Message::Error(Box::new(error))),
                         };
                     }
                     _ => (),

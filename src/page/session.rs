@@ -201,15 +201,15 @@ impl Session {
             let statistics = self.gladius_session.clone().finalize();
 
             // Save statistics if enabled
-            if let Some(stats_manager) = &config.statistics_manager {
-                if let Err(error) = stats_manager.save_session(
+            if let Some(stats_manager) = &config.statistics_manager
+                && let Err(error) = stats_manager.save_session(
                     &self.mode,
                     self.mode.mode_name.clone(),
                     self.mode.source_name.clone(),
                     &statistics,
-                ) {
-                    eprintln!("Failed to save session statistics: {}", error);
-                }
+                )
+            {
+                return Some(Message::Error(Box::new(error)));
             }
 
             return Some(Message::Show(page::Stats::from(statistics).into()));
