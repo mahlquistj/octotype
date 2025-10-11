@@ -13,7 +13,13 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -29,6 +35,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: just lint
       - name: Build
-        run: just build
+        run: just build ${{ matrix.target }}
       - name: Run tests
-        run: just test
+        run: just test ${{ matrix.target }}

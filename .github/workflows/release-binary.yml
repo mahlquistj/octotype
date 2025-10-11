@@ -39,9 +39,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: extractions/setup-just@v3
 
-      - name: Check Code
-        run: just lint
-
       - name: Generate changelog
         uses: orhun/git-cliff-action@v4
         id: git-cliff
