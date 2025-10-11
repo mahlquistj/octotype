@@ -3,8 +3,14 @@ name: Rust
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - 'flake.nix'
+      - 'flake.lock'
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - 'flake.nix'
+      - 'flake.lock'
 
 env:
   CARGO_TERM_COLOR: always
