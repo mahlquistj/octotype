@@ -24,6 +24,7 @@ commit_parsers = [
   { message = "^chore\\(release\\)", skip = true},
   { message = "^chore\\(version\\)", skip = true},
   { message = "^chore: bump version", skip = true},
+  { message = "^chore: update flake inputs", skip = true},
   { message = "^chore", group = "Miscellaneous"},
   { message = "^ci", group = "CI/CD"},
   { message = "^build", group = "Build"},
