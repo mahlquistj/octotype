@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - 'flake.nix'
-      - 'flake.lock'
+      - "*.nix"
+      - "flake.lock"
 
 jobs:
   check-version:
