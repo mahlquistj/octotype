@@ -3,14 +3,8 @@ name: Flake Check
 on:
   push:
     branches: ["main"]
-    paths:
-      - 'flake.nix'
-      - 'flake.lock'
   pull_request:
     branches: ["main"]
-    paths:
-      - 'flake.nix'
-      - 'flake.lock'
 
 jobs:
   check:
