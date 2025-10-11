@@ -4,9 +4,6 @@ mod run './just/run.just'
 # Command to build
 mod build './just/build.just'
 
-# Command to run tests
-mod test './just/test.just'
-
 # Print this list of scripts
 list:
     @just --list
@@ -15,6 +12,10 @@ list:
 lint:
     @cargo fmt -- --check --color always
     @cargo clippy --all-targets --all-features -- -D warnings
+
+# Run tests
+test ARGS="":
+    @cargo nextest run --hide-progress-bar --failure-output final {{ARGS}}
 
 publish:
     @cargo publish
