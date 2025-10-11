@@ -1,4 +1,4 @@
-use super::{Message, loadscreen::Loading, session::Session};
+use super::{History, Message, loadscreen::Loading, session::Session};
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
@@ -40,6 +40,7 @@ pub enum CreateSessionError {
 /// Page: Main menu
 #[derive(Debug, Clone, Copy)]
 enum State {
+    MainMenu,
     ModeSelect,
     SourceSelect,
     ParameterConfig,
@@ -52,6 +53,7 @@ struct Context {
     selected_mode: Option<Box<ModeConfig>>,
     selected_source: Option<Box<SourceConfig>>,
     parameters: Vec<(String, Parameter)>,
+    main_index: usize,
     mode_index: usize,
     source_index: usize,
     param_index: usize,
@@ -75,6 +77,7 @@ impl Context {
             selected_mode: None,
             selected_source: None,
             parameters: vec![],
+            main_index: 0,
             mode_index: 0,
             source_index: 0,
             param_index: 0,
@@ -92,7 +95,7 @@ impl Menu {
     /// Creates a new menu
     pub fn new(config: &Config) -> Result<Self, ContextError> {
         Ok(Self {
-            state: State::ModeSelect,
+            state: State::MainMenu,
             context: Context::new(config)?,
         })
     }
@@ -109,6 +112,9 @@ impl Menu {
         let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
 
         match &self.state {
+            State::MainMenu => {
+                self.render_main_menu(frame, area, config);
+            }
             State::ModeSelect => {
                 self.render_mode_select(frame, area, config);
             }
@@ -126,6 +132,7 @@ impl Menu {
             && key.is_press()
         {
             return match self.state {
+                State::MainMenu => self.handle_main_menu(key, config),
                 State::ModeSelect => self.handle_mode_select(key, config),
                 State::SourceSelect => self.handle_source_select(key, config),
                 State::ParameterConfig => self.handle_parameter_config(key, config),
@@ -138,6 +145,17 @@ impl Menu {
 
 // Render helpers
 impl Menu {
+    fn render_main_menu(
+        &self,
+        frame: &mut ratatui::Frame,
+        area: ratatui::prelude::Rect,
+        config: &Config,
+    ) {
+        let main_menu_items = ["Start Typing Session", "View Statistics History"];
+        let index = self.context.main_index;
+        let items = main_menu_items.iter().map(|item| item.to_string());
+        render_list(config, frame, items, "Main Menu", area, index);
+    }
     fn render_mode_select(
         &self,
         frame: &mut ratatui::Frame,
@@ -196,6 +214,34 @@ impl Menu {
 
 // Event handlers
 impl Menu {
+    fn handle_main_menu(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                increment_index(&mut self.context.main_index, 2) // 2 items in main menu
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                decrement_index(&mut self.context.main_index, 2) // 2 items in main menu
+            }
+            KeyCode::Enter => {
+                match self.context.main_index {
+                    0 => {
+                        // Start Typing Session
+                        self.state = State::ModeSelect;
+                    }
+                    1 => {
+                        // View Statistics History
+                        return match History::new(config) {
+                            Ok(history) => Some(Message::Show(history.into())),
+                            Err(error) => Some(Message::Error(Box::new(error))),
+                        };
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+        None
+    }
     fn handle_mode_select(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
@@ -211,6 +257,9 @@ impl Menu {
                     self.context.selected_mode = Some(Box::new(mode.clone()));
                     self.state = State::SourceSelect;
                 }
+            }
+            KeyCode::Backspace => {
+                self.state = State::MainMenu;
             }
             _ => (),
         };

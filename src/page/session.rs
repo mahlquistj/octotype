@@ -196,12 +196,23 @@ impl Session {
         Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
     }
 
-    pub fn poll(&mut self, _config: &Config) -> Option<Message> {
+    pub fn poll(&mut self, config: &Config) -> Option<Message> {
         if self.should_end() {
-            return Some(Message::Show(
-                // TODO: Clone for now, but we need a better solution for finalizing
-                page::Stats::from(self.gladius_session.clone().finalize()).into(),
-            ));
+            let statistics = self.gladius_session.clone().finalize();
+
+            // Save statistics if enabled
+            if let Some(stats_manager) = &config.statistics_manager
+                && let Err(error) = stats_manager.save_session(
+                    &self.mode,
+                    self.mode.mode_name.clone(),
+                    self.mode.source_name.clone(),
+                    &statistics,
+                )
+            {
+                return Some(Message::Error(Box::new(error)));
+            }
+
+            return Some(Message::Show(page::Stats::from(statistics).into()));
         }
 
         if let Err(error) = self.fetch_new_text() {

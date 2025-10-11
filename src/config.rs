@@ -13,6 +13,7 @@ pub use mode::ModeConfig;
 pub use source::SourceConfig;
 
 use crate::config::{stats::StatisticsConfig, theme::Theme};
+use crate::statistics::{StatisticsError, StatisticsManager};
 
 pub mod mode;
 pub mod parameters;
@@ -38,6 +39,9 @@ pub enum ConfigError {
 
     #[error("Failed to parse modes: {0}")]
     ParseModes(mode::ModeError),
+
+    #[error("Failed to initialize statistics: {0}")]
+    Statistics(StatisticsError),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -86,6 +90,8 @@ pub struct InnerConfig {
     pub settings: Settings,
     pub modes: HashMap<String, ModeConfig>,
     pub sources: HashMap<String, SourceConfig>,
+    #[serde(skip)]
+    pub statistics_manager: Option<StatisticsManager>,
 }
 
 impl Config {
@@ -160,10 +166,23 @@ impl Config {
             settings.ghost_opacity = get_evenly_spread_values(settings.show_ghost_lines);
         }
 
+        // Initialize statistics manager if saving is enabled
+        let statistics_manager = if settings.statistic.save_enabled {
+            let stats_dir = settings.statistic.directory.clone().unwrap_or_else(|| {
+                let mut dir = config_dir;
+                dir.push("statistics");
+                dir
+            });
+            Some(StatisticsManager::new(stats_dir)?)
+        } else {
+            None
+        };
+
         Ok(Self(Arc::new(InnerConfig {
             settings,
             sources,
             modes,
+            statistics_manager,
         })))
     }
 }
