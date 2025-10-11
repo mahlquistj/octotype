@@ -48,12 +48,10 @@ jobs:
         with:
           config: cliff.toml
           args: --latest -vv --strip header
-        env:
-          OUTPUT: CHANGES.md
 
       - name: Update release notes
         run: |
-          gh release edit ${{ github.ref_name }} --notes-file CHANGES.md
+          gh release edit ${{ github.ref_name }} --notes "${{ steps.git-cliff.outputs.changelog }}"
 
       - name: Publish Binary
         run: just publish
