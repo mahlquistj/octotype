@@ -47,7 +47,7 @@ jobs:
         id: git-cliff
         with:
           config: cliff.toml
-          args: --latest --vv --strip header
+          args: --latest -vv --strip header
         env:
           OUTPUT: CHANGES.md
 
