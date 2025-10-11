@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Verify version matches release tag
         run: |
@@ -41,13 +43,17 @@ jobs:
         run: just lint
 
       - name: Generate changelog
-        run: |
-          cargo install git-cliff
-          git-cliff --latest --strip all > release-notes.md
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: --latest --vv --strip header
+        env:
+          OUTPUT: CHANGES.md
 
       - name: Update release notes
         run: |
-          gh release edit ${{ github.ref_name }} --notes-file release-notes.md
+          gh release edit ${{ github.ref_name }} --notes-file CHANGES.md
 
       - name: Publish Binary
         run: just publish
