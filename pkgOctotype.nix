@@ -12,7 +12,7 @@
   };
 in
   rustPlatform.buildRustPackage {
-    inherit (cargoToml.workspace.package) version;
+    inherit (cargoToml.package) version;
     name = "octotype";
     src = ./.;
     cargoLock.lockFile = ./Cargo.lock;
