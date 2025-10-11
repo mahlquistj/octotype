@@ -40,9 +40,6 @@ jobs:
       - name: Check Code
         run: just lint
 
-      - name: Publish Binary
-        run: just publish
-
       - name: Generate changelog
         run: |
           cargo install git-cliff
@@ -51,3 +48,13 @@ jobs:
       - name: Update release notes
         run: |
           gh release edit ${{ github.ref_name }} --notes-file release-notes.md
+
+      - name: Publish Binary
+        run: just publish
+
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "Workflow failed, cleaning up release and tag..."
+          gh release delete ${{ github.ref_name }} --yes || true
+          gh api -X DELETE /repos/${{ github.repository }}/git/refs/tags/${{ github.ref_name }} || true
