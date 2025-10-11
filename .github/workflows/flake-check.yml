@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  check:
+  check-flake:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,4 +17,4 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check flake
-        run: nix flake check
+        run: nix flake check --all-systems
