@@ -14,13 +14,11 @@ types = [
   "feat",     # New feature
   "fix",      # Bug fix
   "docs",     # Documentation changes
-  "style",    # Formatting, missing semi colons, etc
-  "refactor", # Code refactoring
   "perf",     # Performance improvements
+  "refactor", # Code refactoring
   "test",     # Adding tests
   "chore",    # Maintenance tasks
   "ci",       # CI/CD changes
-  "build",    # Build system changes
   "revert",   # Revert previous commit
 ]
 
