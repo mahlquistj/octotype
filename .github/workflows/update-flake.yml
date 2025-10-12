@@ -22,6 +22,6 @@ jobs:
           token: ${{ secrets.FLAKE_UPDATE_ACCESS_TOKEN }}
 
       - name: Enable auto-merge
-        run: gh pr merge --auto --squash ${{ steps.updates.outputs.pull-request-number }}
+        run: gh pr merge --auto --squash ${{ steps.update.outputs.pull-request-number }}
         env:
           GITHUB_TOKEN: ${{ secrets.FLAKE_UPDATE_ACCESS_TOKEN }}
