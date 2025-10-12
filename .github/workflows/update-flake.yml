@@ -17,4 +17,5 @@ jobs:
       - name: Update flake.lock
         uses: DeterminateSystems/update-flake-lock@main
         with:
+          pr-title: "chore: update flake inputs"
           token: ${{ secrets.FLAKE_UPDATE_ACCESS_TOKEN }}
