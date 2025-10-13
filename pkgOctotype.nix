@@ -16,7 +16,6 @@ in
     name = "octotype";
     src = ./.;
     cargoLock.lockFile = ./Cargo.lock;
-    buildAndTestSubdir = "octotype";
 
     nativeBuildInputs = lib.optionals stdenv.isLinux [
       pkg-config

@@ -73,6 +73,7 @@
         apps.default = {
           type = "app";
           program = self'.packages.default;
+          meta.description = "A typing trainer for your terminal";
         };
 
         packages.octotype = pkgs.callPackage mkOctoType {
