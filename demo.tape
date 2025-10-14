@@ -1,4 +1,4 @@
-Output demo.webm
+Output assets/demo.gif
 
 Set Theme "Catppuccin Mocha"
 
@@ -9,10 +9,12 @@ Set Width 1400
 Set Height 1000
 
 # Start program
-Type "octotype"
-Sleep 500ms
+Hide
+Type "cargo run"
 Enter 1
-Sleep 2s
+Wait+Screen /CTRL-Q/
+Show
+Sleep 1s
 
 # Select Session
 Enter 1
@@ -51,7 +53,3 @@ Sleep 2s
 # View trends
 Tab 1
 Sleep 5s
-
-Ctrl+Q
-
-Sleep 1s

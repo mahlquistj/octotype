@@ -14,7 +14,7 @@
 OctoType is a TUI typing trainer made with [Ratatui], and powered by [Gladius] -
 Heavily inspired by [Monkeytype], with a focus on customizability
 
-![Demo](./assets/demo.webm)
+![Demo](./assets/demo.gif)
 
 > [!WARNING]
 >
