@@ -1,14 +1,15 @@
 use std::ops::Rem;
 
 use crossterm::event::{Event, KeyCode};
+use derive_more::Display;
 use gladius::{State, TypingSession, render::LineRenderConfig};
 use ratatui::{
     Frame,
-    layout::{Constraint, Rect},
+    layout::{Constraint, Layout, Rect},
     prelude::Color,
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Paragraph, Wrap},
+    widgets::{Block, Gauge, Paragraph, Wrap},
 };
 
 use crate::{
@@ -22,6 +23,9 @@ mod mode;
 pub use mode::{CreateModeError, FetchError, Mode};
 
 use super::Message;
+
+const MIN_GAUGE_HEIGHT: u16 = 1;
+const MAX_GAUGE_HEIGHT: u16 = 3;
 
 /// Page: TypingSession
 #[derive(Debug)]
@@ -95,7 +99,17 @@ impl Session {
         let mut cursor_position: Option<(u16, u16)> = None;
         let mut current_line = 0u16;
 
-        let area = center(area, Constraint::Percentage(80), Constraint::Percentage(80));
+        let [_, text_area, gauges_area] = Layout::vertical([
+            Constraint::Percentage(20),
+            Constraint::Percentage(60),
+            Constraint::Percentage(20),
+        ])
+        .areas(area);
+        let text_area = center(
+            text_area,
+            Constraint::Percentage(80),
+            Constraint::Percentage(100),
+        );
 
         let mut longest_line = 0;
         let lines = self.gladius_session.render_lines(
@@ -152,16 +166,16 @@ impl Session {
                 current_line += 1;
                 Some(rendered)
             },
-            LineRenderConfig::new(area.width as usize).with_newline_breaking(true),
+            LineRenderConfig::new(text_area.width as usize).with_newline_breaking(true),
         );
 
-        let height = height_of_lines(&lines, area);
-        let padding = centered_padding(area, Some(height), Some(longest_line as u16));
+        let height = height_of_lines(&lines, text_area);
+        let padding = centered_padding(text_area, Some(height), Some(longest_line as u16));
 
         // Set cursor position if we found one
         if let Some((cursor_x, cursor_y)) = cursor_position {
-            let cursor_area_x = area.x + padding.left + cursor_x;
-            let cursor_area_y = area.y + padding.top + cursor_y;
+            let cursor_area_x = text_area.x + padding.left + cursor_x;
+            let cursor_area_y = text_area.y + padding.top + cursor_y;
             frame.set_cursor_position((cursor_area_x, cursor_area_y));
         }
 
@@ -169,13 +183,61 @@ impl Session {
             .wrap(Wrap { trim: false })
             .block(Block::new().padding(padding));
 
-        frame.render_widget(paragraph, area);
+        frame.render_widget(paragraph, text_area);
+
+        self.render_gauges(config, frame, gauges_area);
+    }
+
+    pub fn render_gauges(&self, config: &Config, frame: &mut Frame, area: Rect) {
+        let gauges = [
+            self.mode.conditions.time.as_ref().map(|max| {
+                let max = max.as_secs_f64();
+                let elapsed = self.gladius_session.time_elapsed();
+
+                let ratio = (elapsed / max).clamp(0.0, 1.0);
+                let percent = (ratio * 100.0).round() as u16;
+
+                let fg = match percent {
+                    60..=80 => config.settings.theme.text.warning,
+                    81..=100 => config.settings.theme.text.error,
+                    _ => config.settings.theme.text.success,
+                };
+
+                Gauge::default()
+                    .label(format!(
+                        "Time: {}/{}",
+                        format_time(elapsed),
+                        format_time(max)
+                    ))
+                    .percent(percent)
+                    .gauge_style(fg)
+            }),
+            self.mode.conditions.words_typed.as_ref().map(|goal| {
+                let words_typed = self.gladius_session.words_typed_count();
+                let percent = (words_typed.saturating_mul(100) + goal / 2) / goal;
+
+                Gauge::default()
+                    .label(format!("Words: {words_typed}/{goal}"))
+                    .percent(percent.clamp(0, 100) as u16)
+                    .gauge_style(config.settings.theme.text.highlight)
+            }),
+        ];
+
+        let to_render = gauges.into_iter().flatten().collect::<Vec<_>>();
+        if to_render.is_empty() {
+            return;
+        }
+
+        let constraints = gauge_constraints(area, to_render.len());
+        let areas = Layout::vertical(constraints).split(area);
+
+        for (gauge, rect) in to_render.into_iter().zip(areas.iter()) {
+            frame.render_widget(gauge, *rect);
+        }
     }
 
     pub fn render_top(&self, _config: &Config) -> Option<Line<'_>> {
-        let time = self.gladius_session.time_elapsed();
-        let seconds = time.rem(60.0).trunc() as u8;
-        let minutes = (time / 60.0).trunc() as u32;
+        let time = format_time(self.gladius_session.time_elapsed());
 
         let stats = self
             .gladius_session
@@ -193,7 +255,7 @@ impl Session {
             })
             .unwrap_or_default();
 
-        Some(Line::raw(format!("{minutes}:{seconds:0>2} {stats}")))
+        Some(Line::raw(format!("{time} {stats}")))
     }
 
     pub fn poll(&mut self, config: &Config) -> Option<Message> {
@@ -259,4 +321,55 @@ fn create_line_text_colors(relative_idx: usize, config: &Config) -> (Color, Colo
             fade(theme.term_fg, theme.term_bg, fade_percent, false),
         )
     }
+}
+
+#[derive(Display)]
+#[display("{minutes}:{seconds}")]
+struct Time {
+    seconds: u16,
+    minutes: u16,
+}
+
+fn format_time(time: f64) -> Time {
+    Time {
+        seconds: time.rem(60.0).trunc() as u16,
+        minutes: (time / 60.0).trunc() as u16,
+    }
+}
+
+fn gauge_constraints(area: Rect, desired_count: usize) -> Vec<Constraint> {
+    if MIN_GAUGE_HEIGHT == 0 || MIN_GAUGE_HEIGHT > MAX_GAUGE_HEIGHT || area.height == 0 {
+        return Vec::new();
+    }
+
+    // Fit as many as possible at the minimum height.
+    let max_by_area = (area.height / MIN_GAUGE_HEIGHT) as usize;
+    let n = desired_count.min(max_by_area);
+    if n == 0 {
+        return Vec::new();
+    }
+
+    // Start everyone at MIN height.
+    let mut heights = vec![MIN_GAUGE_HEIGHT; n];
+
+    // Spread any extra height as evenly as possible, capped by MAX per gauge.
+    let used_min = MIN_GAUGE_HEIGHT * n as u16;
+    let mut extra = area.height.saturating_sub(used_min);
+    let per_gauge_cap = MAX_GAUGE_HEIGHT.saturating_sub(MIN_GAUGE_HEIGHT);
+    let total_cap = per_gauge_cap.saturating_mul(n as u16);
+    extra = extra.min(total_cap);
+
+    if per_gauge_cap > 0 && extra > 0 {
+        let base = extra / n as u16;
+        let rem = extra % n as u16;
+        for (i, h) in heights.iter_mut().enumerate() {
+            let mut add = base;
+            if (i as u16) < rem {
+                add += 1;
+            }
+            *h = (*h + add).min(MAX_GAUGE_HEIGHT);
+        }
+    }
+
+    heights.into_iter().map(Constraint::Length).collect()
 }
