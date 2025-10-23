@@ -78,7 +78,7 @@ Check out the [Docs] for configuration options.
 
 ## 💻 Development
 
-A nix flake dev-shell is provided to run with `nix-develop`.
+A nix [flake dev-shell](https://mahlquistj.github.io/octotype/docs/contributing/development/environment#nix-devshell) is provided to run with `nix develop`.
 
 ## ⭐ Contributing
 
