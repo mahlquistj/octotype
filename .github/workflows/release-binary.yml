@@ -44,19 +44,12 @@ jobs:
         id: git-cliff
         with:
           config: cliff.toml
-          args: --latest -vv --strip header
+          args: --latest -vv
 
       - name: Update release notes
         run: |
-          {
-            echo "[![Release Binary](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml/badge.svg?tag=${{ github.ref_name }})](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml)"
-            echo ""
-            echo "---"
-            echo ""
-            cat "${{ steps.git-cliff.outputs.changelog }}"
-          } > release-notes.md
-          gh release edit ${{ github.ref_name }} --notes-file release-notes.md
-          rm release-notes.md ${{ steps.git-cliff.outputs.changelog }}
+          gh release edit ${{ github.ref_name }} --notes-file "${{ steps.git-cliff.outputs.changelog }}"
+          rm ${{ steps.git-cliff.outputs.changelog }}
 
       - name: Publish Binary
         run: just publish

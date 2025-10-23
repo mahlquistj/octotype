@@ -1,12 +1,21 @@
 [changelog]
 header = ""
 body = """
+{% if version -%}
+## {{ version | trim_start_matches(pat="v") }}
+[![Release Binary](https://github.com/mahlquistj/octotype/actions/workflows/release-binary.yml/badge.svg?tag={{ version }})](https://github.com/mahlquistj/octotype/actions/workflows/release-binary.yml)
+[![Release Docs](https://github.com/mahlquistj/octotype/actions/workflows/release-docs.yml/badge.svg?tag={{ version }})](https://github.com/mahlquistj/octotype/actions/workflows/release-docs.yml)
+---
+{% else -%}
+## Unreleased
+{%- endif -%}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | upper_first }}
 {% for commit in commits %}
-- {{ commit.message | upper_first }}
+- {{ commit.message | upper_first }}{% if commit.remote.username %} by @{{ commit.remote.username }}{% endif %}
 {%- endfor %}
 {% endfor %}
+
 """
 trim = true
 
