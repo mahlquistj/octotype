@@ -2,7 +2,7 @@
 header = ""
 body = """
 {% if version -%}
-## {{ version | trim_start_matches(pat="v") }}
+## {{ version | trim_start_matches(pat="v") }}{% if previous.version %} ([compare](https://github.com/mahlquistj/octotype/compare/{{ previous.version }}...{{ version }})){% endif %}
 [![Release Binary](https://github.com/mahlquistj/octotype/actions/workflows/release-binary.yml/badge.svg?tag={{ version }})](https://github.com/mahlquistj/octotype/actions/workflows/release-binary.yml)
 [![Release Docs](https://github.com/mahlquistj/octotype/actions/workflows/release-docs.yml/badge.svg?tag={{ version }})](https://github.com/mahlquistj/octotype/actions/workflows/release-docs.yml)
 ---
