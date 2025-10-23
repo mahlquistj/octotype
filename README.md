@@ -60,7 +60,8 @@ You can add OctoType as a Flake:
 }
 ```
 
-No package exists in nixpkgs _yet_.
+> [!WARNING]
+> No package exists in nixpkgs _yet_.
 
 ## 🔖 Arguments
 
@@ -73,7 +74,7 @@ No package exists in nixpkgs _yet_.
 
 ## ⚙️ Configuration
 
-Check out the [Wiki] for configuration options.
+Check out the [Docs] for configuration options.
 
 ## 💻 Development
 
@@ -92,11 +93,15 @@ It all started as a fun side-project to learn typing on my new [ZSA Moonlander]
 keyboard. I was inspired by using [Monkeytype] a lot, but found that i was
 missing more customizability when it came to what modes and words i could get.
 
+## 🌠 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=mahlquistj/octotype&type=date&legend=top-left)](https://www.star-history.com/#mahlquistj/octotype&type=date&legend=top-left)
+
 <!-- LINKS -->
 
 [Monkeytype]: https://monkeytype.com/
 [Ratatui]: https://ratatui.rs/
-[Wiki]: https://mahlquistj.github.io/octotype/
+[Docs]: https://mahlquistj.github.io/octotype/
 [ZSA Moonlander]: https://www.zsa.io/moonlander
 [Gladius]: https://github.com/mahlquistj/gladius
 [Crate]: https://crates.io/crates/octotype
