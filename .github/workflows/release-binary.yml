@@ -48,11 +48,13 @@ jobs:
 
       - name: Update release notes
         run: |
-          echo "[![Release Binary](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml/badge.svg?tag=${{ github.ref_name }})](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml)
-
----
-" > release-notes.md
-          cat "${{ steps.git-cliff.outputs.changelog }}" >> release-notes.md
+          {
+            echo "[![Release Binary](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml/badge.svg?tag=${{ github.ref_name }})](https://github.com/${{ github.repository }}/actions/workflows/release-binary.yml)"
+            echo ""
+            echo "---"
+            echo ""
+            cat "${{ steps.git-cliff.outputs.changelog }}"
+          } > release-notes.md
           gh release edit ${{ github.ref_name }} --notes-file release-notes.md
           rm release-notes.md ${{ steps.git-cliff.outputs.changelog }}
 
