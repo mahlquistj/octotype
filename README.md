@@ -33,7 +33,11 @@ Heavily inspired by [Monkeytype], with a focus on customizability
 
 ## 🔽 Installation
 
-Installation can currently be done by using `cargo install octotype`
+Installing octotype can be done with the following methods:
+
+### Cargo
+
+`cargo install octotype`
 
 ### Nix
 
@@ -60,7 +64,7 @@ You can add OctoType as a Flake:
 }
 ```
 
-> [!WARNING]
+> [!NOTE]
 > No package exists in nixpkgs _yet_.
 
 ## 🔖 Arguments
@@ -85,7 +89,8 @@ A nix [flake dev-shell](https://mahlquistj.github.io/octotype/docs/contributing/
 If you have an idea, bug-report or alike, feel free to open an issue or a PR -
 It's more than welcome!
 
-I'm only developing this in my spare time, so don't expect immidiate replies 😄
+> [!NOTE]
+> I'm only developing this in my spare time, so don't expect immidiate replies 😄
 
 ## ❓ Why another typing-trainer?
 
