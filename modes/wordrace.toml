@@ -1,0 +1,21 @@
+[meta]
+name = "WordRace"
+description = "Type an amount of correct words within the time limit"
+
+[parameters."time (seconds)"]
+min = 10
+step = 5
+default = 60
+
+[parameters.words]
+min = 10
+step = 2
+default = 30
+
+[conditions]
+time = "{time (seconds)}"
+words_typed = "{words}"
+allow_deletions = true
+allow_errors = true
+
+[overrides]

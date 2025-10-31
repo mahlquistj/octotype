@@ -147,6 +147,7 @@ impl SourceConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum GeneratorDefinition {
     Command {
         command: Vec<String>,
@@ -164,11 +165,12 @@ pub enum GeneratorDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum ListSource {
     Array(Vec<String>),
     File {
         path: PathBuf,
-        seperator: Option<char>,
+        separator: Option<char>,
     },
 }
 

@@ -237,7 +237,7 @@ impl Source {
             GeneratorDefinition::List { source, randomize } => {
                 let words = match source {
                     ListSource::Array(vec) => vec,
-                    ListSource::File { path, seperator } => {
+                    ListSource::File { path, separator } => {
                         let mut buf = String::new();
 
                         let mut file = File::open(path.clone()).map_err(|error| {
@@ -250,7 +250,7 @@ impl Source {
                         file.read_to_string(&mut buf)
                             .map_err(|error| CreateModeError::ParseFile { error, path })?;
 
-                        seperator.map_or_else(
+                        separator.map_or_else(
                             || buf.split_ascii_whitespace().map(str::to_string).collect(),
                             |sep| buf.split(sep).map(str::to_string).collect(),
                         )

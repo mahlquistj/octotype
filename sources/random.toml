@@ -1,13 +1,14 @@
 [meta]
 name = "Random"
 description = "Supplies random characters"
+
+[generator]
 command = [
     "sh",
     "./gibberish.sh",
     "{total words}",
     "{word length}",
 ]
-output = "default"
 network_required = false
 required_tools = [
     "tr",
