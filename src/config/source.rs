@@ -64,8 +64,6 @@ pub struct SourceMeta {
     #[serde(default)]
     pub formatting: Formatting,
     #[serde(default)]
-    pub offline_alternative: Option<String>,
-    #[serde(default)]
     pub network_required: bool,
     #[serde(default)]
     pub required_tools: Vec<String>,
