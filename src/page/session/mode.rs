@@ -183,11 +183,7 @@ impl Source {
                     let mut rng = rng();
                     words.shuffle(&mut rng);
                     return Ok(Some(
-                        words
-                            .iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>()
-                            .join(" "),
+                        words.join(" ")
                     ));
                 }
                 Ok(Some(words.join(" ")))
