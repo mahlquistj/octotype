@@ -1,10 +1,17 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::config::parameters::ParameterDefinitions;
+
+// Default config helpers
+const BROWNFOX_TEXT: &str = "The quick brown fox jumps over the lazy dog, testing my typing speed with every leap, but I'll soon catch up.";
+const NUMBER_WORDS: [&str; 20] = [
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred",
+];
 
 #[derive(Debug, From, Error)]
 pub enum SourceError {
@@ -20,6 +27,48 @@ pub enum SourceError {
 
     #[error("Failed to parse file")]
     ParseFile(toml::de::Error),
+
+    #[error("Failed to serialize default source")]
+    SerializeDefault(toml::ser::Error),
+}
+
+pub fn create_default_sources() -> HashMap<String, SourceConfig> {
+    let mut sources = HashMap::new();
+    sources.insert(
+        "brownfox".to_string(),
+        SourceConfig {
+            meta: SourceMeta {
+                name: "BrownFox".to_string(),
+                description: "The quick brown fox...".to_string(),
+            },
+            generator: GeneratorDefinition::List {
+                source: ListSource::Array(
+                    BROWNFOX_TEXT
+                        .split_ascii_whitespace()
+                        .map(str::to_string)
+                        .collect(),
+                ),
+                randomize: false,
+            },
+            parameters: HashMap::new(),
+        },
+    );
+    sources.insert(
+        "number_words".to_string(),
+        SourceConfig {
+            meta: SourceMeta {
+                name: "NumberWords".to_string(),
+                description: "Numbers as words (one, two, three...)".to_string(),
+            },
+            generator: GeneratorDefinition::List {
+                source: ListSource::Array(NUMBER_WORDS.into_iter().map(str::to_string).collect()),
+                randomize: true,
+            },
+            parameters: HashMap::new(),
+        },
+    );
+
+    sources
 }
 
 pub fn get_sources(from_dir: &PathBuf) -> Result<HashMap<String, SourceConfig>, SourceError> {
@@ -27,6 +76,33 @@ pub fn get_sources(from_dir: &PathBuf) -> Result<HashMap<String, SourceConfig>, 
         std::fs::create_dir_all(from_dir)?;
     }
 
+    // Check if directory has any .toml files
+    let has_files = from_dir
+        .read_dir()
+        .map_err(|error| SourceError::ReadDirectory {
+            directory: from_dir.clone(),
+            error,
+        })?
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let path = entry.path();
+            path.is_file() && path.extension().is_some_and(|ext| ext == "toml")
+        });
+
+    // If no files found, write defaults and return them
+    if !has_files {
+        let sources = create_default_sources();
+        for (filename, source) in &sources {
+            let mut location = from_dir.clone();
+            location.push(filename);
+            location.set_extension("toml");
+
+            File::create(location)?.write_all(&toml::to_string_pretty(source)?.into_bytes())?;
+        }
+        return Ok(sources);
+    }
+
+    // Files exist, read them
     let files = from_dir
         .read_dir()
         .map_err(|error| SourceError::ReadDirectory {
@@ -54,19 +130,54 @@ pub struct SourceConfig {
     pub meta: SourceMeta,
     #[serde(default)]
     pub parameters: ParameterDefinitions,
+    pub generator: GeneratorDefinition,
+}
+
+impl SourceConfig {
+    pub const fn requires_network(&self) -> bool {
+        if let GeneratorDefinition::Command {
+            network_required, ..
+        } = self.generator
+        {
+            network_required
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GeneratorDefinition {
+    Command {
+        command: Vec<String>,
+        #[serde(default)]
+        formatting: Formatting,
+        #[serde(default)]
+        network_required: bool,
+        #[serde(default)]
+        required_tools: Vec<String>,
+    },
+    List {
+        source: ListSource,
+        randomize: bool,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ListSource {
+    Array(Vec<String>),
+    File {
+        path: PathBuf,
+        separator: Option<char>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceMeta {
     pub name: String,
     pub description: String,
-    pub command: Vec<String>,
-    #[serde(default)]
-    pub formatting: Formatting,
-    #[serde(default)]
-    pub network_required: bool,
-    #[serde(default)]
-    pub required_tools: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]

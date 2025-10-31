@@ -107,7 +107,7 @@ impl Config {
         let mut sources: Vec<_> = self
             .sources
             .iter()
-            .filter(|(_, cfg)| is_online || !cfg.meta.network_required)
+            .filter(|(_, cfg)| is_online || !cfg.requires_network())
             .map(|(key, _)| key.to_string())
             .collect();
         sources.sort();

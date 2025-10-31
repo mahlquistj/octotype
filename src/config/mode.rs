@@ -1,10 +1,13 @@
-use std::{collections::HashMap, num::ParseIntError, path::PathBuf, str::ParseBoolError};
+use std::{
+    collections::HashMap, fs::File, io::Write, num::ParseIntError, path::PathBuf,
+    str::ParseBoolError,
+};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::parameters::{ParameterDefinitions, ParameterValues};
+use crate::config::parameters::{self, ParameterDefinitions, ParameterValues};
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {
@@ -20,6 +23,84 @@ pub enum ModeError {
 
     #[error("Failed to parse file")]
     ParseFile(toml::de::Error),
+
+    #[error("Failed to serialize default mode")]
+    SerializeDefault(toml::ser::Error),
+}
+
+pub fn create_default_modes() -> HashMap<String, ModeConfig> {
+    let mut modes = HashMap::new();
+    modes.insert(
+        "Default".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Default".to_string(),
+                description: "The default typing-trainer experience".to_string(),
+                allowed_sources: None,
+            },
+            parameters: HashMap::new(),
+            conditions: ConditionConfig::default(),
+            overrides: HashMap::new(),
+        },
+    );
+    modes.insert(
+        "WordRace".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "WordRace".to_string(),
+                description: "Type an amount of correct words within the time limit".to_string(),
+                allowed_sources: None,
+            },
+            parameters: [
+                (
+                    "words".to_string(),
+                    parameters::Definition::Range {
+                        min: 10,
+                        max: i64::MAX,
+                        step: 2,
+                        default: Some(30),
+                        value: 30,
+                    },
+                ),
+                (
+                    "time (seconds)".to_string(),
+                    parameters::Definition::Range {
+                        min: 10,
+                        max: i64::MAX,
+                        step: 5,
+                        default: Some(60),
+                        value: 60,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            conditions: ConditionConfig {
+                words_typed: Some(ConditionValue::String("{words}".to_string())),
+                time: Some(ConditionValue::String("{time (seconds)}".to_string())),
+                ..Default::default()
+            },
+            overrides: HashMap::new(),
+        },
+    );
+    modes.insert(
+        "Perfectionism".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Perfectionism".to_string(),
+                description: "Don't make any mistakes!".to_string(),
+                allowed_sources: None,
+            },
+            parameters: HashMap::new(),
+            conditions: ConditionConfig {
+                allow_errors: ConditionValue::Bool(false),
+                ..Default::default()
+            },
+            overrides: HashMap::new(),
+        },
+    );
+
+    modes
 }
 
 pub fn get_modes(from_dir: &PathBuf) -> Result<HashMap<String, ModeConfig>, ModeError> {
@@ -27,6 +108,33 @@ pub fn get_modes(from_dir: &PathBuf) -> Result<HashMap<String, ModeConfig>, Mode
         std::fs::create_dir_all(from_dir)?;
     }
 
+    // Check if directory has any .toml files
+    let has_files = from_dir
+        .read_dir()
+        .map_err(|error| ModeError::ReadDirectory {
+            directory: from_dir.clone(),
+            error,
+        })?
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let path = entry.path();
+            path.is_file() && path.extension().is_some_and(|ext| ext == "toml")
+        });
+
+    // If no files found, write defaults and return them
+    if !has_files {
+        let modes = create_default_modes();
+        for (filename, mode) in &modes {
+            let mut location = from_dir.clone();
+            location.push(filename);
+            location.set_extension("toml");
+
+            File::create(location)?.write_all(&toml::to_string_pretty(mode)?.into_bytes())?;
+        }
+        return Ok(modes);
+    }
+
+    // Files exist, read them
     let files = from_dir
         .read_dir()
         .map_err(|error| ModeError::ReadDirectory {

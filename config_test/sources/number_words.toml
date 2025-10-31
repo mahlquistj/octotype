@@ -1,0 +1,30 @@
+[meta]
+name = "NumberWords"
+description = "Numbers as words (one, two, three...)"
+
+[parameters]
+
+[generator]
+source = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+    "hundred",
+]
+randomize = true

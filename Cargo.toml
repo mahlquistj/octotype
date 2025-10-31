@@ -1,7 +1,7 @@
 [package]
 name = "octotype"
 description = "A typing trainer for your terminal"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2024"
 authors = ["Mads Ahlquist Jensen <madsaj10@outlook.com>"]
 repository = "https://github.com/mahlquistj/octotype"
@@ -46,6 +46,7 @@ strum = { version = "0.27", features = ["derive"] }
 clap = { version = "4.5", features = ["derive"] }
 derive_more = { version = "2.0", features = ["from", "deref", "deref_mut", "display"]}
 
+rand = "0.9"
 terminal-colorsaurus = "1.0.0"
 thiserror = "2.0"
 crossterm = "0.29"
