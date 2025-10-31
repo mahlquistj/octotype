@@ -182,9 +182,7 @@ impl Source {
                 if *randomize {
                     let mut rng = rng();
                     words.shuffle(&mut rng);
-                    return Ok(Some(
-                        words.join(" ")
-                    ));
+                    return Ok(Some(words.join(" ")));
                 }
                 Ok(Some(words.join(" ")))
             }
