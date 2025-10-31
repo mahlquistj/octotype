@@ -39,15 +39,14 @@ description = "My custom Source!"
 
 ### `meta`
 
-| option              | type       | description                                                                                               |
-| ------------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
-| name                | `String`   | The name of the Source                                                                                    |
-| description         | `String`   | A description of the Source                                                                               |
-| command             | `[String]` | The [command](#command) to execute.                                                                       |
-| output              | `String`   | Unused, but reserved for the future: The [output format](#output) of the script                           |
-| network_required    | `bool`     | Optional: Set to true if network is required for this source                                              |
-| offline_alternative | `String`   | Optional: An offline alternative to this source (Used if network fails)                                   |
-| required_tools      | `[String]` | Optional (but recommended, if you want to share your source): A list of commands needed to use the Source |
+| option           | type       | description                                                                                               |
+| ---------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
+| name             | `String`   | The name of the Source                                                                                    |
+| description      | `String`   | A description of the Source                                                                               |
+| command          | `[String]` | The [command](#command) to execute.                                                                       |
+| output           | `String`   | Unused, but reserved for the future: The [output format](#output) of the script                           |
+| network_required | `bool`     | Optional: Set to true if network is required for this source                                              |
+| required_tools   | `[String]` | Optional (but recommended, if you want to share your source): A list of commands needed to use the Source |
 
 ### `parameters`
 
