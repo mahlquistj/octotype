@@ -48,6 +48,10 @@ jobs:
 
       - name: Update release notes
         run: |
+          echo "Changelog file path: ${{ steps.git-cliff.outputs.changelog }}"
+          echo "Changelog contents:"
+          cat "${{ steps.git-cliff.outputs.changelog }}"
+          echo "---"
           gh release edit ${{ github.ref_name }} --notes-file "${{ steps.git-cliff.outputs.changelog }}"
           rm ${{ steps.git-cliff.outputs.changelog }}
 
