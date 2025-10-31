@@ -8,8 +8,10 @@ A "Source" in OctoType is what generates the words/sentences/characters for a
 session.
 
 Sources can generate text in two ways:
+
 - **Command-based**: Execute an external command/script that outputs words
-- **List-based**: Use a predefined list of words (from an array or file), with optional randomization
+- **List-based**: Use a predefined list of words (from an array or file), with
+  optional randomization
 
 Sources are loaded from `<OCTOTYPE_CONFIG_DIR>/sources/<source>.toml`.
 
@@ -18,15 +20,16 @@ Official maintained sources can be found
 
 :::warning
 
-Beware when using Command-based sources made by other people. Command sources execute commands
-directly on your PC, and could potentially be malicious! Make sure you read and
-understand what a source is executing before using it!
+Beware when using Command-based sources made by other people. Command sources
+execute commands directly on your PC, and could potentially be malicious! Make
+sure you read and understand what a source is executing before using it!
 
 :::
 
 ## File structure
 
 ### Command-based generator
+
 ```toml
 [meta]
 name = "My Source"
@@ -41,6 +44,7 @@ command = ["my-command", "arg1", "arg2"]
 ```
 
 ### List-based generator
+
 ```toml
 [meta]
 name = "My Source"
@@ -60,9 +64,9 @@ randomize = true
 
 ### `meta`
 
-| option      | type     | description                |
-| ----------- | -------- | -------------------------- |
-| name        | `String` | The name of the Source     |
+| option      | type     | description                 |
+| ----------- | -------- | --------------------------- |
+| name        | `String` | The name of the Source      |
 | description | `String` | A description of the Source |
 
 ### `generator`
@@ -73,23 +77,24 @@ The generator section defines how text is generated. There are two types:
 
 Executes an external command/script to generate text.
 
-| option           | type       | required | description                                                                                               |
-| ---------------- | ---------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| command          | `[String]` | yes      | The [command](#command) to execute                                                                        |
-| formatting       | `String`   | no       | Output [formatting](#formatting) (default: "raw")                                                         |
-| network_required | `bool`     | no       | Set to true if network is required for this source (default: false)                                       |
-| required_tools   | `[String]` | no       | A list of commands needed to use the Source (recommended if you want to share your source)                |
+| option           | type       | required | description                                                                                |
+| ---------------- | ---------- | -------- | ------------------------------------------------------------------------------------------ |
+| command          | `[String]` | yes      | The [command](#command) to execute                                                         |
+| formatting       | `String`   | no       | Output [formatting](#formatting) (default: "raw")                                          |
+| network_required | `bool`     | no       | Set to true if network is required for this source (default: false)                        |
+| required_tools   | `[String]` | no       | A list of commands needed to use the Source (recommended if you want to share your source) |
 
 #### List Generator
 
 Uses a predefined list of words, either inline or from a file.
 
-| option    | type                  | required | description                                                                                    |
-| --------- | --------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| source    | `[String]` or `Table` | yes      | Either an inline array of words, or a table with `path` (and optional `separator`)            |
-| randomize | `bool`                | yes      | Whether to shuffle the words each time (true) or use them in order (false)                    |
+| option    | type                  | required | description                                                                        |
+| --------- | --------------------- | -------- | ---------------------------------------------------------------------------------- |
+| source    | `[String]` or `Table` | yes      | Either an inline array of words, or a table with `path` (and optional `separator`) |
+| randomize | `bool`                | yes      | Whether to shuffle the words each time (true) or use them in order (false)         |
 
 For file-based sources:
+
 - `source.path`: Path to the file containing words
 - `source.separator`: Optional character to split on (default: any whitespace)
 
@@ -105,8 +110,8 @@ values within command-based generator's `command` field
 
 ### Command Syntax
 
-Since OctoType uses Rust's `std::process::Command` to execute commands, a
-list of arguments are needed.
+Since OctoType uses Rust's `std::process::Command` to execute commands, a list
+of arguments are needed.
 
 Do this: `["cat", "myfile.txt"]`
 
@@ -136,25 +141,36 @@ command = ["/path/to/myscript.sh"]
 
 The `formatting` option controls how the command output is processed:
 
-- `"raw"` (default): Words separated by any ascii-whitespace (newlines, tabs, single/multiple spaces, etc.) are translated to a single `<space>`
-- `"spaced"`: Similar to raw (future expansion planned)
+- `"raw"` (default): Whatever the command outputs is returned as the words.
+- `"spaced"`: Words separated by any ascii-whitespace (newlines, tabs,
+  single/multiple spaces, etc.) are translated to a single `<space>`
 
-Example with `formatting = "raw"`:
+Examples:
 
-Input:
+Command output:
+
 ```
 the quick  brown
             fox
 ```
 
-Output:
+`formatting = "raw"` output:
+
+```
+the quick  brown
+            fox
+```
+
+`formatting = "spaced"`output:
+
 ```
 the quick brown fox
 ```
 
 ## List Generator Details
 
-List generators provide a simpler way to define static word lists without needing external commands.
+List generators provide a simpler way to define static word lists without
+needing external commands.
 
 ### Inline Arrays
 
@@ -176,7 +192,8 @@ source = { path = "words.txt" }
 randomize = true
 ```
 
-By default, the file is split on any whitespace. You can specify a custom separator:
+By default, the file is split on any whitespace. You can specify a custom
+separator:
 
 ```toml
 [generator]
