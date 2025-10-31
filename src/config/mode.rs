@@ -4,7 +4,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::parameters::{ParameterDefinitions, ParameterValues};
+use crate::config::parameters::{self, ParameterDefinitions, ParameterValues};
 
 #[derive(Debug, From, Error)]
 pub enum ModeError {
@@ -20,6 +20,80 @@ pub enum ModeError {
 
     #[error("Failed to parse file")]
     ParseFile(toml::de::Error),
+}
+
+pub fn create_default_modes() -> HashMap<String, ModeConfig> {
+    let mut modes = HashMap::new();
+    modes.insert(
+        "Default".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Default".to_string(),
+                description: "The default typing-trainer experience".to_string(),
+                allowed_sources: None,
+            },
+            parameters: HashMap::new(),
+            conditions: ConditionConfig::default(),
+            overrides: HashMap::new(),
+        },
+    );
+    modes.insert(
+        "WordRace".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "WordRace".to_string(),
+                description: "Type an amount of correct words within the time limit".to_string(),
+                allowed_sources: None,
+            },
+            parameters: [
+                (
+                    "words".to_string(),
+                    parameters::Definition::Range {
+                        min: 10,
+                        max: i64::MAX,
+                        step: 2,
+                        default: Some(30),
+                        value: 30,
+                    },
+                ),
+                (
+                    "time (seconds)".to_string(),
+                    parameters::Definition::Range {
+                        min: 10,
+                        max: i64::MAX,
+                        step: 5,
+                        default: Some(60),
+                        value: 60,
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            conditions: ConditionConfig {
+                words_typed: Some(ConditionValue::String("{words}".to_string())),
+                ..Default::default()
+            },
+            overrides: HashMap::new(),
+        },
+    );
+    modes.insert(
+        "Perfectionism".to_string(),
+        ModeConfig {
+            meta: ModeMeta {
+                name: "Perfectionism".to_string(),
+                description: "Don't make any mistakes!".to_string(),
+                allowed_sources: None,
+            },
+            parameters: HashMap::new(),
+            conditions: ConditionConfig {
+                allow_errors: ConditionValue::Bool(false),
+                ..Default::default()
+            },
+            overrides: HashMap::new(),
+        },
+    );
+
+    modes
 }
 
 pub fn get_modes(from_dir: &PathBuf) -> Result<HashMap<String, ModeConfig>, ModeError> {

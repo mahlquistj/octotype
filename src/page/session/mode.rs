@@ -1,17 +1,21 @@
 use std::{
+    fs::File,
+    io::Read,
+    path::PathBuf,
     process::{Child, Command, Stdio},
     string::FromUtf8Error,
     time::Duration,
 };
 
 use derive_more::From;
+use rand::{rng, seq::IndexedRandom};
 use thiserror::Error;
 
 use crate::config::{
     Config, ModeConfig, SourceConfig,
     mode::{ConditionConfig, ParseConditionError},
     parameters::ParameterValues,
-    source::Formatting,
+    source::{Formatting, GeneratorDefinition, ListSource},
 };
 
 #[derive(Debug, Error, From)]
@@ -21,6 +25,12 @@ pub enum CreateModeError {
 
     #[error("Unable to find '{tool}' in path: {error}")]
     ToolMissing { tool: String, error: which::Error },
+
+    #[error("Failed parsing file '{path}': {error}")]
+    ParseFile {
+        error: std::io::Error,
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -97,10 +107,16 @@ impl Conditions {
 }
 
 #[derive(Debug)]
-pub struct Source {
-    command: Command,
-    child: Option<Child>,
-    format: Formatting,
+pub enum Source {
+    Command {
+        command: Command,
+        child: Option<Child>,
+        format: Formatting,
+    },
+    List {
+        words: Vec<String>,
+        randomize: bool,
+    },
 }
 
 #[derive(Debug, Error, From)]
@@ -125,36 +141,51 @@ impl Source {
     }
 
     pub fn try_fetch(&mut self) -> Result<Option<String>, FetchError> {
-        // Take child process out
-        let Some(mut child) = self.child.take() else {
-            self.child = Some(self.command.spawn()?);
-            return Ok(None);
-        };
+        match self {
+            Self::Command {
+                command,
+                child,
+                format,
+            } => {
+                // Take child process out
+                let Some(mut child_process) = child.take() else {
+                    *child = Some(command.spawn()?);
+                    return Ok(None);
+                };
 
-        let Some(status) = child.try_wait()? else {
-            // Put child process back
-            self.child = Some(child);
-            return Ok(None);
-        };
+                let Some(status) = child_process.try_wait()? else {
+                    // Put child process back
+                    *child = Some(child_process);
+                    return Ok(None);
+                };
 
-        let process_output = child.wait_with_output()?;
+                let process_output = child_process.wait_with_output()?;
 
-        let stderr = String::from_utf8(process_output.stderr)?;
-        let stdout = String::from_utf8(process_output.stdout)?;
+                let stderr = String::from_utf8(process_output.stderr)?;
+                let stdout = String::from_utf8(process_output.stdout)?;
 
-        if !status.success() {
-            return Err(FetchError::SourceError(format!(
-                "Source process returned bad exit code: {status}\nStderr: {stderr}\nStdout: {stdout}"
-            )));
+                if !status.success() {
+                    return Err(FetchError::SourceError(format!(
+                        "Source process returned bad exit code: {status}\nStderr: {stderr}\nStdout: {stdout}"
+                    )));
+                }
+
+                if stdout.is_empty() {
+                    return Err(FetchError::SourceError(
+                        "Source output was empty!".to_string(),
+                    ));
+                }
+
+                Ok(parse_output(stdout, &format))
+            }
+            Self::List { words, randomize } => {
+                if *randomize {
+                    let mut rng = rng();
+                    return Ok(words.choose(&mut rng).map(ToString::to_string));
+                }
+                return Ok(Some(words.join(" ")));
+            }
         }
-
-        if stdout.is_empty() {
-            return Err(FetchError::SourceError(
-                "Source output was empty!".to_string(),
-            ));
-        }
-
-        Ok(parse_output(stdout, &self.format))
     }
 
     pub fn from_config(
@@ -162,33 +193,66 @@ impl Source {
         source_config: SourceConfig,
         parameters: &ParameterValues,
     ) -> Result<Self, CreateModeError> {
-        let SourceConfig { meta, .. } = source_config;
+        let SourceConfig { generator, .. } = source_config;
 
-        // Ensure required tools exist in path
-        meta.required_tools.into_iter().try_for_each(|tool| {
-            which::which(&tool)
-                .map(|_| ())
-                .map_err(|error| (tool, error))
-        })?;
+        match generator {
+            GeneratorDefinition::Command {
+                command,
+                formatting,
+                required_tools,
+                ..
+            } => {
+                // Ensure required tools exist in path
+                required_tools.into_iter().try_for_each(|tool| {
+                    which::which(&tool)
+                        .map(|_| ())
+                        .map_err(|error| (tool, error))
+                })?;
 
-        let mut program = meta
-            .command
-            .iter()
-            .map(|string| parameters.replace_values(string))
-            .collect::<Vec<String>>();
+                let mut program = command
+                    .iter()
+                    .map(|string| parameters.replace_values(string))
+                    .collect::<Vec<String>>();
 
-        let mut command = std::process::Command::new(program.remove(0));
-        command
-            .args(program)
-            .current_dir(config.sources_dir())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+                let mut command = std::process::Command::new(program.remove(0));
+                command
+                    .args(program)
+                    .current_dir(config.sources_dir())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped());
 
-        Ok(Self {
-            command,
-            child: None,
-            format: meta.formatting,
-        })
+                Ok(Self::Command {
+                    command,
+                    format: formatting,
+                    child: None,
+                })
+            }
+            GeneratorDefinition::List { source, randomize } => {
+                let words = match source {
+                    ListSource::Array(vec) => vec,
+                    ListSource::File { path, seperator } => {
+                        let mut buf = String::new();
+
+                        let mut file = File::open(path.clone()).map_err(|error| {
+                            CreateModeError::ParseFile {
+                                error,
+                                path: path.clone(),
+                            }
+                        })?;
+
+                        file.read_to_string(&mut buf)
+                            .map_err(|error| CreateModeError::ParseFile { error, path })?;
+
+                        if let Some(sep) = seperator {
+                            buf.split(sep).map(str::to_string).collect()
+                        } else {
+                            buf.split_ascii_whitespace().map(str::to_string).collect()
+                        }
+                    }
+                };
+                Ok(Self::List { words, randomize })
+            }
+        }
     }
 }
 
