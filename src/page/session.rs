@@ -66,7 +66,7 @@ impl Session {
                     ));
                 }
             } else if let Some(text) = self.fetch_buffer.take() {
-                self.gladius_session.push_string(&text);
+                self.gladius_session.push_string(&format!(" {text}"));
             }
         }
         Ok(())

@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::config::parameters::ParameterDefinitions;
 
+// Default config helpers
 const BROWNFOX_TEXT: &str = "The quick brown fox jumps over the lazy dog, testing my typing speed with every leap, but I'll soon catch up.";
 const NUMBER_WORDS: [&str; 20] = [
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
@@ -75,6 +76,33 @@ pub fn get_sources(from_dir: &PathBuf) -> Result<HashMap<String, SourceConfig>, 
         std::fs::create_dir_all(from_dir)?;
     }
 
+    // Check if directory has any .toml files
+    let has_files = from_dir
+        .read_dir()
+        .map_err(|error| SourceError::ReadDirectory {
+            directory: from_dir.clone(),
+            error,
+        })?
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let path = entry.path();
+            path.is_file() && path.extension().is_some_and(|ext| ext == "toml")
+        });
+
+    // If no files found, write defaults and return them
+    if !has_files {
+        let sources = create_default_sources();
+        for (filename, source) in &sources {
+            let mut location = from_dir.clone();
+            location.push(filename);
+            location.set_extension("toml");
+
+            File::create(location)?.write_all(&toml::to_string_pretty(source)?.into_bytes())?;
+        }
+        return Ok(sources);
+    }
+
+    // Files exist, read them
     let files = from_dir
         .read_dir()
         .map_err(|error| SourceError::ReadDirectory {
@@ -91,17 +119,6 @@ pub fn get_sources(from_dir: &PathBuf) -> Result<HashMap<String, SourceConfig>, 
             let content = std::fs::read_to_string(path)?;
             let source: SourceConfig = toml::from_str(&content)?;
             sources.insert(source.meta.name.clone(), source);
-        }
-    }
-
-    if sources.is_empty() {
-        let sources = create_default_sources();
-        for (filename, source) in sources {
-            let mut location = from_dir.clone();
-            location.push(filename);
-            location.set_extension("toml");
-
-            File::create(location)?.write_all(toml::to_string_pretty(source)?)
         }
     }
 

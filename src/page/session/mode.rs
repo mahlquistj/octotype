@@ -8,7 +8,7 @@ use std::{
 };
 
 use derive_more::From;
-use rand::{rng, seq::IndexedRandom};
+use rand::{rng, seq::SliceRandom};
 use thiserror::Error;
 
 use crate::config::{
@@ -110,7 +110,7 @@ impl Conditions {
 pub enum Source {
     Command {
         command: Command,
-        child: Option<Child>,
+        child: Option<Box<Child>>,
         format: Formatting,
     },
     List {
@@ -149,7 +149,7 @@ impl Source {
             } => {
                 // Take child process out
                 let Some(mut child_process) = child.take() else {
-                    *child = Some(command.spawn()?);
+                    *child = Some(Box::new(command.spawn()?));
                     return Ok(None);
                 };
 
@@ -176,14 +176,21 @@ impl Source {
                     ));
                 }
 
-                Ok(parse_output(stdout, &format))
+                Ok(parse_output(stdout, format))
             }
             Self::List { words, randomize } => {
                 if *randomize {
                     let mut rng = rng();
-                    return Ok(words.choose(&mut rng).map(ToString::to_string));
+                    words.shuffle(&mut rng);
+                    return Ok(Some(
+                        words
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    ));
                 }
-                return Ok(Some(words.join(" ")));
+                Ok(Some(words.join(" ")))
             }
         }
     }
@@ -243,11 +250,10 @@ impl Source {
                         file.read_to_string(&mut buf)
                             .map_err(|error| CreateModeError::ParseFile { error, path })?;
 
-                        if let Some(sep) = seperator {
-                            buf.split(sep).map(str::to_string).collect()
-                        } else {
-                            buf.split_ascii_whitespace().map(str::to_string).collect()
-                        }
+                        seperator.map_or_else(
+                            || buf.split_ascii_whitespace().map(str::to_string).collect(),
+                            |sep| buf.split(sep).map(str::to_string).collect(),
+                        )
                     }
                 };
                 Ok(Self::List { words, randomize })
