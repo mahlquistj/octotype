@@ -95,22 +95,21 @@ pub struct InnerConfig {
 }
 
 impl Config {
-    pub fn list_modes(&self) -> Vec<String> {
-        let mut modes: Vec<_> = self.modes.keys().map(|key| key.to_string()).collect();
-
-        modes.sort();
+    pub fn list_modes(&self) -> Vec<ModeConfig> {
+        let mut modes: Vec<_> = self.modes.values().cloned().collect();
+        modes.sort_by(|a, b| a.meta.name.cmp(&b.meta.name));
         modes
     }
 
-    pub fn list_sources(&self) -> Vec<String> {
+    pub fn list_sources(&self) -> Vec<SourceConfig> {
         let is_online = is_online();
         let mut sources: Vec<_> = self
             .sources
-            .iter()
-            .filter(|(_, cfg)| is_online || !cfg.requires_network())
-            .map(|(key, _)| key.to_string())
+            .values()
+            .filter(|cfg| is_online || !cfg.requires_network())
+            .cloned()
             .collect();
-        sources.sort();
+        sources.sort_by(|a, b| a.meta.name.cmp(&b.meta.name));
         sources
     }
 
