@@ -1,12 +1,14 @@
+use std::fmt::Display;
+
 use super::{History, Message, loadscreen::Loading, session::Session};
 
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List, Paragraph, block::Title},
+    widgets::{Block, List, block::Title},
 };
 use thiserror::Error;
 
@@ -153,8 +155,15 @@ impl Menu {
     ) {
         let main_menu_items = ["Start Typing Session", "View Statistics History"];
         let index = self.context.main_index;
-        let items = main_menu_items.iter().map(|item| item.to_string());
-        render_list(config, frame, items, "Main Menu", "", area, index);
+        render_list(
+            config,
+            frame,
+            main_menu_items.iter(),
+            "Main Menu",
+            area,
+            index,
+            false,
+        );
     }
 
     fn render_mode_select(
@@ -164,21 +173,8 @@ impl Menu {
         config: &Config,
     ) {
         let index = self.context.mode_index;
-        let items = self
-            .context
-            .modes
-            .iter()
-            .map(|mode| mode.meta.name.to_string());
-        let description = &self.context.modes[index].meta.description;
-        render_list(
-            config,
-            frame,
-            items,
-            "Select mode",
-            description,
-            area,
-            index,
-        );
+        let items = self.context.modes.iter();
+        render_list(config, frame, items, "Select mode", area, index, false);
     }
 
     fn render_source_select(
@@ -189,17 +185,12 @@ impl Menu {
     ) {
         let mode = self.context.selected_mode.as_ref().unwrap();
         let index = self.context.source_index;
-        let items = self
-            .context
-            .sources
-            .iter()
-            .map(|source| source.meta.name.to_string());
+        let items = self.context.sources.iter();
         let title = Line::from(vec![
             Span::raw("Select Source for Mode "),
             Span::raw(&mode.meta.name).bold(),
         ]);
-        let description = &self.context.sources[index].meta.description;
-        render_list(config, frame, items, title, description, area, index);
+        render_list(config, frame, items, title, area, index, false);
     }
 
     fn render_parameter_config(
@@ -216,8 +207,7 @@ impl Menu {
             .context
             .parameters
             .iter()
-            .filter(|(_, p)| p.is_mutable())
-            .map(|(name, parameter)| format!("{name}: {}", parameter.get_value()));
+            .filter(|(_, p)| p.is_mutable());
 
         let title = Line::from(vec![
             Span::raw("Configuring Mode "),
@@ -226,7 +216,7 @@ impl Menu {
             Span::raw(&source.meta.name).bold(),
         ]);
 
-        render_list(config, frame, items, title, "", area, index)
+        render_list(config, frame, items, title, area, index, true)
     }
 }
 
@@ -260,7 +250,7 @@ impl Menu {
         }
         None
     }
-    fn handle_mode_select(&mut self, key: &KeyEvent, config: &Config) -> Option<Message> {
+    fn handle_mode_select(&mut self, key: &KeyEvent, _config: &Config) -> Option<Message> {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 increment_index(&mut self.context.mode_index, self.context.modes.len())
@@ -379,26 +369,79 @@ impl Menu {
     }
 }
 
+trait ListItem {
+    fn title(&self) -> impl Display;
+    fn description(&self) -> Option<String> {
+        None
+    }
+}
+
+impl ListItem for &&'static str {
+    fn title(&self) -> impl Display {
+        self
+    }
+}
+
+impl ListItem for &ModeConfig {
+    fn title(&self) -> impl Display {
+        &self.meta.name
+    }
+
+    fn description(&self) -> Option<String> {
+        Some(format!(" - {}", &self.meta.description))
+    }
+}
+
+impl ListItem for &SourceConfig {
+    fn title(&self) -> impl Display {
+        &self.meta.name
+    }
+
+    fn description(&self) -> Option<String> {
+        Some(format!(" - {}", &self.meta.description))
+    }
+}
+
+impl ListItem for &(String, Parameter) {
+    fn title(&self) -> impl Display {
+        &self.0
+    }
+
+    fn description(&self) -> Option<String> {
+        Some(format!(": {}", self.1.get_value()))
+    }
+}
+
 fn render_list<'a>(
     config: &Config,
     frame: &mut ratatui::Frame,
-    items: impl Iterator<Item = String>,
+    items: impl Iterator<Item = impl ListItem>,
     title: impl Into<Title<'a>>,
-    description: &str,
     area: Rect,
     index: usize,
+    always_show_description: bool,
 ) {
     let items = items.enumerate().map(|(i, item)| {
-        let mut selector = "  ";
-        let style = if i == index {
-            selector = "> ";
+        let mut display = item.title().to_string();
+        let is_selected = i == index;
+
+        if (is_selected || always_show_description)
+            && let Some(desc) = item.description()
+        {
+            display.push_str(&desc);
+        }
+
+        let style = if is_selected {
             Style::new()
                 .fg(config.settings.theme.text.highlight)
                 .reversed()
         } else {
             Style::new()
         };
-        Line::from(vec![Span::raw(selector), Span::styled(item, style)])
+
+        let selector = if is_selected { " > " } else { "   " };
+
+        Line::from(vec![Span::raw(selector), Span::styled(display, style)])
     });
     let list = List::new(items);
     let padding = centered_padding(
@@ -408,10 +451,7 @@ fn render_list<'a>(
         None,
     );
     let area = Block::new().padding(padding).inner(area);
-    let [list_area, description_area] =
-        Layout::vertical([Constraint::Percentage(80), Constraint::Percentage(20)]).areas(area);
-    frame.render_widget(list.block(Block::default().title(title)), list_area);
-    frame.render_widget(Paragraph::new(description), description_area);
+    frame.render_widget(list.block(Block::default().title(title)), area);
 }
 
 const fn increment_index(index: &mut usize, len: usize) {
