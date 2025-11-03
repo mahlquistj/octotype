@@ -3,10 +3,10 @@ use super::{History, Message, loadscreen::Loading, session::Session};
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use derive_more::From;
 use ratatui::{
-    layout::{Constraint, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, List, block::Title},
+    widgets::{Block, List, Paragraph, block::Title},
 };
 use thiserror::Error;
 
@@ -48,8 +48,8 @@ enum State {
 
 #[derive(Debug)]
 struct Context {
-    modes: Vec<String>,
-    sources: Vec<String>,
+    modes: Vec<ModeConfig>,
+    sources: Vec<SourceConfig>,
     selected_mode: Option<Box<ModeConfig>>,
     selected_source: Option<Box<SourceConfig>>,
     parameters: Vec<(String, Parameter)>,
@@ -154,8 +154,9 @@ impl Menu {
         let main_menu_items = ["Start Typing Session", "View Statistics History"];
         let index = self.context.main_index;
         let items = main_menu_items.iter().map(|item| item.to_string());
-        render_list(config, frame, items, "Main Menu", area, index);
+        render_list(config, frame, items, "Main Menu", "", area, index);
     }
+
     fn render_mode_select(
         &self,
         frame: &mut ratatui::Frame,
@@ -163,8 +164,21 @@ impl Menu {
         config: &Config,
     ) {
         let index = self.context.mode_index;
-        let items = self.context.modes.iter().map(|mode| mode.to_string());
-        render_list(config, frame, items, "Select mode", area, index);
+        let items = self
+            .context
+            .modes
+            .iter()
+            .map(|mode| mode.meta.name.to_string());
+        let description = &self.context.modes[index].meta.description;
+        render_list(
+            config,
+            frame,
+            items,
+            "Select mode",
+            description,
+            area,
+            index,
+        );
     }
 
     fn render_source_select(
@@ -175,13 +189,17 @@ impl Menu {
     ) {
         let mode = self.context.selected_mode.as_ref().unwrap();
         let index = self.context.source_index;
-        let items = self.context.sources.iter().map(|source| source.to_string());
+        let items = self
+            .context
+            .sources
+            .iter()
+            .map(|source| source.meta.name.to_string());
         let title = Line::from(vec![
             Span::raw("Select Source for Mode "),
             Span::raw(&mode.meta.name).bold(),
         ]);
-
-        render_list(config, frame, items, title, area, index);
+        let description = &self.context.sources[index].meta.description;
+        render_list(config, frame, items, title, description, area, index);
     }
 
     fn render_parameter_config(
@@ -208,7 +226,7 @@ impl Menu {
             Span::raw(&source.meta.name).bold(),
         ]);
 
-        render_list(config, frame, items, title, area, index)
+        render_list(config, frame, items, title, "", area, index)
     }
 }
 
@@ -252,11 +270,9 @@ impl Menu {
             }
             KeyCode::Enter => {
                 // SAFETY: The index is always within range of the `modes` Vec
-                let mode_name = &self.context.modes[self.context.mode_index];
-                if let Some(mode) = config.modes.get(mode_name) {
-                    self.context.selected_mode = Some(Box::new(mode.clone()));
-                    self.state = State::SourceSelect;
-                }
+                let mode = self.context.modes[self.context.mode_index].clone();
+                self.context.selected_mode = Some(Box::new(mode));
+                self.state = State::SourceSelect;
             }
             KeyCode::Backspace => {
                 self.state = State::MainMenu;
@@ -276,10 +292,9 @@ impl Menu {
                 decrement_index(&mut self.context.source_index, self.context.sources.len())
             }
             KeyCode::Enter => {
-                let selected_source = &self.context.sources[self.context.source_index];
-                let source = config.sources.get(selected_source).unwrap().clone();
+                let source = self.context.sources[self.context.source_index].clone();
                 let mode = self.context.selected_mode.as_ref().unwrap();
-                let source_overrides = mode.overrides.get(selected_source);
+                let source_overrides = mode.overrides.get(&source.meta.name);
 
                 let mut parameters = Vec::new();
 
@@ -369,6 +384,7 @@ fn render_list<'a>(
     frame: &mut ratatui::Frame,
     items: impl Iterator<Item = String>,
     title: impl Into<Title<'a>>,
+    description: &str,
     area: Rect,
     index: usize,
 ) {
@@ -392,7 +408,10 @@ fn render_list<'a>(
         None,
     );
     let area = Block::new().padding(padding).inner(area);
-    frame.render_widget(list.block(Block::default().title(title)), area);
+    let [list_area, description_area] =
+        Layout::vertical([Constraint::Percentage(80), Constraint::Percentage(20)]).areas(area);
+    frame.render_widget(list.block(Block::default().title(title)), list_area);
+    frame.render_widget(Paragraph::new(description), description_area);
 }
 
 const fn increment_index(index: &mut usize, len: usize) {

@@ -1,0 +1,11 @@
+[meta]
+name = "Default"
+description = "The default typing-trainer experience"
+
+[parameters]
+
+[conditions]
+allow_deletions = true
+allow_errors = true
+
+[overrides]

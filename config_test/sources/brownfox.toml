@@ -1,0 +1,31 @@
+[meta]
+name = "BrownFox"
+description = "The quick brown fox..."
+
+[parameters]
+
+[generator]
+source = [
+    "The",
+    "quick",
+    "brown",
+    "fox",
+    "jumps",
+    "over",
+    "the",
+    "lazy",
+    "dog,",
+    "testing",
+    "my",
+    "typing",
+    "speed",
+    "with",
+    "every",
+    "leap,",
+    "but",
+    "I'll",
+    "soon",
+    "catch",
+    "up.",
+]
+randomize = false

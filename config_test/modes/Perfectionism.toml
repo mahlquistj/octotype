@@ -1,0 +1,11 @@
+[meta]
+name = "Perfectionism"
+description = "Don't make any mistakes!"
+
+[parameters]
+
+[conditions]
+allow_deletions = true
+allow_errors = false
+
+[overrides]
