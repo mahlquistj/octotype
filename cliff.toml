@@ -29,6 +29,7 @@ commit_parsers = [
   { message = "^perf", group = "🏃‍➡️ Performance"},
   { message = "^refactor", group = "🧹 Refactor"},
   { message = "^test", group = "🔬 Testing"},
+  { message = "^chore: increment version", skip = true},
   { message = "^chore: bump version", skip = true},
   { message = "^chore: update flake inputs", skip = true},
   { message = "^chore", group = "🧩 Miscellaneous"},
