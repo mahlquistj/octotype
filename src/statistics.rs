@@ -154,7 +154,7 @@ impl StatisticsManager {
         }
 
         // Sort by timestamp (newest first)
-        sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        sessions.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
 
         Ok(sessions)
     }
