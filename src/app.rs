@@ -6,6 +6,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::execute;
 use ratatui::{Frame, style::Stylize, text::ToLine, widgets::Padding};
 
+use crate::AppArgs;
 use crate::config::Config;
 use crate::page;
 use crate::utils::ROUNDED_BLOCK;
@@ -33,16 +34,23 @@ pub struct App {
 
 impl App {
     /// Creates a new `App`
-    pub fn new(config: Config) -> Self {
-        let page = if config.sources.is_empty() || config.modes.is_empty() {
+    pub fn new(config: Config, args: AppArgs) -> Result<Self, page::menu::ContextError> {
+        let page: page::Page = if config.sources.is_empty() || config.modes.is_empty() {
             page::Error::new(NO_CONFIG_ERROR.to_string()).into()
+        } else if let Some(mode_name) = args.mode {
+            if let Some(source_name) = args.source {
+                page::menu::create_cli_session(&config, &mode_name, &source_name, &args.params)?.into()
+            } else {
+                page::Menu::new_with_mode(&config, &mode_name)?.into()
+            }
         } else {
             page::Loading::load(&config, "Loading menu", |config| {
                 page::Menu::new(config).map(|menu| Message::Show(menu.into()))
             })
             .into()
         };
-        Self { page, config }
+
+        Ok(Self { page, config })
     }
 
     /// Runs the app

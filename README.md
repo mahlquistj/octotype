@@ -69,12 +69,15 @@ You can add OctoType as a Flake:
 
 ## 🔖 Arguments
 
-| Short       | Long               | Description                                    |
-| ----------- | ------------------ | ---------------------------------------------- |
-|             | `--print-config`   | Prints the current settings, modes, and source |
-| `-p`        | `--print-settings` | Prints the current settings                    |
-| `-c <path>` | `--config <path>`  | Overrides the default config location          |
-| `-h`        | `--help`           | Shows a help page with the list of arguments   |
+| Short               | Long                 | Description                                                  |
+| ------------------- | -------------------- | ------------------------------------------------------------ |
+|                     | `--print-config`     | Prints the current settings, modes, and source               |
+| `-p`                | `--print-settings`   | Prints the current settings                                  |
+| `-c <path>`         | `--config <path>`    | Overrides the default config location                        |
+| `-m <name>`         | `--mode <name>`      | Specifies a mode to run (starts at source selection)         |
+| `-s <name>`         | `--source <name>`    | Specifies a source to run (starts session directly)          |
+| `-P <name:val>`     | `--param <name:val>` | Specifies parameter overrides for session in `key:val` format|
+| `-h`                | `--help`             | Shows a help page with the list of arguments                 |
 
 ## ⚙️ Configuration
 

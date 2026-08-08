@@ -15,7 +15,7 @@ use thiserror::Error;
 use crate::{
     config::{
         Config, ModeConfig, SourceConfig,
-        parameters::{Definition, Parameter},
+        parameters::{Definition, Parameter, ParameterError, ParameterValues},
     },
     page::session::{CreateModeError, FetchError, Mode},
     utils::{center, centered_padding},
@@ -28,6 +28,25 @@ pub enum ContextError {
 
     #[error("No modes where found - You might not have any offline sources available")]
     NoModes,
+
+    #[error("Mode '{name}' not found. Available modes: {available}")]
+    ModeNotFound {
+        name: String,
+        available: String,
+    },
+
+    #[error("Source '{name}' not found for mode '{mode}'. Available sources: {available}")]
+    SourceNotFound {
+        name: String,
+        mode: String,
+        available: String,
+    },
+
+    #[error("Parameter error: {0}")]
+    Parameter(ParameterError),
+
+    #[error("Invalid parameter format '{0}', expected 'name:value'")]
+    InvalidParamFormat(String),
 }
 
 #[derive(Debug, Error, From)]
@@ -101,6 +120,216 @@ impl Menu {
             context: Context::new(config)?,
         })
     }
+
+    /// Creates a new menu pre-selected to a specific mode and starting at source-selection.
+    pub fn new_with_mode(config: &Config, mode_name: &str) -> Result<Self, ContextError> {
+        let mut context = Context::new(config)?;
+
+        let mode_index = context
+            .modes
+            .iter()
+            .position(|m| m.meta.name.eq_ignore_ascii_case(mode_name))
+            .ok_or_else(|| {
+                let available = context
+                    .modes
+                    .iter()
+                    .map(|m| m.meta.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                ContextError::ModeNotFound {
+                    name: mode_name.to_string(),
+                    available,
+                }
+            })?;
+
+        let mode = context.modes[mode_index].clone();
+        context.selected_mode = Some(Box::new(mode));
+        context.mode_index = mode_index;
+
+        Ok(Self {
+            state: State::SourceSelect,
+            context,
+        })
+    }
+}
+
+/// Builder for initializing and loading a typing session.
+#[derive(Debug)]
+pub struct SessionBuilder<'a> {
+    config: &'a Config,
+    mode: Option<ModeConfig>,
+    source: Option<SourceConfig>,
+    raw_params: Vec<String>,
+}
+
+impl<'a> SessionBuilder<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        Self {
+            config,
+            mode: None,
+            source: None,
+            raw_params: Vec::new(),
+        }
+    }
+
+    pub fn with_mode_name(mut self, mode_name: &str) -> Result<Self, ContextError> {
+        let modes = self.config.list_modes();
+        if modes.is_empty() {
+            return Err(ContextError::NoModes);
+        }
+
+        let mode = modes
+            .iter()
+            .find(|m| m.meta.name.eq_ignore_ascii_case(mode_name))
+            .cloned()
+            .ok_or_else(|| {
+                let available = modes
+                    .iter()
+                    .map(|m| m.meta.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                ContextError::ModeNotFound {
+                    name: mode_name.to_string(),
+                    available,
+                }
+            })?;
+
+        self.mode = Some(mode);
+        Ok(self)
+    }
+
+    pub fn with_source_name(mut self, source_name: &str) -> Result<Self, ContextError> {
+        let sources = self.config.list_sources();
+        if sources.is_empty() {
+            return Err(ContextError::NoSources);
+        }
+
+        let mode_name = self
+            .mode
+            .as_ref()
+            .map(|m| m.meta.name.clone())
+            .unwrap_or_default();
+
+        let source = sources
+            .iter()
+            .find(|s| s.meta.name.eq_ignore_ascii_case(source_name))
+            .cloned()
+            .ok_or_else(|| {
+                let available = sources
+                    .iter()
+                    .map(|s| s.meta.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                ContextError::SourceNotFound {
+                    name: source_name.to_string(),
+                    mode: mode_name,
+                    available,
+                }
+            })?;
+
+        self.source = Some(source);
+        Ok(self)
+    }
+
+    #[allow(dead_code)]
+    pub fn with_mode(mut self, mode: ModeConfig) -> Self {
+        self.mode = Some(mode);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_source(mut self, source: SourceConfig) -> Self {
+        self.source = Some(source);
+        self
+    }
+
+    pub fn with_params(mut self, raw_params: &[String]) -> Self {
+        self.raw_params.extend(raw_params.iter().cloned());
+        self
+    }
+
+    pub fn build_loader(self) -> Result<Loading, ContextError> {
+        let mode = self.mode.ok_or_else(|| ContextError::ModeNotFound {
+            name: String::new(),
+            available: String::new(),
+        })?;
+
+        let source = self.source.ok_or_else(|| ContextError::SourceNotFound {
+            name: String::new(),
+            mode: mode.meta.name.clone(),
+            available: String::new(),
+        })?;
+
+        let source_overrides = mode.overrides.get(&source.meta.name);
+        let mut parameters = Vec::new();
+
+        for (name, definition) in source.parameters.iter().chain(mode.parameters.iter()) {
+            let mut definition = definition.clone();
+            let mut mutable = true;
+            if let Some(overrides) = source_overrides
+                && let Some(override_param) = overrides.get(name)
+            {
+                mutable = false;
+                definition = Definition::FixedString(override_param.clone());
+            }
+
+            let parameter = definition
+                .into_parameter(mutable)
+                .map_err(ContextError::Parameter)?;
+
+            parameters.push((name.clone(), parameter));
+        }
+
+        for raw_param in &self.raw_params {
+            let Some((key, val)) = raw_param.split_once(':') else {
+                return Err(ContextError::InvalidParamFormat(raw_param.clone()));
+            };
+
+            let target = parameters.iter_mut().find(|(name, _)| {
+                name == key
+                    || name.eq_ignore_ascii_case(key)
+                    || name
+                        .split(" (")
+                        .next()
+                        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(key))
+            });
+
+            if let Some((name, param)) = target {
+                param
+                    .set_value_from_str(name, val)
+                    .map_err(ContextError::Parameter)?;
+            } else {
+                return Err(ContextError::Parameter(ParameterError::UnknownParameter(
+                    key.to_string(),
+                )));
+            }
+        }
+
+        let param_values: ParameterValues = parameters.into_iter().collect();
+
+        let session_loader = Loading::load(self.config, "Loading words...", move |config| {
+            let mode = Mode::from_config(config, mode, source, param_values).map_err(Box::new)?;
+            Session::new(config, mode)
+                .map(|session| Message::Show(session.into()))
+                .map_err(CreateSessionError::from)
+        });
+
+        Ok(session_loader)
+    }
+}
+
+/// Creates a loading session page directly from CLI arguments (`--mode`, `--source`, `--param`).
+pub fn create_cli_session(
+    config: &Config,
+    mode_name: &str,
+    source_name: &str,
+    raw_params: &[String],
+) -> Result<Loading, ContextError> {
+    SessionBuilder::new(config)
+        .with_mode_name(mode_name)?
+        .with_source_name(source_name)?
+        .with_params(raw_params)
+        .build_loader()
 }
 
 // Rendering logic
