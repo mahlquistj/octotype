@@ -30,10 +30,7 @@ pub enum ContextError {
     NoModes,
 
     #[error("Mode '{name}' not found. Available modes: {available}")]
-    ModeNotFound {
-        name: String,
-        available: String,
-    },
+    ModeNotFound { name: String, available: String },
 
     #[error("Source '{name}' not found for mode '{mode}'. Available sources: {available}")]
     SourceNotFound {
@@ -163,7 +160,7 @@ pub struct SessionBuilder<'a> {
 }
 
 impl<'a> SessionBuilder<'a> {
-    pub fn new(config: &'a Config) -> Self {
+    pub const fn new(config: &'a Config) -> Self {
         Self {
             config,
             mode: None,

@@ -39,7 +39,8 @@ impl App {
             page::Error::new(NO_CONFIG_ERROR.to_string()).into()
         } else if let Some(mode_name) = args.mode {
             if let Some(source_name) = args.source {
-                page::menu::create_cli_session(&config, &mode_name, &source_name, &args.params)?.into()
+                page::menu::create_cli_session(&config, &mode_name, &source_name, &args.params)?
+                    .into()
             } else {
                 page::Menu::new_with_mode(&config, &mode_name)?.into()
             }

@@ -187,7 +187,9 @@ impl Parameter {
         }
 
         match &mut self.definition {
-            Definition::Range { min, max, value, .. } => {
+            Definition::Range {
+                min, max, value, ..
+            } => {
                 let parsed: i64 = value_str.parse().map_err(|_| ParameterError::ParseValue {
                     name: name.to_string(),
                     value: value_str.to_string(),
@@ -427,9 +429,7 @@ mod tests {
             default: Some("easy".to_string()),
             selected: 0,
         };
-        let mut param = def
-            .into_parameter(true)
-            .expect("valid selection parameter");
+        let mut param = def.into_parameter(true).expect("valid selection parameter");
         assert_eq!(param.get_value(), "easy");
 
         param
