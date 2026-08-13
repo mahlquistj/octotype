@@ -614,7 +614,7 @@ impl ListItem for &ModeConfig {
     }
 
     fn description(&self) -> Option<String> {
-        Some(format!(" - {}", &self.meta.description))
+        Some(format!(" - {}", self.meta.description))
     }
 }
 
@@ -624,7 +624,7 @@ impl ListItem for &SourceConfig {
     }
 
     fn description(&self) -> Option<String> {
-        Some(format!(" - {}", &self.meta.description))
+        Some(format!(" - {}", self.meta.description))
     }
 }
 
