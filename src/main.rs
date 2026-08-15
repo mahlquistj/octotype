@@ -12,26 +12,47 @@ use clap::Parser;
 use crate::config::Config;
 
 /// Cli-Arguments
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct AppArgs {
+pub struct AppArgs {
     /// Prints the loaded config (Settings, Modes, Sources)
     #[arg(long)]
-    print_config: bool,
+    pub print_config: bool,
 
     /// Prints the loaded settings
     #[arg(short, long)]
-    print_settings: bool,
+    pub print_settings: bool,
 
     /// Specifies a config location
     #[arg(short, long)]
-    config: Option<String>,
+    pub config: Option<String>,
+
+    /// Specifies a mode to run
+    #[arg(short, long)]
+    pub mode: Option<String>,
+
+    /// Specifies a source to run
+    #[arg(short, long, requires = "mode")]
+    pub source: Option<String>,
+
+    /// Specifies a parameter in the format 'name:value'
+    #[arg(
+        short = 'P',
+        long = "param",
+        value_name = "PARAM:VALUE",
+        requires = "source"
+    )]
+    pub params: Vec<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = AppArgs::parse();
 
-    let override_path = args.config.map(|dir| PathBuf::from_str(&dir)).transpose()?;
+    let override_path = args
+        .config
+        .as_ref()
+        .map(|dir| PathBuf::from_str(dir))
+        .transpose()?;
 
     let config = Config::get(override_path)?;
 
@@ -45,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    App::new(config).run()?;
+    App::new(config, args)?.run()?;
 
     Ok(())
 }

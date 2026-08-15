@@ -5,7 +5,7 @@ use thiserror::Error;
 
 pub type ParameterDefinitions = HashMap<String, Definition>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ParameterError {
     #[error("Invalid range: {min} > {max}")]
     InvalidRange { min: i64, max: i64 },
@@ -24,6 +24,34 @@ pub enum ParameterError {
 
     #[error("Default doesn't exist in selection")]
     DefaultNonExistant,
+
+    #[error("Failed to parse value '{value}' for parameter '{name}': {reason}")]
+    ParseValue {
+        name: String,
+        value: String,
+        reason: String,
+    },
+
+    #[error("Value {value} out of bounds [{min}, {max}] for parameter '{name}'")]
+    OutOfBounds {
+        name: String,
+        value: i64,
+        min: i64,
+        max: i64,
+    },
+
+    #[error("Invalid selection '{value}' for parameter '{name}'. Valid options: {valid}")]
+    InvalidSelection {
+        name: String,
+        value: String,
+        valid: String,
+    },
+
+    #[error("Parameter '{0}' is fixed and cannot be changed")]
+    FixedParameter(String),
+
+    #[error("Unknown parameter '{0}'")]
+    UnknownParameter(String),
 }
 
 pub struct ParameterValues(HashMap<String, Parameter>);
@@ -147,6 +175,73 @@ impl Parameter {
             Definition::Toggle(b) => *b = !*b,
             _ => unreachable!("Tried to modify a non-mutable definition"),
         }
+    }
+
+    pub fn set_value_from_str(
+        &mut self,
+        name: &str,
+        value_str: &str,
+    ) -> Result<(), ParameterError> {
+        if !self.is_mutable() {
+            return Err(ParameterError::FixedParameter(name.to_string()));
+        }
+
+        match &mut self.definition {
+            Definition::Range {
+                min, max, value, ..
+            } => {
+                let parsed: i64 = value_str.parse().map_err(|_| ParameterError::ParseValue {
+                    name: name.to_string(),
+                    value: value_str.to_string(),
+                    reason: "expected an integer".to_string(),
+                })?;
+
+                if parsed < *min || parsed > *max {
+                    return Err(ParameterError::OutOfBounds {
+                        name: name.to_string(),
+                        value: parsed,
+                        min: *min,
+                        max: *max,
+                    });
+                }
+
+                *value = parsed;
+            }
+            Definition::Selection {
+                options, selected, ..
+            } => {
+                let pos = options
+                    .iter()
+                    .position(|opt| opt == value_str || opt.eq_ignore_ascii_case(value_str))
+                    .ok_or_else(|| ParameterError::InvalidSelection {
+                        name: name.to_string(),
+                        value: value_str.to_string(),
+                        valid: options.join(", "),
+                    })?;
+
+                *selected = pos;
+            }
+            Definition::Toggle(b) => {
+                let parsed: bool = match value_str.to_lowercase().as_str() {
+                    "true" | "1" | "yes" | "y" | "on" => true,
+                    "false" | "0" | "no" | "n" | "off" => false,
+                    _ => {
+                        return Err(ParameterError::ParseValue {
+                            name: name.to_string(),
+                            value: value_str.to_string(),
+                            reason: "expected a boolean (true/false)".to_string(),
+                        });
+                    }
+                };
+
+                *b = parsed;
+            }
+            Definition::FixedNumber(_) | Definition::FixedString(_) => {
+                return Err(ParameterError::FixedParameter(name.to_string()));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -278,4 +373,103 @@ pub const fn default_range_step() -> i64 {
 
 pub const fn default_range_max() -> i64 {
     i64::MAX
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_set_range_value() {
+        let def = Definition::Range {
+            min: 10,
+            max: 100,
+            step: 5,
+            default: Some(20),
+            value: 20,
+        };
+        let mut param = def.into_parameter(true).expect("valid range parameter");
+        assert_eq!(param.get_value(), "20");
+
+        param
+            .set_value_from_str("words", "50")
+            .expect("valid value");
+        assert_eq!(param.get_value(), "50");
+
+        let err = param
+            .set_value_from_str("words", "5")
+            .expect_err("out of bounds");
+        assert_eq!(
+            err,
+            ParameterError::OutOfBounds {
+                name: "words".to_string(),
+                value: 5,
+                min: 10,
+                max: 100
+            }
+        );
+
+        let err = param
+            .set_value_from_str("words", "abc")
+            .expect_err("invalid int");
+        assert_eq!(
+            err,
+            ParameterError::ParseValue {
+                name: "words".to_string(),
+                value: "abc".to_string(),
+                reason: "expected an integer".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_set_selection_value() {
+        let def = Definition::Selection {
+            options: vec!["easy".to_string(), "medium".to_string(), "hard".to_string()],
+            default: Some("easy".to_string()),
+            selected: 0,
+        };
+        let mut param = def.into_parameter(true).expect("valid selection parameter");
+        assert_eq!(param.get_value(), "easy");
+
+        param
+            .set_value_from_str("diff", "HARD")
+            .expect("valid selection");
+        assert_eq!(param.get_value(), "hard");
+
+        let err = param
+            .set_value_from_str("diff", "extreme")
+            .expect_err("invalid selection");
+        assert_eq!(
+            err,
+            ParameterError::InvalidSelection {
+                name: "diff".to_string(),
+                value: "extreme".to_string(),
+                valid: "easy, medium, hard".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_set_toggle_value() {
+        let def = Definition::Toggle(false);
+        let mut param = def.into_parameter(true).expect("valid toggle parameter");
+        assert_eq!(param.get_value(), "false");
+
+        param
+            .set_value_from_str("toggle", "yes")
+            .expect("valid toggle");
+        assert_eq!(param.get_value(), "true");
+    }
+
+    #[test]
+    fn test_set_fixed_value() {
+        let def = Definition::FixedString("fixed".to_string());
+        let mut param = def.into_parameter(false).expect("valid fixed parameter");
+
+        let err = param
+            .set_value_from_str("param", "val")
+            .expect_err("fixed param");
+        assert_eq!(err, ParameterError::FixedParameter("param".to_string()));
+    }
 }
